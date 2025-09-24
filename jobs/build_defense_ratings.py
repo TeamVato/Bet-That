@@ -93,7 +93,7 @@ def load_weekly_rosters(seasons: Iterable[int]) -> pd.DataFrame:
         for season in remote_seasons:
             try:
                 remote_frames.append(nfl.import_weekly_rosters([season]))
-            except ValueError as exc:
+            except Exception as exc:
                 print(f"       Warning: failed to load rosters for {season} ({exc})")
         if remote_frames:
             remote = pd.concat(remote_frames, ignore_index=True, sort=False)
@@ -175,7 +175,7 @@ ratings = pd.concat(parts, ignore_index=True)
 ratings = ratings.sort_values(["defteam","pos","season","week"])
 
 # Rolling last-8 with min 4 games to stabilize
-MIN_ROLL_GAMES = 2
+MIN_ROLL_GAMES = 4
 for col in ["plays", "epa_per_play", "yards_per_play", "explosive_rate", "success_rate"]:
     if col == "plays":
         ratings["roll_plays8"] = ratings.groupby(["defteam","pos"])[col].transform(
