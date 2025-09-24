@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.env
+.venv/
+.idea/
+.vscode/
+.DS_Store
+
+# Streamlit cache
+.streamlit/
+
+# Export artifacts
+storage/exports/
+r/exports/
+
+# Jupyter notebooks
+*.ipynb
