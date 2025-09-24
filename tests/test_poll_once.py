@@ -2,6 +2,8 @@ import os
 import sqlite3
 from unittest import mock
 
+import pandas as pd
+
 from jobs import poll_odds
 
 
@@ -63,6 +65,10 @@ def test_poll_once_normalizes_and_writes(tmp_path, monkeypatch):
             "SELECT name FROM sqlite_master WHERE type='table' AND name='odds_csv_raw'"
         )
         assert cur.fetchone() is not None
-        rows = con.execute("SELECT COUNT(*) FROM odds_csv_raw").fetchone()[0]
-        assert rows > 0
+        df = pd.read_sql("SELECT * FROM odds_csv_raw", con)
+    assert len(df) > 0
+    assert df["implied_prob"].notna().any()
+    assert df["fair_prob"].notna().any()
+    assert df["overround"].notna().any()
+    assert "is_stale" in df.columns
 

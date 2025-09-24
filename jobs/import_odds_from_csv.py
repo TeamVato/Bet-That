@@ -11,11 +11,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 
-from engine.odds_math import (
-    american_to_decimal,
-    american_to_implied_prob,
-    devig_proportional_from_decimal,
-)
+from engine.odds_normalizer import normalize_long_odds
 
 DB = Path("storage/odds.db")
 DEFAULT_CSV_PATH = Path("storage/imports/odds_snapshot.csv")
@@ -82,34 +78,6 @@ SELECT * FROM wide;
 """
 
 
-def infer_season_series(commence_series: pd.Series | None) -> pd.Series:
-    """Vectorized season inference from commence timestamps.
-
-    Robustly parses ISO8601 strings, coercing invalid values to ``NaT`` and
-    returning a nullable integer Series where August–December map to the same
-    calendar year and January–July map to the previous year.
-    """
-
-    if commence_series is None:
-        return pd.Series(pd.NA, dtype="Int64")
-
-    ts = pd.to_datetime(commence_series, utc=True, errors="coerce")
-    years = ts.dt.year
-    seasons = years.where(ts.dt.month >= 8, years - 1)
-    return seasons.astype("Int64")
-
-
-def infer_season(commence_ts: str | None) -> int | None:
-    """Scalar helper that reuses :func:`infer_season_series`."""
-
-    if commence_ts is None:
-        return None
-    series = infer_season_series(pd.Series([commence_ts]))
-    value = series.iloc[0] if not series.empty else pd.NA
-    if pd.isna(value):
-        return None
-    return int(value)
-
 def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
     attempt = 0
     while True:
@@ -160,13 +128,6 @@ def _ensure_columns(con: sqlite3.Connection) -> None:
             con.execute(f"ALTER TABLE odds_csv_raw ADD COLUMN {col} {col_type};")
 
 
-def _normalize_side(value: object) -> object:
-    if isinstance(value, str):
-        normalized = value.strip()
-        return normalized if not normalized else normalized.title()
-    return value
-
-
 def _wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
     if "side" in df.columns and "odds" in df.columns:
         return df
@@ -187,32 +148,6 @@ def _wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
     if not records:
         return df
     return pd.DataFrame.from_records(records)
-
-
-def _compute_devig_metrics(df: pd.DataFrame) -> pd.DataFrame:
-    df["fair_prob"] = pd.NA
-    df["fair_decimal"] = pd.NA
-    df["overround"] = pd.NA
-    valid = df["odds"].notna()
-    if not valid.any():
-        return df
-    grouped = df.loc[valid].groupby(
-        ["event_id", "market", "book", "line"], dropna=False, sort=False
-    )
-    for _, group in grouped:
-        if len(group) < 2:
-            continue
-        try:
-            decimals: List[float] = [american_to_decimal(int(odds)) for odds in group["odds"]]
-        except ValueError:
-            continue
-        pairs, overround = devig_proportional_from_decimal(decimals)
-        for (idx, (prob, fair_dec)) in zip(group.index, pairs):
-            df.at[idx, "fair_prob"] = prob
-            df.at[idx, "fair_decimal"] = fair_dec
-            df.at[idx, "overround"] = overround
-    return df
-
 
 def main():
     t0 = time.perf_counter()
@@ -242,102 +177,7 @@ def main():
 
         df = _wide_to_long(df)
 
-        if "season" in df.columns:
-            df["season"] = pd.to_numeric(df["season"], errors="coerce").astype("Int64")
-        elif "commence_time" in df.columns:
-            df["season"] = infer_season_series(df["commence_time"])
-        else:
-            df["season"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
-
-        if "line" in df.columns:
-            df["line"] = pd.to_numeric(df["line"], errors="coerce")
-        for col in ("odds", "over_odds", "under_odds", "x_used", "x_remaining"):
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
-
-        df["side"] = df.get("side", pd.Series(pd.NA, index=df.index)).map(_normalize_side)
-
-        required_cols = [
-            "event_id",
-            "commence_time",
-            "home_team",
-            "away_team",
-            "player",
-            "market",
-            "line",
-            "side",
-            "odds",
-            "book",
-            "updated_at",
-            "season",
-            "x_used",
-            "x_remaining",
-        ]
-        for col in required_cols:
-            if col not in df.columns:
-                df[col] = None
-
-        df = df[required_cols]
-
-        updated_at_dt = pd.to_datetime(df["updated_at"], utc=True, errors="coerce")
-        df["_updated_at"] = updated_at_dt
-        df = df.sort_values("_updated_at")
-        dedup_keys = ["event_id", "market", "book", "side", "line"]
-        df = df.drop_duplicates(subset=dedup_keys, keep="last")
-
-        df["implied_prob"] = df["odds"].apply(
-            lambda o: None if pd.isna(o) else american_to_implied_prob(int(o))
-        )
-
-        df = _compute_devig_metrics(df)
-
-        now_utc = pd.Timestamp.utcnow()
-        if stale_minutes > 0:
-            delta = now_utc - df["_updated_at"]
-            stale_series = (delta > pd.to_timedelta(stale_minutes, unit="m")).astype("Int64")
-            stale_series[df["_updated_at"].isna()] = pd.NA
-        else:
-            stale_series = pd.Series(pd.NA, index=df.index, dtype="Int64")
-        df["is_stale"] = stale_series
-
-        df["over_odds"] = pd.NA
-        df["under_odds"] = pd.NA
-        side_lower = df["side"].str.lower()
-        over_mask = side_lower == "over"
-        under_mask = side_lower == "under"
-        df.loc[over_mask, "over_odds"] = df.loc[over_mask, "odds"]
-        df.loc[under_mask, "under_odds"] = df.loc[under_mask, "odds"]
-
-        df = df.assign(fair_prob=df["fair_prob"], fair_decimal=df["fair_decimal"], overround=df["overround"])
-
-        df = df[
-            [
-                "event_id",
-                "commence_time",
-                "home_team",
-                "away_team",
-                "player",
-                "market",
-                "line",
-                "side",
-                "odds",
-                "over_odds",
-                "under_odds",
-                "book",
-                "updated_at",
-                "implied_prob",
-                "fair_prob",
-                "overround",
-                "is_stale",
-                "fair_decimal",
-                "x_used",
-                "x_remaining",
-                "season",
-            ]
-        ]
-
-        df = df.astype(object)
-        df = df.where(pd.notna(df), None)
+        df = normalize_long_odds(df, stale_minutes=stale_minutes)
 
         con.execute("BEGIN IMMEDIATE;")   # take write lock
         con.execute("DELETE FROM odds_csv_raw;")

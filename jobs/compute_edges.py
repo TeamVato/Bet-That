@@ -19,7 +19,7 @@ from adapters.odds.csv_props_provider import CsvQBPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
 from models.qb_projection import ProjectionConfig, build_qb_projections
-from jobs.import_odds_from_csv import infer_season, infer_season_series
+from engine.season import infer_season, infer_season_series
 
 
 TEAM_CODE_FIXES = {

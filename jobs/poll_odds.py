@@ -8,6 +8,7 @@ import sqlite3
 import time
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 import requests
 
 DB = "storage/odds.db"
@@ -154,42 +155,55 @@ def ensure_odds_table(con: sqlite3.Connection) -> None:
     )
 
 
-def upsert_rows(con: sqlite3.Connection, rows: List[Dict[str, Any]]):
-    # Minimal upsert: append raw rows; importer still provides full normalization
+def upsert_rows(
+    con: sqlite3.Connection,
+    rows: List[Dict[str, Any]],
+    *,
+    stale_minutes: Optional[int] = None,
+) -> None:
+    from engine.odds_normalizer import normalize_long_odds
+
     ensure_odds_table(con)
-    # Add new columns if missing
-    existing = {r[1] for r in con.execute("PRAGMA table_info(odds_csv_raw)")}
-    needed = {
-        "season": "INT",
-        "implied_prob": "REAL",
-        "overround": "REAL",
-        "fair_prob": "REAL",
-        "is_stale": "INTEGER",
-    }
-    for col, typ in needed.items():
-        if col not in existing:
-            con.execute(f"ALTER TABLE odds_csv_raw ADD COLUMN {col} {typ}")
-    # Insert
     if not rows:
         return
-    cols = [
-        "event_id",
-        "commence_time",
-        "home_team",
-        "away_team",
-        "player",
-        "market",
-        "line",
-        "side",
-        "odds",
-        "book",
-        "updated_at",
-    ]
-    placeholders = ",".join(["?"] * len(cols))
-    con.executemany(
-        f"INSERT INTO odds_csv_raw ({','.join(cols)}) VALUES ({placeholders})",
-        [tuple(r.get(c) for c in cols) for r in rows],
+
+    df = pd.DataFrame(rows)
+    if df.empty:
+        return
+
+    minutes = stale_minutes if stale_minutes is not None else int(os.getenv("STALE_MINUTES", "120"))
+    normalized = normalize_long_odds(
+        df,
+        stale_minutes=minutes,
+        now_ts=pd.Timestamp(now_utc()),
     )
+
+    existing = {r[1] for r in con.execute("PRAGMA table_info(odds_csv_raw)")}
+    for col in normalized.columns:
+        if col not in existing:
+            if col in {"line"}:
+                col_type = "REAL"
+            elif col in {"odds", "x_used", "x_remaining", "season", "is_stale"}:
+                col_type = "INT"
+            elif col in {"implied_prob", "fair_prob", "overround", "fair_decimal"}:
+                col_type = "REAL"
+            else:
+                col_type = "TEXT"
+            con.execute(f"ALTER TABLE odds_csv_raw ADD COLUMN {col} {col_type}")
+
+    cols = normalized.columns.tolist()
+    placeholders = ",".join(["?"] * len(cols))
+    delete_sql = (
+        "DELETE FROM odds_csv_raw WHERE event_id=? AND market=? AND book=? AND side=? "
+        "AND ((line IS NULL AND ? IS NULL) OR line=?)"
+    )
+    for row in normalized.itertuples(index=False):
+        key = (row.event_id, row.market, row.book, row.side, row.line, row.line)
+        con.execute(delete_sql, key)
+        con.execute(
+            f"INSERT INTO odds_csv_raw ({','.join(cols)}) VALUES ({placeholders})",
+            tuple(getattr(row, col) for col in cols),
+        )
 
 
 def main():
@@ -234,7 +248,8 @@ def main():
                 payload = fetch_markets(
                     key, sport_key, args.region, args.markets, args.bookmakers, args.timeout
                 )
-                remaining = payload["headers"].get("x-requests-remaining")
+                headers = payload.get("headers") or {}
+                remaining = headers.get("x-requests-remaining")
                 try:
                     remaining = int(remaining)
                 except Exception:
