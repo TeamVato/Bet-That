@@ -1,6 +1,7 @@
 """Streamlit app for exploring betting edges and odds history."""
 from __future__ import annotations
 
+import datetime
 import os
 import sqlite3
 from pathlib import Path
@@ -116,6 +117,12 @@ st.sidebar.markdown("### Defense filter")
 only_generous = st.sidebar.checkbox("Only vs generous defenses", value=False)
 
 edges_view = edges.copy()
+current_year = datetime.datetime.now().year
+fallback_season = current_year if datetime.datetime.now().month >= 8 else current_year - 1
+if "season" not in edges_view.columns:
+    edges_view["season"] = fallback_season
+elif edges_view["season"].isna().all():
+    edges_view["season"] = fallback_season
 for col in ("def_tier", "def_score"):
     if col not in edges_view.columns:
         edges_view[col] = None

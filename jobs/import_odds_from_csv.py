@@ -1,6 +1,7 @@
 # jobs/import_odds_from_csv.py
 # Robust CSV -> SQLite importer with progress logs and SQLite lock handling
 import os, sys, csv, time, sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -24,7 +25,8 @@ CREATE TABLE IF NOT EXISTS odds_csv_raw (
   book TEXT,
   updated_at TEXT,
   x_used INTEGER,
-  x_remaining INTEGER
+  x_remaining INTEGER,
+  season INTEGER
 );
 """
 
@@ -45,6 +47,31 @@ WITH ranked AS (
 )
 SELECT * FROM ranked WHERE rnk = 1;
 """
+
+
+def infer_season(commence_ts: str | None) -> int | None:
+    """Infer the NFL season from an ISO 8601 commence timestamp."""
+    if not commence_ts:
+        return None
+    ts = str(commence_ts).strip()
+    if not ts:
+        return None
+    # Handle trailing Z (UTC designator) by stripping it for fromisoformat.
+    ts = ts.replace("Z", "")
+    try:
+        dt = datetime.fromisoformat(ts)
+    except ValueError:
+        try:
+            dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
+        except ValueError:
+            return None
+    return dt.year if dt.month >= 8 else dt.year - 1
+
+
+def _ensure_season_column(con: sqlite3.Connection) -> None:
+    cols = {row[1] for row in con.execute("PRAGMA table_info(odds_csv_raw)")}
+    if "season" not in cols:
+        con.execute("ALTER TABLE odds_csv_raw ADD COLUMN season INTEGER")
 
 def _to_float(v):
     if v is None: return None
@@ -75,6 +102,14 @@ def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
             else:
                 raise
 
+INSERT_SQL = (
+    "INSERT INTO odds_csv_raw ("
+    "event_id, commence_time, home_team, away_team, player, market, line, "
+    "over_odds, under_odds, book, updated_at, x_used, x_remaining, season"
+    ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+)
+
+
 def main():
     t0 = time.perf_counter()
     if not CSV_PATH.exists():
@@ -89,6 +124,7 @@ def main():
 
         print("[2/5] Ensuring tables exist ...")
         con.executescript(DDL_RAW)
+        _ensure_season_column(con)
 
         print("[3/5] Loading CSV from", CSV_PATH)
         with open(CSV_PATH, newline='', encoding='utf-8') as f:
@@ -103,6 +139,7 @@ def main():
             rows: List[Tuple] = []
             total = 0
             for r in rdr:
+                season = infer_season(r.get("commence_time"))
                 rows.append((
                     r.get("event_id"),
                     r.get("commence_time"),
@@ -117,14 +154,15 @@ def main():
                     r.get("updated_at"),
                     _to_int(r.get("x_used")),
                     _to_int(r.get("x_remaining")),
+                    season,
                 ))
                 if len(rows) >= BATCH_SIZE:
-                    _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                    _insert_with_retry(con, INSERT_SQL, rows)
                     total += len(rows); rows.clear()
                     print(f"     Inserted {total} rows ...")
 
             if rows:
-                _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                _insert_with_retry(con, INSERT_SQL, rows)
                 total += len(rows)
                 print(f"     Inserted {total} rows (final batch) ...")
 

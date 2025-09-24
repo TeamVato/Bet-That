@@ -181,10 +181,14 @@ class EdgeEngine:
             print("No edges to export.")
             return
         export_df = edges_df.copy()
+        if "season" not in export_df.columns:
+            export_df["season"] = pd.NA
         for col in ("def_tier", "def_score"):
             if col not in export_df.columns:
                 export_df[col] = pd.NA
         export_cols = list(export_df.columns)
+        if "season" not in export_cols:
+            export_cols.append("season")
         for col in ("def_tier", "def_score"):
             if col not in export_cols:
                 export_cols.append(col)

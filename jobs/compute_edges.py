@@ -1,6 +1,7 @@
 """Build QB projections and compute edges from props odds."""
 from __future__ import annotations
 
+import datetime
 import sys
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from adapters.odds.csv_props_provider import CsvQBPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
 from models.qb_projection import ProjectionConfig, build_qb_projections
+from jobs.import_odds_from_csv import infer_season
 
 
 TEAM_CODE_FIXES = {
@@ -39,6 +41,62 @@ def normalize_team_code(code: str) -> str:
         return code
     code = code.strip().upper()
     return TEAM_CODE_FIXES.get(code, code)
+
+
+def current_season(now: datetime.datetime | None = None) -> int:
+    now = now or datetime.datetime.now()
+    return now.year if now.month >= 8 else now.year - 1
+
+
+def ensure_edges_season(
+    edges_df: pd.DataFrame, props_df: pd.DataFrame, database_path: Path
+) -> pd.DataFrame:
+    if "season" not in edges_df.columns:
+        edges_df["season"] = pd.Series(index=edges_df.index, dtype="Int64")
+    missing_mask = edges_df["season"].isna()
+    if missing_mask.any():
+        if "season" in props_df.columns:
+            props_lookup = (
+                props_df.dropna(subset=["season"])
+                .drop_duplicates(subset=["event_id"])
+                .set_index("event_id")["season"]
+                .to_dict()
+            )
+            if props_lookup:
+                edges_df.loc[missing_mask, "season"] = edges_df.loc[missing_mask, "event_id"].map(props_lookup)
+                missing_mask = edges_df["season"].isna()
+        if missing_mask.any():
+            try:
+                with sqlite3.connect(database_path) as con:
+                    raw_df = pd.read_sql_query(
+                        "SELECT event_id, commence_time, season FROM odds_csv_raw",
+                        con,
+                    )
+            except sqlite3.DatabaseError:
+                raw_df = pd.DataFrame()
+            if not raw_df.empty:
+                if "season" not in raw_df.columns:
+                    raw_df["season"] = pd.NA
+                needs_infer = raw_df["season"].isna()
+                if needs_infer.any():
+                    raw_df.loc[needs_infer, "season"] = raw_df.loc[needs_infer, "commence_time"].apply(infer_season)
+                raw_lookup = (
+                    raw_df.dropna(subset=["season"])
+                    .drop_duplicates(subset=["event_id"])
+                    .set_index("event_id")["season"]
+                    .to_dict()
+                )
+                if raw_lookup:
+                    edges_df.loc[missing_mask, "season"] = edges_df.loc[missing_mask, "event_id"].map(raw_lookup)
+                    missing_mask = edges_df["season"].isna()
+    if edges_df["season"].isna().all():
+        fallback = current_season()
+        edges_df["season"] = fallback
+    else:
+        if edges_df["season"].isna().any():
+            fallback = current_season()
+            edges_df["season"] = edges_df["season"].fillna(fallback)
+    return edges_df
 
 
 def get_database_path() -> Path:
@@ -100,6 +158,7 @@ def main() -> None:
 
     engine = EdgeEngine(EdgeEngineConfig(database_path=database_path))
     edges_df = engine.compute_edges(props_df, projections)
+    edges_df = ensure_edges_season(edges_df, props_df, database_path)
     for col in ("season", "week"):
         if col in edges_df.columns:
             edges_df[col] = pd.to_numeric(edges_df[col], errors="coerce").astype("Int64")
