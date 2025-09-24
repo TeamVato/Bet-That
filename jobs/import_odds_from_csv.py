@@ -1,9 +1,10 @@
 # jobs/import_odds_from_csv.py
 # Robust CSV -> SQLite importer with progress logs and SQLite lock handling
-import os, sys, csv, time, sqlite3
-from datetime import datetime
+import os, sys, time, sqlite3
 from pathlib import Path
 from typing import List, Tuple
+
+import pandas as pd
 
 DB = Path("storage/odds.db")
 CSV_PATH = Path(os.getenv("CSV_PATH", "storage/imports/odds_snapshot.csv"))
@@ -49,43 +50,33 @@ SELECT * FROM ranked WHERE rnk = 1;
 """
 
 
+def infer_season_series(commence_series: pd.Series | None) -> pd.Series:
+    """Vectorized season inference from commence timestamps.
+
+    Robustly parses ISO8601 strings, coercing invalid values to ``NaT`` and
+    returning a nullable integer Series where August–December map to the same
+    calendar year and January–July map to the previous year.
+    """
+
+    if commence_series is None:
+        return pd.Series(pd.NA, dtype="Int64")
+
+    ts = pd.to_datetime(commence_series, utc=True, errors="coerce")
+    years = ts.dt.year
+    seasons = years.where(ts.dt.month >= 8, years - 1)
+    return seasons.astype("Int64")
+
+
 def infer_season(commence_ts: str | None) -> int | None:
-    """Infer the NFL season from an ISO 8601 commence timestamp."""
-    if not commence_ts:
+    """Scalar helper that reuses :func:`infer_season_series`."""
+
+    if commence_ts is None:
         return None
-    ts = str(commence_ts).strip()
-    if not ts:
+    series = infer_season_series(pd.Series([commence_ts]))
+    value = series.iloc[0] if not series.empty else pd.NA
+    if pd.isna(value):
         return None
-    # Handle trailing Z (UTC designator) by stripping it for fromisoformat.
-    ts = ts.replace("Z", "")
-    try:
-        dt = datetime.fromisoformat(ts)
-    except ValueError:
-        try:
-            dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
-        except ValueError:
-            return None
-    return dt.year if dt.month >= 8 else dt.year - 1
-
-
-def _ensure_season_column(con: sqlite3.Connection) -> None:
-    cols = {row[1] for row in con.execute("PRAGMA table_info(odds_csv_raw)")}
-    if "season" not in cols:
-        con.execute("ALTER TABLE odds_csv_raw ADD COLUMN season INTEGER")
-
-def _to_float(v):
-    if v is None: return None
-    v = str(v).strip()
-    if v in ("", "null", "None"): return None
-    try: return float(v)
-    except Exception: return None
-
-def _to_int(v):
-    if v is None: return None
-    v = str(v).strip()
-    if v in ("", "null", "None"): return None
-    try: return int(v)
-    except Exception: return None
+    return int(value)
 
 def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
     attempt = 0
@@ -124,49 +115,72 @@ def main():
 
         print("[2/5] Ensuring tables exist ...")
         con.executescript(DDL_RAW)
-        _ensure_season_column(con)
+        cur = con.execute("PRAGMA table_info(odds_csv_raw);")
+        cols = {row[1] for row in cur.fetchall()}
+        if "season" not in cols:
+            con.execute("ALTER TABLE odds_csv_raw ADD COLUMN season INTEGER;")
 
         print("[3/5] Loading CSV from", CSV_PATH)
-        with open(CSV_PATH, newline='', encoding='utf-8') as f:
-            rdr = csv.DictReader(f)
-            cols = rdr.fieldnames
-            if not cols: raise SystemExit("CSV appears to have no header row.")
-            print("     Detected columns:", ", ".join(cols))
+        df = pd.read_csv(CSV_PATH)
+        if df.columns.empty:
+            raise SystemExit("CSV appears to have no header row.")
+        print("     Detected columns:", ", ".join(map(str, df.columns.tolist())))
 
-            con.execute("BEGIN IMMEDIATE;")   # take write lock
-            con.execute("DELETE FROM odds_csv_raw;")
+        if "season" in df.columns:
+            df["season"] = pd.to_numeric(df["season"], errors="coerce").astype("Int64")
+        elif "commence_time" in df.columns:
+            df["season"] = infer_season_series(df["commence_time"])
+        else:
+            df["season"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
 
-            rows: List[Tuple] = []
-            total = 0
-            for r in rdr:
-                season = infer_season(r.get("commence_time"))
-                rows.append((
-                    r.get("event_id"),
-                    r.get("commence_time"),
-                    r.get("home_team"),
-                    r.get("away_team"),
-                    r.get("player"),
-                    r.get("market"),
-                    _to_float(r.get("line")),
-                    _to_int(r.get("over_odds")),
-                    _to_int(r.get("under_odds")),
-                    r.get("book"),
-                    r.get("updated_at"),
-                    _to_int(r.get("x_used")),
-                    _to_int(r.get("x_remaining")),
-                    season,
-                ))
-                if len(rows) >= BATCH_SIZE:
-                    _insert_with_retry(con, INSERT_SQL, rows)
-                    total += len(rows); rows.clear()
-                    print(f"     Inserted {total} rows ...")
+        if "line" in df.columns:
+            df["line"] = pd.to_numeric(df["line"], errors="coerce")
+        for col in ("over_odds", "under_odds", "x_used", "x_remaining"):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
 
-            if rows:
+        required_cols = [
+            "event_id",
+            "commence_time",
+            "home_team",
+            "away_team",
+            "player",
+            "market",
+            "line",
+            "over_odds",
+            "under_odds",
+            "book",
+            "updated_at",
+            "x_used",
+            "x_remaining",
+            "season",
+        ]
+        for col in required_cols:
+            if col not in df.columns:
+                df[col] = None
+        df = df[required_cols]
+        df = df.astype(object)
+        df = df.where(pd.notna(df), None)
+
+        con.execute("BEGIN IMMEDIATE;")   # take write lock
+        con.execute("DELETE FROM odds_csv_raw;")
+
+        rows: List[Tuple] = []
+        total = 0
+        for row in df.itertuples(index=False, name=None):
+            rows.append(row)
+            if len(rows) >= BATCH_SIZE:
                 _insert_with_retry(con, INSERT_SQL, rows)
                 total += len(rows)
-                print(f"     Inserted {total} rows (final batch) ...")
+                rows.clear()
+                print(f"     Inserted {total} rows ...")
 
-            con.execute("COMMIT;")
+        if rows:
+            _insert_with_retry(con, INSERT_SQL, rows)
+            total += len(rows)
+            print(f"     Inserted {total} rows (final batch) ...")
+
+        con.execute("COMMIT;")
 
         print("[4/5] Refreshing current_best_lines ...")
         con.executescript(DDL_BEST)

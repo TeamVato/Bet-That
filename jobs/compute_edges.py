@@ -18,7 +18,7 @@ from adapters.odds.csv_props_provider import CsvQBPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
 from models.qb_projection import ProjectionConfig, build_qb_projections
-from jobs.import_odds_from_csv import infer_season
+from jobs.import_odds_from_csv import infer_season, infer_season_series
 
 
 TEAM_CODE_FIXES = {
@@ -79,7 +79,8 @@ def ensure_edges_season(
                     raw_df["season"] = pd.NA
                 needs_infer = raw_df["season"].isna()
                 if needs_infer.any():
-                    raw_df.loc[needs_infer, "season"] = raw_df.loc[needs_infer, "commence_time"].apply(infer_season)
+                    inferred = infer_season_series(raw_df.loc[needs_infer, "commence_time"])
+                    raw_df.loc[needs_infer, "season"] = inferred
                 raw_lookup = (
                     raw_df.dropna(subset=["season"])
                     .drop_duplicates(subset=["event_id"])
