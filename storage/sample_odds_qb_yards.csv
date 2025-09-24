@@ -1,0 +1,6 @@
+game_id,event_id,book,market,player,line,over_odds,under_odds,season,def_team
+2023-01-01-KC-LV,2023-01-01-KC-LV,DraftKings,QB Passing Yards,Patrick Mahomes,305.5,-110,-115,2023,LVR
+2023-01-01-BUF-NYJ,2023-01-01-BUF-NYJ,FanDuel,QB Passing Yards,Josh Allen,275.5,-112,-108,2023,NYJ
+2023-01-01-DAL-NYG,2023-01-01-DAL-NYG,BetMGM,QB Passing Yards,Dak Prescott,260.5,-105,-115,2023,NYG
+2023-01-01-LAC-MIA,2023-01-01-LAC-MIA,Caesars,QB Passing Yards,Justin Herbert,290.5,-120,100,2023,MIA
+2023-01-01-JAX-TEN,2023-01-01-JAX-TEN,PointsBet,QB Passing Yards,Trevor Lawrence,245.5,-102,-118,2023,TEN

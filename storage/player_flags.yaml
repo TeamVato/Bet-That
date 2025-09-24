@@ -1,0 +1,7 @@
+Patrick Mahomes:
+  snap_cap_multiplier: 0.95
+  notes: "Potential blowout risk, limit snaps in second half"
+  source_url: "https://example.com/news"
+Josh Allen:
+  snap_cap_multiplier: 1.05
+  notes: "Aggressive game plan expected"
