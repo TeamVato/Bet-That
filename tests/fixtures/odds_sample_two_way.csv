@@ -1,0 +1,5 @@
+event_id,commence_time,home_team,away_team,player,market,line,side,odds,book,updated_at
+EVT1,2025-09-20T16:00:00Z,KC,BUF,Patrick Mahomes,pass_yards,285.5,Over,-110,DK,2025-09-20T15:55:00Z
+EVT1,2025-09-20T16:00:00Z,KC,BUF,Patrick Mahomes,pass_yards,285.5,Under,-110,DK,2025-09-20T15:55:00Z
+EVT2,2025-09-20T20:25:00Z,SF,DAL,Christian McCaffrey,rush_yards,79.5,Over,+120,FD,2025-09-20T20:00:00Z
+EVT2,2025-09-20T20:25:00Z,SF,DAL,Christian McCaffrey,rush_yards,79.5,Under,-140,FD,2025-09-20T20:00:00Z

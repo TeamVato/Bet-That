@@ -2,6 +2,27 @@
 
 Player prop modeling, odds ingestion, and edge reporting utilities for NFL betting workflows.
 
+## Quickstart
+
+```bash
+pyenv install 3.12.11
+pyenv local 3.12.11
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Optional VS Code helpers:
+
+```json
+{
+  "python.defaultInterpreterPath": ".venv/bin/python",
+  "python.terminal.activateEnvironment": true
+}
+```
+
+Copy `config/.env.example` to `config/.env` (or export the variables in your shell) if you plan to use the Odds API poller or override importer settings. Run `python db/migrate.py` once to initialize the SQLite schema if `storage/odds.db` does not exist yet.
+
 ## Project structure
 
 - `jobs/` contains repeatable scripts for ingesting source data and producing derived tables.
@@ -10,40 +31,52 @@ Player prop modeling, odds ingestion, and edge reporting utilities for NFL betti
 - `storage/imports/` and `storage/exports/` hold CSV snapshots exchanged with external systems.
 - `app/streamlit_app.py` powers the local dashboard for exploring edges.
 
-## Requirements & environment
+## Daily workflow (local)
 
-1. Install dependencies with `python -m pip install -r requirements.txt`.
-2. Copy `config/.env.example` to your own `.env` (or export the variables in your shell) if you plan to use the The Odds API poller or override importer settings.
-3. Run `python db/migrate.py` once to initialize the SQLite schema if `storage/odds.db` does not exist yet.
+Apps Script (15:00 UTC) should export your Google Sheet (odds_raw tab) to `storage/imports/odds_snapshot.csv`.
 
-Key environment variables:
+```bash
+./BetThat               # builds ratings, imports odds, computes edges, launches Streamlit
 
-- `ODDS_API_KEYS` – comma separated Odds API keys used by the poller (`jobs/poll_odds.py`). Keys rotate daily based on the day-of-year. You can also set a single `ODDS_API_KEY` for ad-hoc runs.
-- `CSV_PATH`, `CSV_BATCH_SIZE`, `SQLITE_LOCK_RETRIES`, `SQLITE_LOCK_SLEEP` – optional overrides for the CSV importer.
-- `SHEETS_EXPORT_URL` – optional, used by GitHub Actions when pulling the daily CSV from Google Sheets.
+# Or step-by-step:
+python jobs/build_defense_ratings.py
+python jobs/import_odds_from_csv.py
+python jobs/compute_edges.py
+PYTHONPATH="$PWD" streamlit run app/streamlit_app.py
+
+# Weekly or after a slate (open-data ratings, no API credits):
+python jobs/build_defense_ratings.py
+```
+
+`./BetThat` relies on the project virtualenv (`.venv`) and will surface actionable error messages if the environment is missing.
 
 ## Makefile shortcuts
 
 The repo ships with common commands:
 
 ```bash
-make db-ratings     # build defense tiers in storage/odds.db
-make import-odds    # load the latest odds CSV snapshot
-make edges          # recompute projections + edges from the DB
-make ui             # launch the Streamlit dashboard (opens a browser)
+make betthat       # run BetThat one-touch workflow
+make db-ratings    # build defense tiers in storage/odds.db
+make import-odds   # load the latest odds CSV snapshot
+make edges         # recompute projections + edges from the DB
+make ui            # launch the Streamlit dashboard (opens a browser)
 ```
 
 `make` ensures jobs run with the current working directory on `PYTHONPATH` so imports resolve correctly.
 
-## Daily runbook
+## Google Apps Script (Odds API)
 
-1. **Weekly (recommended Monday AM):** `make db-ratings` to refresh defensive tiers using nflverse play-by-play and roster data.
-2. **Daily after Apps Script / Sheets export finishes:** download the CSV snapshot into `storage/imports/odds_snapshot.csv`, then run `make import-odds edges`.
-   - `make import-odds` truncates and reloads `odds_csv_raw` inside `storage/odds.db` using WAL mode and retry-on-lock semantics.
-   - `make edges` persists refreshed QB projections, merges defense tiers if available, and exports `storage/exports/edges_latest.csv`.
-3. **Ad-hoc UI checks:** run `make ui` to open the Streamlit interface against the latest database contents.
+- NFL only; rotates Odds API keys; prepends rows to `odds_raw`; scheduled 15:00 UTC.
+- Set `ODDS_API_KEYS` in Script Properties; run `installTriggers()` once to create the timer.
+- Export the sheet to `storage/imports/odds_snapshot.csv` for local runs and CI.
 
-If defense ratings are missing (for example, during preseason), projections and edge computation continue to work. The code fails open and simply omits the defense adjustments.
+## CI: edges-daily workflow
+
+- File: `.github/workflows/edges.yml`.
+- Triggers: schedule at 15:00 UTC and manual `workflow_dispatch`.
+- Steps: checkout → Python 3.12 → cache/install deps → (optional) fetch CSV from `SHEETS_EXPORT_URL` → build ratings → import odds → compute edges → `python tests/smoke_season.py` → upload artifacts.
+- Artifacts: `storage/exports/edges_latest.csv` and `.parquet` attached to each run.
+- Secrets (optional): `SHEETS_EXPORT_URL` for Google Sheets exports, `ODDS_API_KEYS` for a future Python poller.
 
 ## Optional: Python Odds API poller
 
@@ -56,38 +89,8 @@ If defense ratings are missing (for example, during preseason), projections and 
 
 Enable by exporting the desired bookmaker/market lists and ensuring the SQLite schema exists (`python db/migrate.py`). Snapshots are persisted to `odds_snapshots` and the `current_best_lines` helper table refreshes automatically after every run.
 
-## Automation (GitHub Actions)
+## Troubleshooting
 
-`.github/workflows/edges.yml` schedules a daily run at 15:00 UTC (09:00 Denver). It executes the same sequence as the runbook:
-
-1. Install dependencies.
-2. Build defense ratings.
-3. (Optionally) download the Sheets export via `SHEETS_EXPORT_URL`.
-4. Import the CSV and recompute edges.
-
-Populate repository secrets:
-
-- `ODDS_API_KEYS` – required if you want the workflow to use the Python poller instead of Google Sheets.
-- `SHEETS_EXPORT_URL` – optional public export URL for the Sheets snapshot when sticking with Apps Script.
-
-Disable the `schedule` trigger or switch to `workflow_dispatch` only if you prefer to run the workflow manually.
-
-## Smoke tests
-
-After updating dependencies or logic, run the jobs end-to-end:
-
-```bash
-python jobs/build_defense_ratings.py
-python jobs/import_odds_from_csv.py
-python jobs/compute_edges.py
-```
-
-Verify outputs with:
-
-```bash
-test -f storage/exports/edges_latest.csv
-sqlite3 storage/odds.db "select count(*) from defense_ratings;"
-sqlite3 storage/odds.db "select defteam, pos, season, week, tier, round(score,3) from defense_ratings limit 5;"
-```
-
-Successful runs should not require access to services beyond the public nflverse CSV files.
+- `KeyError: 'season'` → re-run the importer and edge computation; season is inferred from `commence_time`.
+- `database is locked` → close Streamlit while importing; the importer retries automatically; rerun the command.
+- Import or module path issues → launch the UI with `PYTHONPATH="$PWD"` (the `BetThat` script already does this).

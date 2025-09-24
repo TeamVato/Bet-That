@@ -65,34 +65,58 @@ class EdgeEngine:
             distribution = norm(loc=mu, scale=sigma)
             p_over = float(1 - distribution.cdf(line))
             p_under = float(1 - p_over)
-            vig_probs = odds_math.no_vig_two_way(
-                int(row.get("over_odds")),
-                int(row.get("under_odds")),
-                labels=("over", "under"),
+            over_odds = int(row.get("over_odds"))
+            under_odds = int(row.get("under_odds"))
+            implied_probs = {
+                "over": odds_math.american_to_implied_prob(over_odds),
+                "under": odds_math.american_to_implied_prob(under_odds),
+            }
+            fair_pairs, overround = odds_math.devig_proportional_from_decimal(
+                [
+                    odds_math.american_to_decimal(over_odds),
+                    odds_math.american_to_decimal(under_odds),
+                ]
             )
-            ev_over = odds_math.ev_per_dollar(p_over, int(row.get("over_odds")))
-            ev_under = odds_math.ev_per_dollar(p_under, int(row.get("under_odds")))
+            fair_probs = {}
+            fair_decimals = {}
+            for side, pair in zip(("over", "under"), fair_pairs):
+                prob, decimal_price = pair
+                fair_probs[side] = prob
+                fair_decimals[side] = decimal_price
+            ev_over = odds_math.ev_per_dollar(p_over, over_odds)
+            ev_under = odds_math.ev_per_dollar(p_under, under_odds)
             kelly_over = min(
                 self.config.kelly_cap,
-                odds_math.kelly_fraction(p_over, int(row.get("over_odds"))),
+                odds_math.kelly_fraction(p_over, over_odds),
             )
             kelly_under = min(
                 self.config.kelly_cap,
-                odds_math.kelly_fraction(p_under, int(row.get("under_odds"))),
+                odds_math.kelly_fraction(p_under, under_odds),
             )
             if ev_over >= ev_under:
                 best_side = "over"
-                best_odds = int(row.get("over_odds"))
+                best_odds = over_odds
                 model_p = p_over
                 ev = ev_over
                 kelly = kelly_over
             else:
                 best_side = "under"
-                best_odds = int(row.get("under_odds"))
+                best_odds = under_odds
                 model_p = p_under
                 ev = ev_under
                 kelly = kelly_under
             strategy = "AltQB" if abs(line - mu) >= 10 else "BaselineQB"
+            implied_best = implied_probs.get(best_side)
+            fair_best = fair_probs.get(best_side)
+            edge_prob = model_p - implied_best if implied_best is not None else None
+            edge_fair = model_p - fair_best if fair_best is not None else None
+            is_stale_val = row.get("is_stale")
+            if (pd.isna(is_stale_val) or is_stale_val is None) and "is_stale_props" in row.index:
+                is_stale_val = row.get("is_stale_props")
+            if pd.isna(is_stale_val):
+                is_stale_val = None
+            else:
+                is_stale_val = int(is_stale_val)
             rows.append(
                 {
                     "created_at": datetime.now(timezone.utc).isoformat(),
@@ -114,8 +138,18 @@ class EdgeEngine:
                     "sigma": sigma,
                     "p_over": p_over,
                     "p_under": p_under,
-                    "vig_p_over": vig_probs["over"],
-                    "vig_p_under": vig_probs["under"],
+                    "implied_prob_over": implied_probs.get("over"),
+                    "implied_prob_under": implied_probs.get("under"),
+                    "fair_prob_over": fair_probs.get("over"),
+                    "fair_prob_under": fair_probs.get("under"),
+                    "fair_decimal_over": fair_decimals.get("over"),
+                    "fair_decimal_under": fair_decimals.get("under"),
+                    "overround": overround if overround else None,
+                    "implied_prob": implied_best,
+                    "fair_prob": fair_best,
+                    "edge_prob": edge_prob,
+                    "edge_fair": edge_fair,
+                    "is_stale": is_stale_val,
                 }
             )
         edges_df = pd.DataFrame(rows)
@@ -140,19 +174,70 @@ class EdgeEngine:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN def_tier TEXT")
             if "def_score" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN def_score REAL")
+            if "implied_prob" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN implied_prob REAL")
+            if "fair_prob" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN fair_prob REAL")
+            if "overround" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN overround REAL")
+            if "is_stale" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN is_stale INTEGER")
+            if "edge_prob" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN edge_prob REAL")
+            if "edge_fair" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN edge_fair REAL")
+            if "implied_prob_over" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN implied_prob_over REAL")
+            if "implied_prob_under" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN implied_prob_under REAL")
+            if "fair_prob_over" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN fair_prob_over REAL")
+            if "fair_prob_under" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN fair_prob_under REAL")
+            if "fair_decimal_over" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN fair_decimal_over REAL")
+            if "fair_decimal_under" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN fair_decimal_under REAL")
             for statement in alter_statements:
                 cursor.execute(statement)
             def _coerce(value):
                 return None if pd.isna(value) else value
+            insert_columns = [
+                "created_at",
+                "event_id",
+                "book",
+                "player",
+                "market",
+                "line",
+                "odds_side",
+                "odds",
+                "model_p",
+                "ev_per_dollar",
+                "kelly_frac",
+                "strategy_tag",
+                "season",
+                "week",
+                "opponent_def_code",
+                "def_tier",
+                "def_score",
+                "implied_prob",
+                "fair_prob",
+                "overround",
+                "is_stale",
+                "edge_prob",
+                "edge_fair",
+                "implied_prob_over",
+                "implied_prob_under",
+                "fair_prob_over",
+                "fair_prob_under",
+                "fair_decimal_over",
+                "fair_decimal_under",
+            ]
+            placeholders = ", ".join(["?"] * len(insert_columns))
+            insert_sql = f"INSERT INTO edges ({', '.join(insert_columns)}) VALUES ({placeholders})"
             for row in edges_df.to_dict("records"):
                 cursor.execute(
-                    """
-                    INSERT INTO edges (
-                        created_at, event_id, book, player, market, line, odds_side, odds,
-                        model_p, ev_per_dollar, kelly_frac, strategy_tag,
-                        season, week, opponent_def_code, def_tier, def_score
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
+                    insert_sql,
                     (
                         row["created_at"],
                         row["event_id"],
@@ -171,6 +256,18 @@ class EdgeEngine:
                         _coerce(row.get("opponent_def_code")),
                         _coerce(row.get("def_tier")),
                         _coerce(row.get("def_score")),
+                        _coerce(row.get("implied_prob")),
+                        _coerce(row.get("fair_prob")),
+                        _coerce(row.get("overround")),
+                        _coerce(row.get("is_stale")),
+                        _coerce(row.get("edge_prob")),
+                        _coerce(row.get("edge_fair")),
+                        _coerce(row.get("implied_prob_over")),
+                        _coerce(row.get("implied_prob_under")),
+                        _coerce(row.get("fair_prob_over")),
+                        _coerce(row.get("fair_prob_under")),
+                        _coerce(row.get("fair_decimal_over")),
+                        _coerce(row.get("fair_decimal_under")),
                     ),
                 )
             conn.commit()

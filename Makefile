@@ -16,7 +16,7 @@ define run
 	fi
 endef
 
-.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help db-ratings import-odds edges ui
+.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui
 
 help: ## Show available make targets
 	@printf "Available targets (set DRY=1 to preview):\n"
@@ -55,14 +55,17 @@ open-pr: ## Open a new PR in browser (placeholder)
 pr-status: ## Show PR status summary (placeholder)
 	$(call run,printf 'Use gh pr status for pull request status\n')
 
+betthat: ## Run the full local pipeline and launch the UI
+        $(call run,./scripts/betthat.sh)
+
 db-ratings: ## Build defense ratings dataset
-	$(call run,python jobs/build_defense_ratings.py)
+        $(call run,. .venv/bin/activate && python jobs/build_defense_ratings.py)
 
 import-odds: ## Import odds data from CSV
-	$(call run,python jobs/import_odds_from_csv.py)
+        $(call run,. .venv/bin/activate && python jobs/import_odds_from_csv.py)
 
 edges: ## Compute betting edges
-	$(call run,python jobs/compute_edges.py)
+        $(call run,. .venv/bin/activate && python jobs/compute_edges.py)
 
 ui: ## Launch Streamlit UI
-	$(call run,PYTHONPATH="$(CURDIR)" streamlit run app/streamlit_app.py)
+        $(call run,PYTHONPATH="$(CURDIR)" . .venv/bin/activate && streamlit run app/streamlit_app.py)

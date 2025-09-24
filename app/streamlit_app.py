@@ -112,6 +112,10 @@ season_options = sorted({int(s) for s in props["season"].dropna().unique()})
 selected_seasons = st.sidebar.multiselect("Season filter", season_options, default=season_options)
 odds_min, odds_max = st.sidebar.slider("Odds range (American)", -400, 400, (-250, 250))
 min_ev = st.sidebar.slider("Minimum EV per $1", -1.0, 1.0, 0.0, step=0.01)
+stale_minutes_default = int(os.getenv("STALE_MINUTES", "120"))
+hide_stale = st.sidebar.checkbox(
+    f"Hide stale lines (> {stale_minutes_default} min)", value=True
+)
 show_best_only = st.sidebar.checkbox("Show only best-priced edges", value=True)
 st.sidebar.markdown("### Defense filter")
 only_generous = st.sidebar.checkbox("Only vs generous defenses", value=False)
@@ -127,10 +131,14 @@ for col in ("def_tier", "def_score"):
     if col not in edges_view.columns:
         edges_view[col] = None
 edges_view["def_score"] = pd.to_numeric(edges_view["def_score"], errors="coerce")
+if "is_stale" in edges_view.columns:
+    edges_view["is_stale"] = pd.to_numeric(edges_view["is_stale"], errors="coerce").astype("Int64")
 if selected_seasons:
     edges_view = edges_view[edges_view["season"].isin(selected_seasons)]
 edges_view = edges_view[(edges_view["odds"] >= odds_min) & (edges_view["odds"] <= odds_max)]
 edges_view = edges_view[edges_view["ev_per_dollar"] >= min_ev]
+if hide_stale and "is_stale" in edges_view.columns:
+    edges_view = edges_view[edges_view["is_stale"].fillna(0) == 0]
 if only_generous:
     edges_view = edges_view.loc[edges_view["def_tier"] == "generous"]
 if show_best_only:
@@ -152,8 +160,17 @@ display_cols = [
 for col in ["def_tier", "def_score"]:
     if col in edges_view.columns and col not in display_cols:
         display_cols.append(col)
+for col in ("implied_prob", "fair_prob", "overround", "is_stale"):
+    if col in edges_view.columns and col not in display_cols:
+        display_cols.append(col)
 table_data = edges_view[display_cols].copy()
+for prob_col in ("implied_prob", "fair_prob", "overround"):
+    if prob_col in table_data.columns:
+        table_data[prob_col] = pd.to_numeric(table_data[prob_col], errors="coerce")
 round_map = {"model_p": 3, "ev_per_dollar": 3, "kelly_frac": 3}
+for prob_col in ("implied_prob", "fair_prob", "overround"):
+    if prob_col in table_data.columns:
+        round_map[prob_col] = 3
 if "def_score" in table_data.columns:
     round_map["def_score"] = 3
 table_data = table_data.round(round_map)
