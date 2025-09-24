@@ -42,6 +42,8 @@ Apps Script (15:00 UTC) should export your Google Sheet (odds_raw tab) to `stora
 python jobs/build_defense_ratings.py
 python jobs/import_odds_from_csv.py
 python jobs/compute_edges.py
+# Optional: auto-build defense_ratings if missing during edges computation
+# export BUILD_DEFENSE_RATINGS_ON_DEMAND=1
 PYTHONPATH="$PWD" streamlit run app/streamlit_app.py
 
 # Weekly or after a slate (open-data ratings, no API credits):
@@ -89,8 +91,26 @@ make ui            # launch the Streamlit dashboard (opens a browser)
 
 Enable by exporting the desired bookmaker/market lists and ensuring the SQLite schema exists (`python db/migrate.py`). Snapshots are persisted to `odds_snapshots` and the `current_best_lines` helper table refreshes automatically after every run.
 
+## The Odds API (NFL-only, optional)
+
+- Set `ODDS_API_KEYS="key1,key2,..."` in your environment or CI secrets.
+- One-touch workflow can poll once before import when `USE_ODDS_API=1`:
+
+```bash
+USE_ODDS_API=1 ./BetThat
+```
+
+- Standalone dry run:
+
+```bash
+python jobs/poll_odds.py --once --sport nfl --markets player_props --region us --dry-run
+```
+
+The workflow (`.github/workflows/edges.yml`) includes a conditional step to poll with `ODDS_API_KEYS` if configured. Key rotation and usage tracking are stored in `odds_api_usage`.
+
 ## Troubleshooting
 
 - `KeyError: 'season'` → re-run the importer and edge computation; season is inferred from `commence_time`.
 - `database is locked` → close Streamlit while importing; the importer retries automatically; rerun the command.
+- Missing defensive tiers when computing edges → run `python jobs/build_defense_ratings.py` (or `make db-ratings`). Set `BUILD_DEFENSE_RATINGS_ON_DEMAND=1` before `python jobs/compute_edges.py` to auto-build when the table/view is absent.
 - Import or module path issues → launch the UI with `PYTHONPATH="$PWD"` (the `BetThat` script already does this).

@@ -186,6 +186,8 @@ class EdgeEngine:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN edge_prob REAL")
             if "edge_fair" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN edge_fair REAL")
+            if "p_model_shrunk" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN p_model_shrunk REAL")
             if "implied_prob_over" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN implied_prob_over REAL")
             if "implied_prob_under" not in existing_cols:
@@ -212,6 +214,7 @@ class EdgeEngine:
                 "odds_side",
                 "odds",
                 "model_p",
+                "p_model_shrunk",
                 "ev_per_dollar",
                 "kelly_frac",
                 "strategy_tag",
@@ -248,6 +251,7 @@ class EdgeEngine:
                         row["odds_side"],
                         row["odds"],
                         row["model_p"],
+                        _coerce(row.get("p_model_shrunk")),
                         row["ev_per_dollar"],
                         row["kelly_frac"],
                         row["strategy_tag"],

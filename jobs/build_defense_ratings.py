@@ -5,6 +5,7 @@ from typing import Iterable, List
 import numpy as np
 import pandas as pd
 import nfl_data_py as nfl
+from sklearn.linear_model import RidgeCV
 
 
 SEASONS = [2023, 2024, 2025]  # adjust as needed
@@ -15,6 +16,186 @@ LOCAL_PBP = {
 LOCAL_ROSTERS = {
     2025: DATA_DIR / "Weekly Roster Key" / "2025-Weekly-Roster-Key.csv",
 }
+
+
+def _ensure_latest_view(connection: sqlite3.Connection) -> None:
+    """Refresh the helper view exposing latest defensive tiers per season."""
+
+    connection.execute("DROP VIEW IF EXISTS defense_ratings_latest")
+    cols = {row[1] for row in connection.execute("PRAGMA table_info(defense_ratings)")}
+    select_cols = [
+        "r.defteam",
+        "r.season",
+        "r.pos",
+        "r.week",
+        "r.score",
+        "r.tier",
+    ]
+    if "score_adj" in cols:
+        select_cols.append("r.score_adj")
+    else:
+        select_cols.append("NULL AS score_adj")
+    if "tier_adj" in cols:
+        select_cols.append("r.tier_adj")
+    else:
+        select_cols.append("NULL AS tier_adj")
+    select_sql = ",\n               ".join(select_cols)
+    connection.execute(
+        f"""
+        CREATE VIEW defense_ratings_latest AS
+        SELECT {select_sql}
+        FROM defense_ratings AS r
+        WHERE COALESCE(r.week, -1) = (
+            SELECT COALESCE(MAX(r2.week), -1)
+            FROM defense_ratings AS r2
+            WHERE r2.defteam = r.defteam
+              AND r2.season = r.season
+              AND r2.pos = r.pos
+        )
+        """
+    )
+
+
+def _compute_qb_pass_adjusted_scores(pbp: pd.DataFrame) -> pd.DataFrame:
+    """Return opponent-adjusted QB pass defense scores (weekly, per team)."""
+
+    if pbp.empty:
+        return pd.DataFrame()
+
+    pass_df = pbp.loc[pbp["is_pass"] == 1].copy()
+    pass_df = pass_df.dropna(subset=["defteam", "posteam"])
+    if pass_df.empty:
+        return pd.DataFrame()
+    pass_df["defteam"] = pass_df["defteam"].str.upper().str.strip()
+    pass_df["posteam"] = pass_df["posteam"].str.upper().str.strip()
+    pass_df["season"] = pd.to_numeric(pass_df["season"], errors="coerce").astype("Int64")
+    pass_df["week"] = pd.to_numeric(pass_df["week"], errors="coerce").astype("Int64")
+    pass_df = pass_df.dropna(subset=["season", "week"])
+
+    pass_df["epa"] = pd.to_numeric(pass_df.get("epa"), errors="coerce")
+    metric_col = "epa"
+    if pass_df["epa"].notna().sum() == 0:
+        metric_col = "successful"
+    metric_series = pd.to_numeric(pass_df[metric_col], errors="coerce")
+    pass_df["metric_value"] = metric_series
+    pass_df = pass_df.dropna(subset=["metric_value"])
+    if pass_df.empty:
+        return pd.DataFrame()
+
+    group_cols = ["season", "week", "defteam", "posteam"]
+    agg = (
+        pass_df.groupby(group_cols, as_index=False)
+        .agg(metric_value=("metric_value", "mean"), plays=("metric_value", "count"))
+        .rename(columns={"metric_value": "metric_mean"})
+    )
+    agg = agg[agg["plays"] > 0]
+    if agg.empty:
+        return pd.DataFrame()
+
+    agg = agg.sort_values(["season", "week"]).reset_index(drop=True)
+    off_teams = sorted(agg["posteam"].dropna().unique())
+    def_teams = sorted(agg["defteam"].dropna().unique())
+    if len(off_teams) <= 1 or len(def_teams) <= 1:
+        return pd.DataFrame()
+
+    off_cols = [f"off_{team}" for team in off_teams[1:]]
+    def_cols = [f"def_{team}" for team in def_teams[1:]]
+    columns = off_cols + def_cols
+    X = pd.DataFrame(0.0, index=agg.index, columns=columns)
+    for team, col in zip(off_teams[1:], off_cols):
+        X.loc[agg["posteam"] == team, col] = 1.0
+    for team, col in zip(def_teams[1:], def_cols):
+        X.loc[agg["defteam"] == team, col] = 1.0
+
+    y = agg["metric_mean"].astype(float).values
+    ordinal = agg["season"].astype(int) * 100 + agg["week"].astype(int)
+    decay = 6.0
+    recency_weight = np.exp((ordinal - ordinal.max()) / decay)
+    weights = agg["plays"].astype(float).values * recency_weight
+
+    alphas = [0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    model = RidgeCV(alphas=alphas, fit_intercept=True)
+    model.fit(X.values, y, sample_weight=weights)
+
+    coef = pd.Series(model.coef_, index=columns)
+    offense_effect = {off_teams[0]: 0.0}
+    for team, col in zip(off_teams[1:], off_cols):
+        offense_effect[team] = float(coef.get(col, 0.0))
+    defense_effect = {def_teams[0]: 0.0}
+    for team, col in zip(def_teams[1:], def_cols):
+        defense_effect[team] = float(coef.get(col, 0.0))
+
+    agg["off_effect"] = agg["posteam"].map(offense_effect).fillna(0.0)
+    agg["def_effect"] = agg["defteam"].map(defense_effect).fillna(0.0)
+    agg["adjusted_value"] = agg["metric_mean"] - agg["off_effect"] - model.intercept_
+
+    weekly_rows = []
+    for (season, week, defteam), group in agg.groupby(["season", "week", "defteam"]):
+        plays = group["plays"].astype(float).values
+        values = group["adjusted_value"].astype(float).values
+        total = plays.sum()
+        if total <= 0:
+            continue
+        weighted = float(np.average(values, weights=plays))
+        weekly_rows.append(
+            {
+                "season": int(season),
+                "week": int(week),
+                "defteam": defteam,
+                "score_adj": weighted,
+                "exposure": total,
+            }
+        )
+
+    weekly_df = pd.DataFrame(weekly_rows)
+    if weekly_df.empty:
+        return pd.DataFrame()
+
+    weekly_df = weekly_df.sort_values(["defteam", "season", "week"]).reset_index(drop=True)
+
+    def _smooth(group: pd.DataFrame, alpha: float = 0.35) -> pd.DataFrame:
+        ema = None
+        scores = []
+        for value in group["score_adj"].astype(float):
+            if ema is None:
+                ema = value
+            else:
+                ema = alpha * value + (1 - alpha) * ema
+            scores.append(ema)
+        group = group.copy()
+        group["score_adj"] = scores
+        return group
+
+    weekly_df = (
+        weekly_df.groupby(["defteam", "season"], group_keys=False)
+        .apply(_smooth)
+        .reset_index(drop=True)
+    )
+
+    def _assign_tiers(group: pd.DataFrame) -> pd.DataFrame:
+        group = group.copy()
+        values = group["score_adj"].astype(float)
+        if values.notna().sum() < 3:
+            ranks = values.rank(pct=True)
+            tiers = np.where(ranks >= 0.8, "generous", np.where(ranks <= 0.2, "stingy", "neutral"))
+            group["tier_adj"] = tiers
+            return group
+        try:
+            tiers = pd.qcut(values, q=[0, 0.2, 0.8, 1], labels=["stingy", "neutral", "generous"])
+            group["tier_adj"] = tiers.astype(str)
+        except ValueError:
+            ranks = values.rank(pct=True)
+            group["tier_adj"] = np.where(ranks >= 0.8, "generous", np.where(ranks <= 0.2, "stingy", "neutral"))
+        return group
+
+    weekly_df = (
+        weekly_df.groupby(["season", "week"], group_keys=False)
+        .apply(_assign_tiers)
+        .reset_index(drop=True)
+    )
+
+    weekly_df["pos"] = "QB_PASS"
+    return weekly_df[["defteam", "season", "week", "pos", "score_adj", "tier_adj"]]
 
 
 def _prepare_local_pbp(path: Path, season: int) -> pd.DataFrame:
@@ -242,16 +423,52 @@ league = (ratings.loc[valid_mask]
           .apply(league_scores)
           .reset_index(drop=True))
 
+qb_pass_adj = _compute_qb_pass_adjusted_scores(pbp)
+if qb_pass_adj.empty:
+    league["score_adj"] = pd.NA
+    league["tier_adj"] = pd.NA
+else:
+    league = league.merge(
+        qb_pass_adj,
+        on=["defteam", "season", "week", "pos"],
+        how="left",
+    )
+    league["score_adj"] = pd.to_numeric(league["score_adj"], errors="coerce")
+    mask = league["score_adj"].notna()
+    tier_col = league.get("tier_adj")
+    if isinstance(tier_col, pd.Series):
+        league.loc[mask, "tier"] = league.loc[mask, "tier_adj"].where(
+            league.loc[mask, "tier_adj"].notna(), league.loc[mask, "tier"]
+        )
+    league.loc[mask, "score"] = league.loc[mask, "score_adj"]
+    if "tier_adj" not in league.columns:
+        league["tier_adj"] = pd.NA
+
+for col in ("score_adj", "tier_adj"):
+    if col not in league.columns:
+        league[col] = pd.NA
+
+league["score_adj"] = pd.to_numeric(league["score_adj"], errors="coerce")
+league["tier_adj"] = league["tier_adj"].astype("string")
+league = league[["defteam", "season", "week", "pos", "score", "tier", "score_adj", "tier_adj"]]
+
 print("[5/5] Writing to SQLite...")
 with sqlite3.connect("storage/odds.db") as con:
     con.execute("""
       CREATE TABLE IF NOT EXISTS defense_ratings (
         defteam TEXT, season INT, week INT, pos TEXT,
         score REAL, tier TEXT,
+        score_adj REAL, tier_adj TEXT,
         PRIMARY KEY(defteam, season, week, pos)
       )
     """)
+    existing_cols = {row[1] for row in con.execute("PRAGMA table_info(defense_ratings)")}
+    if "score_adj" not in existing_cols:
+        con.execute("ALTER TABLE defense_ratings ADD COLUMN score_adj REAL")
+    if "tier_adj" not in existing_cols:
+        con.execute("ALTER TABLE defense_ratings ADD COLUMN tier_adj TEXT")
     con.execute("DELETE FROM defense_ratings;")
     league.to_sql("defense_ratings", con, if_exists="append", index=False)
+    _ensure_latest_view(con)
 
 print("Done. Rows:", len(league))

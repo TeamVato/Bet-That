@@ -15,6 +15,12 @@ err() { printf "\n\033[31mERROR:\033[0m %s\n\n" "$*" >&2; exit 1; }
 echo "==> Building defense ratings (open data)…"
 "$venv_py" "$ROOT/jobs/build_defense_ratings.py"
 
+if [ "${USE_ODDS_API:-0}" = "1" ]; then
+  echo "==> Polling The Odds API once (NFL-only)…"
+  ODDS_API_KEYS="${ODDS_API_KEYS:-}" \
+  "$venv_py" "$ROOT/jobs/poll_odds.py" --once --sport nfl --markets player_props --region us || true
+fi
+
 # Odds CSV presence hint (Apps Script should have produced it)
 CSV="$ROOT/storage/imports/odds_snapshot.csv"
 if [ ! -f "$CSV" ]; then

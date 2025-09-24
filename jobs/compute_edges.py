@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import subprocess
 import sys
 from pathlib import Path
 
@@ -41,6 +42,95 @@ def normalize_team_code(code: str) -> str:
         return code
     code = code.strip().upper()
     return TEAM_CODE_FIXES.get(code, code)
+
+
+def _env_truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in {"1", "true", "y", "yes", "on"}
+
+
+def ensure_defense_ratings_latest_view(database_path: Path) -> None:
+    """Create or refresh the view exposing the latest defensive tiers per season."""
+
+    if not database_path.exists():
+        return
+    with sqlite3.connect(database_path) as con:
+        cur = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='defense_ratings'"
+        )
+        if cur.fetchone() is None:
+            return
+        cols = {row[1] for row in con.execute("PRAGMA table_info(defense_ratings)")}
+        select_cols = [
+            "r.defteam",
+            "r.season",
+            "r.pos",
+            "r.week",
+            "r.score",
+            "r.tier",
+        ]
+        if "score_adj" in cols:
+            select_cols.append("r.score_adj")
+        else:
+            select_cols.append("NULL AS score_adj")
+        if "tier_adj" in cols:
+            select_cols.append("r.tier_adj")
+        else:
+            select_cols.append("NULL AS tier_adj")
+        select_sql = ",\n                   ".join(select_cols)
+        con.execute("DROP VIEW IF EXISTS defense_ratings_latest")
+        con.execute(
+            f"""
+            CREATE VIEW defense_ratings_latest AS
+            SELECT {select_sql}
+            FROM defense_ratings AS r
+            WHERE COALESCE(r.week, -1) = (
+                SELECT COALESCE(MAX(r2.week), -1)
+                FROM defense_ratings AS r2
+                WHERE r2.defteam = r.defteam
+                  AND r2.season = r.season
+                  AND r2.pos = r.pos
+            )
+            """
+        )
+
+
+def ensure_defense_ratings_artifacts(database_path: Path) -> bool:
+    """Ensure defense_ratings table (and view) exist; optionally build on demand."""
+
+    def _table_exists(path: Path, table: str) -> bool:
+        if not path.exists():
+            return False
+        with sqlite3.connect(path) as con:
+            cur = con.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table,),
+            )
+            return cur.fetchone() is not None
+
+    if _table_exists(database_path, "defense_ratings"):
+        ensure_defense_ratings_latest_view(database_path)
+        return True
+
+    if _env_truthy(os.getenv("BUILD_DEFENSE_RATINGS_ON_DEMAND")):
+        builder = Path(__file__).resolve().parents[1] / "jobs" / "build_defense_ratings.py"
+        print(
+            "Defense ratings missing; running jobs/build_defense_ratings.py (BUILD_DEFENSE_RATINGS_ON_DEMAND=1)."
+        )
+        try:
+            subprocess.run([sys.executable, str(builder)], check=True)
+        except subprocess.CalledProcessError as exc:
+            print(f"Failed to build defense ratings on demand ({exc}).")
+            return False
+        ensure_defense_ratings_latest_view(database_path)
+        return _table_exists(database_path, "defense_ratings")
+
+    print(
+        "Warning: defense_ratings table not found. Run `python jobs/build_defense_ratings.py` "
+        "or set BUILD_DEFENSE_RATINGS_ON_DEMAND=1 to generate it."
+    )
+    return False
 
 
 def current_season(now: datetime.datetime | None = None) -> int:
@@ -159,58 +249,130 @@ def main() -> None:
 
     engine = EdgeEngine(EdgeEngineConfig(database_path=database_path))
     edges_df = engine.compute_edges(props_df, projections)
+    # Optional market-aware shrinkage toward consensus
+    try:
+        from engine.shrinkage import consensus_prob, shrink_to_market
+
+        if not edges_df.empty and "model_p" in edges_df.columns:
+            p_cons = consensus_prob(edges_df)
+            weight = float(os.getenv("SHRINK_TO_MARKET_WEIGHT", "0.35"))
+            edges_df["p_model_shrunk"] = shrink_to_market(edges_df["model_p"], p_cons, weight)
+    except Exception:
+        pass
     edges_df = ensure_edges_season(edges_df, props_df, database_path)
     for col in ("season", "week"):
         if col in edges_df.columns:
             edges_df[col] = pd.to_numeric(edges_df[col], errors="coerce").astype("Int64")
     if "opponent_def_code" in edges_df.columns:
         edges_df["opponent_def_code"] = edges_df["opponent_def_code"].apply(normalize_team_code)
-    try:
-        with sqlite3.connect(database_path) as con:
-            dr = pd.read_sql(
-                "SELECT defteam, season, week, pos, tier, score FROM defense_ratings",
-                con,
+
+    ratings_available = ensure_defense_ratings_artifacts(database_path)
+    if ratings_available:
+        try:
+            with sqlite3.connect(database_path) as con:
+                dr = pd.read_sql("SELECT * FROM defense_ratings", con)
+            dr["season"] = pd.to_numeric(dr["season"], errors="coerce").astype("Int64")
+            dr["week"] = pd.to_numeric(dr["week"], errors="coerce").astype("Int64")
+            dr["defteam"] = dr["defteam"].apply(normalize_team_code)
+            qb_ratings = dr.loc[dr["pos"] == "QB_PASS"].copy()
+            if "score_adj" in qb_ratings.columns:
+                qb_ratings["score_effective"] = qb_ratings["score_adj"].combine_first(qb_ratings["score"])
+            else:
+                qb_ratings["score_effective"] = qb_ratings["score"]
+            if "tier_adj" in qb_ratings.columns:
+                qb_ratings["tier_effective"] = qb_ratings["tier_adj"].combine_first(qb_ratings["tier"])
+            else:
+                qb_ratings["tier_effective"] = qb_ratings["tier"]
+            qb_ratings = qb_ratings[[
+                "defteam",
+                "season",
+                "week",
+                "tier_effective",
+                "score_effective",
+            ]]
+            edges_df = (
+                edges_df.merge(
+                    qb_ratings,
+                    how="left",
+                    left_on=["opponent_def_code", "season", "week"],
+                    right_on=["defteam", "season", "week"],
+                )
+                .rename(columns={"tier_effective": "def_tier", "score_effective": "def_score"})
+                .drop(columns=["defteam"], errors="ignore")
             )
-        dr["season"] = pd.to_numeric(dr["season"], errors="coerce").astype("Int64")
-        dr["week"] = pd.to_numeric(dr["week"], errors="coerce").astype("Int64")
-        dr["defteam"] = dr["defteam"].apply(normalize_team_code)
-        qb_ratings = dr.loc[dr["pos"] == "QB_PASS", ["defteam", "season", "week", "tier", "score"]]
-        edges_df = (
-            edges_df.merge(
-                qb_ratings,
-                how="left",
-                left_on=["opponent_def_code", "season", "week"],
-                right_on=["defteam", "season", "week"],
+            missing_mask = (
+                edges_df["def_tier"].isna()
+                & edges_df["season"].notna()
+                & edges_df["opponent_def_code"].notna()
             )
-            .rename(columns={"tier": "def_tier", "score": "def_score"})
-            .drop(columns=["defteam"], errors="ignore")
-        )
-        missing_mask = (
-            edges_df["def_tier"].isna()
-            & edges_df["season"].notna()
-            & edges_df["opponent_def_code"].notna()
-        )
-        if missing_mask.any():
-            latest = (
-                qb_ratings.dropna(subset=["week"])
-                .sort_values("week")
-                .drop_duplicates(subset=["defteam", "season"], keep="last")
-            )
-            tier_lookup = {
-                (row["defteam"], row["season"]): row["tier"]
-                for _, row in latest.iterrows()
-            }
-            score_lookup = {
-                (row["defteam"], row["season"]): row["score"]
-                for _, row in latest.iterrows()
-            }
-            for idx in edges_df.index[missing_mask]:
-                key = (edges_df.at[idx, "opponent_def_code"], edges_df.at[idx, "season"])
-                if key in tier_lookup:
-                    edges_df.at[idx, "def_tier"] = tier_lookup[key]
-                    edges_df.at[idx, "def_score"] = score_lookup[key]
-    except Exception as exc:
-        print(f"Warning: unable to merge defense ratings ({exc})")
+            if missing_mask.any():
+                latest = (
+                    qb_ratings.dropna(subset=["week"])
+                    .sort_values("week")
+                    .drop_duplicates(subset=["defteam", "season"], keep="last")
+                )
+                tier_lookup = {
+                    (row["defteam"], row["season"]): row["tier_effective"]
+                    for _, row in latest.iterrows()
+                }
+                score_lookup = {
+                    (row["defteam"], row["season"]): row["score_effective"]
+                    for _, row in latest.iterrows()
+                }
+                for idx in edges_df.index[missing_mask]:
+                    key = (edges_df.at[idx, "opponent_def_code"], edges_df.at[idx, "season"])
+                    if key in tier_lookup:
+                        edges_df.at[idx, "def_tier"] = tier_lookup[key]
+                        edges_df.at[idx, "def_score"] = score_lookup[key]
+                if missing_mask.any():
+                    try:
+                        with sqlite3.connect(database_path) as con:
+                            latest_view = pd.read_sql(
+                                "SELECT defteam, season, pos, tier, score, score_adj, tier_adj FROM defense_ratings_latest",
+                                con,
+                            )
+                    except Exception:
+                        latest_view = pd.DataFrame()
+                    if not latest_view.empty:
+                        qb_latest = latest_view.loc[latest_view["pos"] == "QB_PASS"].copy()
+                        if "score_adj" in qb_latest.columns:
+                            qb_latest["score_effective"] = qb_latest["score_adj"].combine_first(
+                                qb_latest["score"]
+                            )
+                        else:
+                            qb_latest["score_effective"] = qb_latest["score"]
+                        if "tier_adj" in qb_latest.columns:
+                            qb_latest["tier_effective"] = qb_latest["tier_adj"].combine_first(
+                                qb_latest["tier"]
+                            )
+                        else:
+                            qb_latest["tier_effective"] = qb_latest["tier"]
+                        qb_latest = (
+                            qb_latest.drop_duplicates(subset=["defteam", "season"], keep="last")
+                        )
+                        tier_lookup.update(
+                            {
+                                (row["defteam"], row["season"]): row["tier_effective"]
+                                for _, row in qb_latest.iterrows()
+                            }
+                        )
+                        score_lookup.update(
+                            {
+                                (row["defteam"], row["season"]): row["score_effective"]
+                                for _, row in qb_latest.iterrows()
+                            }
+                        )
+                        for idx in edges_df.index[missing_mask]:
+                            key = (
+                                edges_df.at[idx, "opponent_def_code"],
+                                edges_df.at[idx, "season"],
+                            )
+                            if key in tier_lookup and pd.isna(edges_df.at[idx, "def_tier"]):
+                                edges_df.at[idx, "def_tier"] = tier_lookup[key]
+                                edges_df.at[idx, "def_score"] = score_lookup[key]
+        except Exception as exc:
+            print(f"Warning: unable to merge defense ratings ({exc})")
+
     for col in ("def_tier", "def_score"):
         if col not in edges_df.columns:
             edges_df[col] = pd.NA

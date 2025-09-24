@@ -10,3 +10,4 @@ nfl_data_py>=0.3.1
 tenacity>=8.2
 PyYAML>=6.0
 pytest>=7.4
+scikit-learn>=1.5

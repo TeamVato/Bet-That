@@ -16,17 +16,41 @@ from adapters.news_flags import load_player_flags
 from adapters.weather_provider import WeatherInfo, get_weather_for_game
 
 
-def apply_qb_defense_adjustment(qb_mean_yards, opponent_def_code, season, week, beta=0.10):
+def apply_qb_defense_adjustment(
+    qb_mean_yards,
+    opponent_def_code,
+    season,
+    week,
+    beta=0.10,
+    database_path: Optional[Path] = None,
+) -> Optional[float]:
+    """Return an adjusted mean using defense_ratings when available.
+
+    Parameters
+    ----------
+    qb_mean_yards: float
+        Baseline mean passing yards for the quarterback.
+    opponent_def_code: str
+        Opponent team abbreviation.
+    season, week: int
+        Season/week keys used to query `defense_ratings`.
+    beta: float
+        Sensitivity multiplier applied to the defensive score.
+    database_path: Optional[Path]
+        Override for the SQLite database location (defaults to storage/odds.db).
+
+    Returns
+    -------
+    Optional[float]
+        Adjusted mean if a defensive score is found; otherwise ``None`` so the
+        caller can fall back to alternative heuristics.
     """
-    Multiply qb_mean_yards by a capped factor based on defense_ratings (pos='QB_PASS').
-    score > 0 => more generous (increase); score < 0 => stingy (decrease).
-    beta is the sensitivity; keep small. Hard-cap effect to ±15%.
-    """
-    db_path = Path("storage/odds.db")
+
+    db_path = database_path or Path("storage/odds.db")
     if not db_path.exists():
-        return qb_mean_yards
+        return None
     if not opponent_def_code or season is None or week is None:
-        return qb_mean_yards
+        return None
     try:
         with sqlite3.connect(db_path) as con:
             dr = pd.read_sql(
@@ -43,8 +67,8 @@ def apply_qb_defense_adjustment(qb_mean_yards, opponent_def_code, season, week, 
             adj = max(0.85, min(1.15, adj))  # cap ±15%
             return qb_mean_yards * adj
     except Exception:
-        pass  # fail open if DB missing, etc.
-    return qb_mean_yards
+        return None
+    return None
 
 
 @dataclass
@@ -97,13 +121,16 @@ class QBProjectionModel:
         season: Optional[int],
         week: Optional[int],
     ) -> float:
+        adjusted_mu: Optional[float] = None
         if def_team and season is not None and week is not None:
-            return apply_qb_defense_adjustment(
+            adjusted_mu = apply_qb_defense_adjustment(
                 qb_mean_yards=mu,
                 opponent_def_code=def_team,
                 season=season,
                 week=week,
             )
+        if adjusted_mu is not None:
+            return adjusted_mu
         if not def_team:
             return mu
         defense_avg = self.defense_metrics.get(def_team)
