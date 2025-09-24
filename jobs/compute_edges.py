@@ -77,8 +77,7 @@ def persist_projections(projections: pd.DataFrame, database_path: Path) -> None:
 
 def main() -> None:
     database_path = get_database_path()
-    if not database_path.exists():
-        migrate()
+    migrate()
 
     adapter = CsvQBPropsAdapter()
     props_df = adapter.fetch()
@@ -152,6 +151,11 @@ def main() -> None:
                     edges_df.at[idx, "def_score"] = score_lookup[key]
     except Exception as exc:
         print(f"Warning: unable to merge defense ratings ({exc})")
+    for col in ("def_tier", "def_score"):
+        if col not in edges_df.columns:
+            edges_df[col] = pd.NA
+    if "def_score" in edges_df.columns:
+        edges_df["def_score"] = pd.to_numeric(edges_df["def_score"], errors="coerce")
     engine.persist_edges(edges_df)
     engine.export(edges_df)
 

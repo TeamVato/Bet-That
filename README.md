@@ -1,171 +1,93 @@
-# jobs/import_odds_from_csv.py
-# Robust CSV -> SQLite importer with progress logs and SQLite lock handling
-import os
-import sys
-import csv
-import time
-import sqlite3
-from pathlib import Path
-from typing import Iterable, List, Tuple
+# Bet-That
 
-DB = Path("storage/odds.db")
-CSV_PATH = Path(os.getenv("CSV_PATH", "storage/imports/odds_snapshot.csv"))
-BATCH_SIZE = int(os.getenv("CSV_BATCH_SIZE", "1000"))
-LOCK_RETRIES = int(os.getenv("SQLITE_LOCK_RETRIES", "10"))
-LOCK_SLEEP = float(os.getenv("SQLITE_LOCK_SLEEP", "0.5"))
+Player prop modeling, odds ingestion, and edge reporting utilities for NFL betting workflows.
 
-DDL_RAW = \
-"""
-CREATE TABLE IF NOT EXISTS odds_csv_raw (
-  event_id TEXT,
-  commence_time TEXT,
-  home_team TEXT,
-  away_team TEXT,
-  player TEXT,
-  market TEXT,
-  line REAL,
-  over_odds INTEGER,
-  under_odds INTEGER,
-  book TEXT,
-  updated_at TEXT,
-  x_used INTEGER,
-  x_remaining INTEGER
-);
-"""
+## Project structure
 
-DDL_BEST = \
-"""
-DROP TABLE IF EXISTS current_best_lines;
-CREATE TABLE current_best_lines AS
-WITH ranked AS (
-  SELECT
-    player, market, book, line, over_odds, under_odds, updated_at, event_id, home_team, away_team,
-    ROW_NUMBER() OVER (
-      PARTITION BY player, market
-      ORDER BY ABS(COALESCE(line, 9999)) ASC,
-               COALESCE(under_odds, -99999) DESC,
-               COALESCE(over_odds, -99999) DESC,
-               datetime(updated_at) DESC
-    ) AS rnk
-  FROM odds_csv_raw
-)
-SELECT * FROM ranked WHERE rnk = 1;
-"""
+- `jobs/` contains repeatable scripts for ingesting source data and producing derived tables.
+- `engine/` implements the edge computation logic.
+- `storage/odds.db` is the primary SQLite database used by the jobs and UI.
+- `storage/imports/` and `storage/exports/` hold CSV snapshots exchanged with external systems.
+- `app/streamlit_app.py` powers the local dashboard for exploring edges.
 
+## Requirements & environment
 
-def _to_float(v):
-    if v is None:
-        return None
-    v = str(v).strip()
-    if v in ("", "null", "None"):
-        return None
-    try:
-        return float(v)
-    except Exception:
-        return None
+1. Install dependencies with `python -m pip install -r requirements.txt`.
+2. Copy `config/.env.example` to your own `.env` (or export the variables in your shell) if you plan to use the The Odds API poller or override importer settings.
+3. Run `python db/migrate.py` once to initialize the SQLite schema if `storage/odds.db` does not exist yet.
 
+Key environment variables:
 
-def _to_int(v):
-    if v is None:
-        return None
-    v = str(v).strip()
-    if v in ("", "null", "None"):
-        return None
-    try:
-        return int(v)
-    except Exception:
-        return None
+- `ODDS_API_KEYS` – comma separated Odds API keys used by the poller (`jobs/poll_odds.py`). Keys rotate daily based on the day-of-year. You can also set a single `ODDS_API_KEY` for ad-hoc runs.
+- `CSV_PATH`, `CSV_BATCH_SIZE`, `SQLITE_LOCK_RETRIES`, `SQLITE_LOCK_SLEEP` – optional overrides for the CSV importer.
+- `SHEETS_EXPORT_URL` – optional, used by GitHub Actions when pulling the daily CSV from Google Sheets.
 
+## Makefile shortcuts
 
-def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
-    attempt = 0
-    while True:
-        try:
-            con.executemany(sql, rows)
-            return
-        except sqlite3.OperationalError as e:
-            msg = str(e).lower()
-            if "locked" in msg or "busy" in msg:
-                if attempt >= LOCK_RETRIES:
-                    raise
-                attempt += 1
-                time.sleep(LOCK_SLEEP * attempt)
-            else:
-                raise
+The repo ships with common commands:
 
+```bash
+make db-ratings     # build defense tiers in storage/odds.db
+make import-odds    # load the latest odds CSV snapshot
+make edges          # recompute projections + edges from the DB
+make ui             # launch the Streamlit dashboard (opens a browser)
+```
 
-def main():
-    t0 = time.perf_counter()
-    if not CSV_PATH.exists():
-        raise SystemExit(f"Missing CSV at {CSV_PATH}. Put your Sheets export there or set CSV_PATH.")
+`make` ensures jobs run with the current working directory on `PYTHONPATH` so imports resolve correctly.
 
-    DB.parent.mkdir(parents=True, exist_ok=True)
-    print(f"[1/5] Opening DB at {DB} ...")
-    con = sqlite3.connect(DB, timeout=10.0, isolation_level=None)  # autocommit mode
-    try:
-        con.execute("PRAGMA journal_mode=WAL;")
-        con.execute("PRAGMA busy_timeout=10000;")  # 10s busy timeout on locked db
+## Daily runbook
 
-        print("[2/5] Ensuring tables exist ...")
-        con.executescript(DDL_RAW)
+1. **Weekly (recommended Monday AM):** `make db-ratings` to refresh defensive tiers using nflverse play-by-play and roster data.
+2. **Daily after Apps Script / Sheets export finishes:** download the CSV snapshot into `storage/imports/odds_snapshot.csv`, then run `make import-odds edges`.
+   - `make import-odds` truncates and reloads `odds_csv_raw` inside `storage/odds.db` using WAL mode and retry-on-lock semantics.
+   - `make edges` persists refreshed QB projections, merges defense tiers if available, and exports `storage/exports/edges_latest.csv`.
+3. **Ad-hoc UI checks:** run `make ui` to open the Streamlit interface against the latest database contents.
 
-        print("[3/5] Loading CSV from", CSV_PATH)
-        with open(CSV_PATH, newline='', encoding='utf-8') as f:
-            rdr = csv.DictReader(f)
-            field_preview = rdr.fieldnames
-            if not field_preview:
-                raise SystemExit("CSV appears to have no header row.")
-            print("     Detected columns:", ", ".join(field_preview))
+If defense ratings are missing (for example, during preseason), projections and edge computation continue to work. The code fails open and simply omits the defense adjustments.
 
-            # Replace snapshot
-            con.execute("BEGIN IMMEDIATE;")  # take write lock, fail fast if another writer holds it
-            con.execute("DELETE FROM odds_csv_raw;")
+## Optional: Python Odds API poller
 
-            rows: List[Tuple] = []
-            total = 0
-            for r in rdr:
-                rows.append(
-                    (
-                        r.get("event_id"),
-                        r.get("commence_time"),
-                        r.get("home_team"),
-                        r.get("away_team"),
-                        r.get("player"),
-                        r.get("market"),
-                        _to_float(r.get("line")),
-                        _to_int(r.get("over_odds")),
-                        _to_int(r.get("under_odds")),
-                        r.get("book"),
-                        r.get("updated_at"),
-                        _to_int(r.get("x_used")),
-                        _to_int(r.get("x_remaining")),
-                    )
-                )
-                if len(rows) >= BATCH_SIZE:
-                    _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-                    total += len(rows)
-                    print(f"     Inserted {total} rows ...")
-                    rows.clear()
+`jobs/poll_odds.py` is available if you prefer polling The Odds API directly instead of relying on Apps Script. Highlights:
 
-            if rows:
-                _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
-                total += len(rows)
-                print(f"     Inserted {total} rows (final batch) ...")
+- Reads `ODDS_API_KEYS` and rotates keys based on the day-of-year (`tm_yday % n_keys`).
+- Constrains requests to NFL (`americanfootball_nfl`) with a tight default list of books and markets to conserve credits.
+- Logs The Odds API usage headers (`X-Requests-Used`, `X-Requests-Remaining`, `X-Requests-Reset`).
+- Runs once by default (`python jobs/poll_odds.py --once`). Pass `--loop --sleep <seconds>` for interval polling.
 
-            con.execute("COMMIT;")
+Enable by exporting the desired bookmaker/market lists and ensuring the SQLite schema exists (`python db/migrate.py`). Snapshots are persisted to `odds_snapshots` and the `current_best_lines` helper table refreshes automatically after every run.
 
-        print("[4/5] Refreshing current_best_lines ...")
-        con.executescript(DDL_BEST)
-        print("[5/5] Done. Rows loaded:", total)
-    finally:
-        con.close()
+## Automation (GitHub Actions)
 
-    print(f"Total time: {time.perf_counter() - t0:.2f}s")
+`.github/workflows/edges.yml` schedules a daily run at 15:00 UTC (09:00 Denver). It executes the same sequence as the runbook:
 
+1. Install dependencies.
+2. Build defense ratings.
+3. (Optionally) download the Sheets export via `SHEETS_EXPORT_URL`.
+4. Import the CSV and recompute edges.
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Interrupted.")
-        sys.exit(130)
+Populate repository secrets:
+
+- `ODDS_API_KEYS` – required if you want the workflow to use the Python poller instead of Google Sheets.
+- `SHEETS_EXPORT_URL` – optional public export URL for the Sheets snapshot when sticking with Apps Script.
+
+Disable the `schedule` trigger or switch to `workflow_dispatch` only if you prefer to run the workflow manually.
+
+## Smoke tests
+
+After updating dependencies or logic, run the jobs end-to-end:
+
+```bash
+python jobs/build_defense_ratings.py
+python jobs/import_odds_from_csv.py
+python jobs/compute_edges.py
+```
+
+Verify outputs with:
+
+```bash
+test -f storage/exports/edges_latest.csv
+sqlite3 storage/odds.db "select count(*) from defense_ratings;"
+sqlite3 storage/odds.db "select defteam, pos, season, week, tier, round(score,3) from defense_ratings limit 5;"
+```
+
+Successful runs should not require access to services beyond the public nflverse CSV files.
