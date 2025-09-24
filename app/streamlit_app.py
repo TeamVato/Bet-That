@@ -112,17 +112,25 @@ selected_seasons = st.sidebar.multiselect("Season filter", season_options, defau
 odds_min, odds_max = st.sidebar.slider("Odds range (American)", -400, 400, (-250, 250))
 min_ev = st.sidebar.slider("Minimum EV per $1", -1.0, 1.0, 0.0, step=0.01)
 show_best_only = st.sidebar.checkbox("Show only best-priced edges", value=True)
+st.sidebar.markdown("### Defense filter")
+only_generous = st.sidebar.checkbox("Only vs generous defenses", value=False)
 
 edges_view = edges.copy()
+for col in ("def_tier", "def_score"):
+    if col not in edges_view.columns:
+        edges_view[col] = None
+edges_view["def_score"] = pd.to_numeric(edges_view["def_score"], errors="coerce")
 if selected_seasons:
     edges_view = edges_view[edges_view["season"].isin(selected_seasons)]
 edges_view = edges_view[(edges_view["odds"] >= odds_min) & (edges_view["odds"] <= odds_max)]
 edges_view = edges_view[edges_view["ev_per_dollar"] >= min_ev]
+if only_generous:
+    edges_view = edges_view.loc[edges_view["def_tier"] == "generous"]
 if show_best_only:
     edges_view = edges_view.sort_values("ev_per_dollar", ascending=False).drop_duplicates(["event_id", "player", "market"])
 
-st.subheader("Edges (QB props)")
-st.dataframe(edges_view[[
+st.subheader("Edges (QB/RB/WR props)")
+display_cols = [
     "player",
     "market",
     "line",
@@ -133,7 +141,23 @@ st.dataframe(edges_view[[
     "ev_per_dollar",
     "kelly_frac",
     "strategy_tag",
-]].round({"model_p": 3, "ev_per_dollar": 3, "kelly_frac": 3}))
+]
+for col in ["def_tier", "def_score"]:
+    if col in edges_view.columns and col not in display_cols:
+        display_cols.append(col)
+table_data = edges_view[display_cols].copy()
+round_map = {"model_p": 3, "ev_per_dollar": 3, "kelly_frac": 3}
+if "def_score" in table_data.columns:
+    round_map["def_score"] = 3
+table_data = table_data.round(round_map)
+column_config = {}
+if "def_score" in table_data.columns:
+    column_config["def_score"] = st.column_config.NumberColumn(
+        "def_score",
+        help="Higher means more generous defense over recent games; 0 = league average.",
+        format="%.3f",
+    )
+st.dataframe(table_data, column_config=column_config)
 
 if st.button("Export today's picks"):
     export_path = export_picks(edges_view)

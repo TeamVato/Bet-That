@@ -180,11 +180,20 @@ class EdgeEngine:
         if edges_df.empty:
             print("No edges to export.")
             return
+        export_df = edges_df.copy()
+        for col in ("def_tier", "def_score"):
+            if col not in export_df.columns:
+                export_df[col] = pd.NA
+        export_cols = list(export_df.columns)
+        for col in ("def_tier", "def_score"):
+            if col not in export_cols:
+                export_cols.append(col)
+        export_df = export_df.loc[:, export_cols]
         csv_path = self.config.export_dir / "edges_latest.csv"
         parquet_path = self.config.export_dir / "edges_latest.parquet"
-        edges_df.to_csv(csv_path, index=False)
+        export_df.to_csv(csv_path, index=False)
         try:
-            edges_df.to_parquet(parquet_path, index=False)
+            export_df.to_parquet(parquet_path, index=False)
         except Exception as exc:
             print(f"Failed to write parquet export: {exc}")
         print(f"Exports written to {csv_path} and {parquet_path}")
