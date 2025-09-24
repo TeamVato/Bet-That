@@ -62,6 +62,7 @@ class TheOddsAPIClient(OddsAdapter):
 
     def __init__(self, config: Optional[TheOddsAPIConfig] = None) -> None:
         self.config = config or TheOddsAPIConfig.from_env()
+        self.last_usage: Dict[str, Optional[str]] = {}
 
     @retry(
         reraise=True,
@@ -80,9 +81,19 @@ class TheOddsAPIClient(OddsAdapter):
             raise TheOddsAPIError("Rate limit hit for The Odds API")
         if not response.ok:
             raise TheOddsAPIError(f"API request failed: {response.status_code} {response.text}")
-        remaining = response.headers.get("X-Requests-Remaining")
-        if remaining is not None:
-            print(f"The Odds API requests remaining this month: {remaining}")
+        self.last_usage = {
+            "requests_remaining": response.headers.get("X-Requests-Remaining"),
+            "requests_used": response.headers.get("X-Requests-Used"),
+            "requests_reset": response.headers.get("X-Requests-Reset"),
+        }
+        usage_parts = [
+            f"used={self.last_usage['requests_used']}" if self.last_usage.get("requests_used") else None,
+            f"remaining={self.last_usage['requests_remaining']}" if self.last_usage.get("requests_remaining") else None,
+            f"reset={self.last_usage['requests_reset']}" if self.last_usage.get("requests_reset") else None,
+        ]
+        usage_parts = [p for p in usage_parts if p]
+        if usage_parts:
+            print("The Odds API usage: " + ", ".join(usage_parts))
         return response.json()
 
     def fetch(self, **params: Any) -> pd.DataFrame:
@@ -95,6 +106,7 @@ class TheOddsAPIClient(OddsAdapter):
                 "markets": params.get("markets", self.config.markets),
                 "oddsFormat": self.config.odds_format,
                 "dateFormat": self.config.date_format,
+                **({"bookmakers": params["bookmakers"]} if params.get("bookmakers") else {}),
             },
         )
         df = normalize_odds_response(payload, fetched_at=fetched_at)

@@ -22,8 +22,13 @@ def apply_qb_defense_adjustment(qb_mean_yards, opponent_def_code, season, week, 
     score > 0 => more generous (increase); score < 0 => stingy (decrease).
     beta is the sensitivity; keep small. Hard-cap effect to ±15%.
     """
+    db_path = Path("storage/odds.db")
+    if not db_path.exists():
+        return qb_mean_yards
+    if not opponent_def_code or season is None or week is None:
+        return qb_mean_yards
     try:
-        with sqlite3.connect("storage/odds.db") as con:
+        with sqlite3.connect(db_path) as con:
             dr = pd.read_sql(
                 """
                 SELECT score, tier
@@ -31,7 +36,7 @@ def apply_qb_defense_adjustment(qb_mean_yards, opponent_def_code, season, week, 
                 WHERE defteam = ? AND season = ? AND week = ? AND pos = 'QB_PASS'
                 """,
                 con,
-                params=[opponent_def_code, season, week],
+                params=[str(opponent_def_code).strip().upper(), season, week],
             )
         if not dr.empty and pd.notna(dr.iloc[0]["score"]):
             adj = 1.0 + beta * float(dr.iloc[0]["score"])
