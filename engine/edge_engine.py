@@ -47,6 +47,19 @@ class EdgeEngine:
             mu = float(row.get("mu"))
             sigma = float(row.get("sigma"))
             line = float(row.get("line"))
+            season_val = row.get("season_proj")
+            if pd.isna(season_val):
+                season_val = row.get("season_props")
+            season_val = int(season_val) if pd.notna(season_val) else None
+            week_val = row.get("week_proj")
+            if pd.isna(week_val):
+                week_val = row.get("week_props")
+            week_val = int(week_val) if pd.notna(week_val) else None
+            opponent_def_code = row.get("def_team_proj")
+            if pd.isna(opponent_def_code):
+                opponent_def_code = row.get("def_team_props")
+            if pd.isna(opponent_def_code):
+                opponent_def_code = None
             if sigma <= 0:
                 sigma = 55.0
             distribution = norm(loc=mu, scale=sigma)
@@ -91,6 +104,9 @@ class EdgeEngine:
                     "odds_side": best_side,
                     "odds": best_odds,
                     "model_p": model_p,
+                    "season": season_val,
+                    "week": week_val,
+                    "opponent_def_code": opponent_def_code,
                     "ev_per_dollar": ev,
                     "kelly_frac": kelly,
                     "strategy_tag": strategy,
@@ -111,13 +127,31 @@ class EdgeEngine:
             return
         with sqlite3.connect(self.config.database_path) as conn:
             cursor = conn.cursor()
+            # Ensure optional columns exist for enriched metadata
+            existing_cols = {row[1] for row in cursor.execute("PRAGMA table_info(edges)")}
+            alter_statements = []
+            if "season" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN season INT")
+            if "week" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN week INT")
+            if "opponent_def_code" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN opponent_def_code TEXT")
+            if "def_tier" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN def_tier TEXT")
+            if "def_score" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN def_score REAL")
+            for statement in alter_statements:
+                cursor.execute(statement)
+            def _coerce(value):
+                return None if pd.isna(value) else value
             for row in edges_df.to_dict("records"):
                 cursor.execute(
                     """
                     INSERT INTO edges (
                         created_at, event_id, book, player, market, line, odds_side, odds,
-                        model_p, ev_per_dollar, kelly_frac, strategy_tag
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        model_p, ev_per_dollar, kelly_frac, strategy_tag,
+                        season, week, opponent_def_code, def_tier, def_score
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         row["created_at"],
@@ -132,6 +166,11 @@ class EdgeEngine:
                         row["ev_per_dollar"],
                         row["kelly_frac"],
                         row["strategy_tag"],
+                        _coerce(row.get("season")),
+                        _coerce(row.get("week")),
+                        _coerce(row.get("opponent_def_code")),
+                        _coerce(row.get("def_tier")),
+                        _coerce(row.get("def_score")),
                     ),
                 )
             conn.commit()

@@ -1,151 +1,171 @@
-# Bet-That — NFL betting edge finder MVP
+# jobs/import_odds_from_csv.py
+# Robust CSV -> SQLite importer with progress logs and SQLite lock handling
+import os
+import sys
+import csv
+import time
+import sqlite3
+from pathlib import Path
+from typing import Iterable, List, Tuple
 
-Beginner-friendly, batteries-included starter kit for monitoring NFL odds, building a
-transparent QB passing yards projection, and surfacing value edges.
+DB = Path("storage/odds.db")
+CSV_PATH = Path(os.getenv("CSV_PATH", "storage/imports/odds_snapshot.csv"))
+BATCH_SIZE = int(os.getenv("CSV_BATCH_SIZE", "1000"))
+LOCK_RETRIES = int(os.getenv("SQLITE_LOCK_RETRIES", "10"))
+LOCK_SLEEP = float(os.getenv("SQLITE_LOCK_SLEEP", "0.5"))
 
-## Features
+DDL_RAW = \
+"""
+CREATE TABLE IF NOT EXISTS odds_csv_raw (
+  event_id TEXT,
+  commence_time TEXT,
+  home_team TEXT,
+  away_team TEXT,
+  player TEXT,
+  market TEXT,
+  line REAL,
+  over_odds INTEGER,
+  under_odds INTEGER,
+  book TEXT,
+  updated_at TEXT,
+  x_used INTEGER,
+  x_remaining INTEGER
+);
+"""
 
-- ✅ Poll The Odds API with retries, rate-limit awareness, and SQLite persistence
-- ✅ Offline-friendly CSV adapter for QB passing props (alt lines supported)
-- ✅ Simple QB projection model (recent form + defense + manual news flags + weather stub)
-- ✅ Edge engine computes no-vig probabilities, EV, and fractional Kelly stakes
-- ✅ Streamlit dashboard plus BI exports (CSV/Parquet) for Tableau/Power BI
-- ✅ Optional R EDA script sharing the same SQLite backend
-- ✅ Modular adapters so you can plug in premium data providers later
+DDL_BEST = \
+"""
+DROP TABLE IF EXISTS current_best_lines;
+CREATE TABLE current_best_lines AS
+WITH ranked AS (
+  SELECT
+    player, market, book, line, over_odds, under_odds, updated_at, event_id, home_team, away_team,
+    ROW_NUMBER() OVER (
+      PARTITION BY player, market
+      ORDER BY ABS(COALESCE(line, 9999)) ASC,
+               COALESCE(under_odds, -99999) DESC,
+               COALESCE(over_odds, -99999) DESC,
+               datetime(updated_at) DESC
+    ) AS rnk
+  FROM odds_csv_raw
+)
+SELECT * FROM ranked WHERE rnk = 1;
+"""
 
-## Quick start
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp config/.env.example .env  # set ODDS_API_KEY and other secrets
-python db/migrate.py
-```
+def _to_float(v):
+    if v is None:
+        return None
+    v = str(v).strip()
+    if v in ("", "null", "None"):
+        return None
+    try:
+        return float(v)
+    except Exception:
+        return None
 
-Populate sample data and compute demo edges (offline):
 
-```bash
-python jobs/compute_edges.py
-```
+def _to_int(v):
+    if v is None:
+        return None
+    v = str(v).strip()
+    if v in ("", "null", "None"):
+        return None
+    try:
+        return int(v)
+    except Exception:
+        return None
 
-Launch the Streamlit UI:
 
-```bash
-streamlit run app/streamlit_app.py
-```
+def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
+    attempt = 0
+    while True:
+        try:
+            con.executemany(sql, rows)
+            return
+        except sqlite3.OperationalError as e:
+            msg = str(e).lower()
+            if "locked" in msg or "busy" in msg:
+                if attempt >= LOCK_RETRIES:
+                    raise
+                attempt += 1
+                time.sleep(LOCK_SLEEP * attempt)
+            else:
+                raise
 
-### Polling live odds
 
-```bash
-python jobs/poll_odds.py              # one-time snapshot
-python jobs/poll_odds.py --interval 300  # loop every 5 minutes
-```
+def main():
+    t0 = time.perf_counter()
+    if not CSV_PATH.exists():
+        raise SystemExit(f"Missing CSV at {CSV_PATH}. Put your Sheets export there or set CSV_PATH.")
 
-The poller writes line history into `storage/odds.db` and updates the
-`current_best_lines` table for quick line shopping. Run `jobs/compute_edges.py`
-again after polling to refresh projections and edges.
+    DB.parent.mkdir(parents=True, exist_ok=True)
+    print(f"[1/5] Opening DB at {DB} ...")
+    con = sqlite3.connect(DB, timeout=10.0, isolation_level=None)  # autocommit mode
+    try:
+        con.execute("PRAGMA journal_mode=WAL;")
+        con.execute("PRAGMA busy_timeout=10000;")  # 10s busy timeout on locked db
 
-### BI exports
+        print("[2/5] Ensuring tables exist ...")
+        con.executescript(DDL_RAW)
 
-The edge job writes `storage/exports/edges_latest.csv`/`.parquet`. Generate a full
-BI bundle with:
+        print("[3/5] Loading CSV from", CSV_PATH)
+        with open(CSV_PATH, newline='', encoding='utf-8') as f:
+            rdr = csv.DictReader(f)
+            field_preview = rdr.fieldnames
+            if not field_preview:
+                raise SystemExit("CSV appears to have no header row.")
+            print("     Detected columns:", ", ".join(field_preview))
 
-```bash
-python jobs/export_bi.py
-```
+            # Replace snapshot
+            con.execute("BEGIN IMMEDIATE;")  # take write lock, fail fast if another writer holds it
+            con.execute("DELETE FROM odds_csv_raw;")
 
-Connect Tableau/Power BI directly to the CSV/Parquet exports or point an ODBC
-connection at `storage/odds.db`.
+            rows: List[Tuple] = []
+            total = 0
+            for r in rdr:
+                rows.append(
+                    (
+                        r.get("event_id"),
+                        r.get("commence_time"),
+                        r.get("home_team"),
+                        r.get("away_team"),
+                        r.get("player"),
+                        r.get("market"),
+                        _to_float(r.get("line")),
+                        _to_int(r.get("over_odds")),
+                        _to_int(r.get("under_odds")),
+                        r.get("book"),
+                        r.get("updated_at"),
+                        _to_int(r.get("x_used")),
+                        _to_int(r.get("x_remaining")),
+                    )
+                )
+                if len(rows) >= BATCH_SIZE:
+                    _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                    total += len(rows)
+                    print(f"     Inserted {total} rows ...")
+                    rows.clear()
 
-### Streamlit app
+            if rows:
+                _insert_with_retry(con, "INSERT INTO odds_csv_raw VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+                total += len(rows)
+                print(f"     Inserted {total} rows (final batch) ...")
 
-The app lets you filter edges by season, odds range, and minimum EV, review line
-shopping highlights, view recent steam alerts, and export today’s picks to
-`storage/exports/picks_latest.csv` while logging them to the `bets_log` table.
+            con.execute("COMMIT;")
 
-## Architecture
+        print("[4/5] Refreshing current_best_lines ...")
+        con.executescript(DDL_BEST)
+        print("[5/5] Done. Rows loaded:", total)
+    finally:
+        con.close()
 
-```
-+-------------------+       +------------------+      +------------------+
-| Odds adapters     |-----> | SQLite (odds.db) | <----| nflverse + CSV   |
-| - The Odds API    |       |  - odds history  |      |  projections     |
-| - CSV props       |       |  - projections   |      |                  |
-+-------------------+       +------------------+      +------------------+
-          |                           |                           |
-          v                           v                           v
-   jobs/poll_odds.py        models/qb_projection.py         engine/edge_engine.py
-          |                           |                           |
-          +-------------> storage/exports/ <----------------------+
-```
+    print(f"Total time: {time.perf_counter() - t0:.2f}s")
 
-Adapters follow a pluggable pattern so you can drop in new providers without
-rewriting the engine. Odds snapshots are stored in SQLite with timestamps for
-closing-line value analysis and steam detection. Projections join props odds with
-nflverse player logs (via `nfl_data_py`) and optional manual overrides from
-`storage/player_flags.yaml`.
 
-## Odds ingestion
-
-- Uses The Odds API’s `/sports/{sport}/odds` endpoint (`americanfootball_nfl`)
-- Respects region/market/format configuration from `.env`
-- Retries with exponential backoff (tenacity) and logs remaining quota
-- Deduplicates snapshots with a UNIQUE constraint
-
-## Projection model
-
-- Recent form: rolling mean of last N games (default 8)
-- Defense adjustment: compares opponent YPG allowed vs league average
-- Weather adjustment: simple multipliers (hooks provided for real API)
-- Manual overrides: YAML flags for snap count / injury adjustments
-- Sigma: RMSE of recent games clipped to [35, 80]
-- Probabilities: normal approximation via `scipy.stats.norm`
-
-## Edge engine
-
-- Converts American odds to no-vig implied probabilities
-- Computes EV per $1 and quarter-Kelly stake (capped at 5%)
-- Labels strategies (baseline vs alt-line attacks)
-- Persists results to `edges` table and exports CSV/Parquet
-
-## Storage layout
-
-- `db/schema.sql` defines tables and indexes
-- `db/migrate.py` runs migrations (SQLite only in this MVP)
-- `storage/odds.db` holds all application data
-- `storage/exports/` contains generated CSV/Parquet reports
-
-## Testing
-
-```bash
-pytest
-```
-
-Unit tests cover the odds math helpers and normalization of The Odds API payloads.
-
-## Scheduling
-
-See [`jobs/examples.cron.md`](jobs/examples.cron.md) for cron/systemd/Windows Task
-Scheduler templates. A sample GitHub Actions workflow is included at
-`.github/workflows/poll_odds.yml` (beware of API quotas when enabling it).
-
-## R workflow
-
-Run `Rscript r/eda_qb_model.R` to produce a residuals summary under
-`r/exports/eda_summary.csv`. The script shares the same SQLite DB used by the
-Python jobs.
-
-## Roadmap ideas
-
-- Integrate real weather data (NWS/Visual Crossing)
-- Paid props providers (SportsData.io, etc.) via additional adapters
-- Slack/Discord notifications for steam or high-EV edges
-- Closing-line value tracker and bet settlement automation
-- Optional FastAPI/uvicorn service for headless deployments
-- Upgrade to Postgres when scaling beyond the MVP
-
-## Compliance
-
-- Uses only documented APIs/libraries (The Odds API, nfl_data_py)
-- No scraping of sportsbook websites
-- MIT-licensed for easy reuse
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Interrupted.")
+        sys.exit(130)

@@ -6,12 +6,40 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Optional
 
+import sqlite3
+
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
 from adapters.news_flags import load_player_flags
 from adapters.weather_provider import WeatherInfo, get_weather_for_game
+
+
+def apply_qb_defense_adjustment(qb_mean_yards, opponent_def_code, season, week, beta=0.10):
+    """
+    Multiply qb_mean_yards by a capped factor based on defense_ratings (pos='QB_PASS').
+    score > 0 => more generous (increase); score < 0 => stingy (decrease).
+    beta is the sensitivity; keep small. Hard-cap effect to ±15%.
+    """
+    try:
+        with sqlite3.connect("storage/odds.db") as con:
+            dr = pd.read_sql(
+                """
+                SELECT score, tier
+                FROM defense_ratings
+                WHERE defteam = ? AND season = ? AND week = ? AND pos = 'QB_PASS'
+                """,
+                con,
+                params=[opponent_def_code, season, week],
+            )
+        if not dr.empty and pd.notna(dr.iloc[0]["score"]):
+            adj = 1.0 + beta * float(dr.iloc[0]["score"])
+            adj = max(0.85, min(1.15, adj))  # cap ±15%
+            return qb_mean_yards * adj
+    except Exception:
+        pass  # fail open if DB missing, etc.
+    return qb_mean_yards
 
 
 @dataclass
@@ -57,7 +85,20 @@ class QBProjectionModel:
         metrics["__league_avg__"] = self.league_avg
         return metrics
 
-    def _apply_defense_adjustment(self, mu: float, def_team: Optional[str]) -> float:
+    def _apply_defense_adjustment(
+        self,
+        mu: float,
+        def_team: Optional[str],
+        season: Optional[int],
+        week: Optional[int],
+    ) -> float:
+        if def_team and season is not None and week is not None:
+            return apply_qb_defense_adjustment(
+                qb_mean_yards=mu,
+                opponent_def_code=def_team,
+                season=season,
+                week=week,
+            )
         if not def_team:
             return mu
         defense_avg = self.defense_metrics.get(def_team)
@@ -112,14 +153,24 @@ class QBProjectionModel:
         player: str,
         def_team: Optional[str],
         season: Optional[int],
+        week: Optional[int],
         default_line: Optional[float],
     ) -> Dict[str, float]:
+        schedule_info = self.schedule_lookup.get(event_id, {})
+        if season is None:
+            season_lookup = schedule_info.get("season")
+            if season_lookup is not None and pd.notna(season_lookup):
+                season = int(season_lookup)
+        if week is None:
+            week_lookup = schedule_info.get("week")
+            if week_lookup is not None and pd.notna(week_lookup):
+                week = int(week_lookup)
         recent_games = self._player_recent_games(player, season)
         if recent_games.empty:
             mu = default_line or self.league_avg
         else:
             mu = float(pd.to_numeric(recent_games["passing_yards"], errors="coerce").mean())
-        mu = self._apply_defense_adjustment(mu, def_team)
+        mu = self._apply_defense_adjustment(mu, def_team, season, week)
         mu = self._apply_weather(mu, event_id)
         mu = self._apply_news_flags(mu, player)
         sigma = self._estimate_sigma(recent_games, mu)
@@ -133,6 +184,7 @@ class QBProjectionModel:
             "sigma": sigma,
             "p_over": p_over,
             "season": season,
+            "week": week,
             "def_team": def_team,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -141,14 +193,31 @@ class QBProjectionModel:
         records = []
         for player, group in props_df.groupby("player"):
             event_id = group["event_id"].iloc[0]
-            season = group.get("season").dropna().astype(int).iloc[0] if group.get("season").notna().any() else None
-            def_team = group.get("def_team").dropna().iloc[0] if group.get("def_team").notna().any() else None
+            season_series = group.get("season")
+            season = (
+                int(season_series.dropna().astype(int).iloc[0])
+                if season_series is not None and season_series.notna().any()
+                else None
+            )
+            week_series = group.get("week")
+            week = (
+                int(week_series.dropna().astype(int).iloc[0])
+                if week_series is not None and week_series.notna().any()
+                else None
+            )
+            def_team_series = group.get("def_team")
+            def_team = (
+                def_team_series.dropna().iloc[0]
+                if def_team_series is not None and def_team_series.notna().any()
+                else None
+            )
             default_line = float(group["line"].mean()) if not group["line"].isna().all() else None
             proj = self.project_player(
                 event_id=event_id,
                 player=player,
                 def_team=def_team,
                 season=season,
+                week=week,
                 default_line=default_line,
             )
             records.append(proj)
