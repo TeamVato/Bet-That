@@ -45,3 +45,9 @@ def test_load_tables_provides_context_columns(tmp_path) -> None:
         set(tables["weather"].columns)
     )
     assert "pos" in tables["edges"].columns
+
+
+def test_books_fallback_does_not_error() -> None:
+    df = pd.DataFrame({"book": []})
+    books = sorted(df.get("book", pd.Series(dtype=str)).dropna().unique().tolist())
+    assert books == []

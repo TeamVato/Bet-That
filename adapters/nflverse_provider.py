@@ -12,6 +12,8 @@ try:
 except ImportError:  # pragma: no cover - handled gracefully
     nfl = None  # type: ignore
 
+from adapters.stats_provider import import_weekly_stats
+
 
 SCHEDULE_COLUMNS = [
     "game_id",
@@ -218,15 +220,16 @@ def get_player_game_logs(seasons: Iterable[int]) -> pd.DataFrame:
 
     # Remote first: attempt to load all requested seasons from nflverse
     df_remote = pd.DataFrame()
-    try:
-        weekly = nfl.import_weekly_data(seasons)
-        df_remote = weekly.copy()
-    except Exception:
+    if nfl:
         try:
-            df_remote = nfl.import_player_stats(seasons)
-        except Exception as exc:
-            print(f"Failed to download player logs: {exc}")
-            df_remote = pd.DataFrame()
+            weekly = nfl.import_weekly_data(seasons)
+            df_remote = weekly.copy()
+        except Exception:
+            try:
+                df_remote = import_weekly_stats(seasons)
+            except Exception as exc:
+                print(f"Failed to download player logs: {exc}")
+                df_remote = pd.DataFrame()
     if not df_remote.empty:
         frames.append(_normalize(df_remote))
 

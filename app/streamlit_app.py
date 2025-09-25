@@ -91,6 +91,27 @@ def _safe_filter(df: pd.DataFrame | None, col: str, value: object) -> pd.DataFra
     return df.loc[df[col].eq(value)]
 
 
+def _coalesce_na(*vals, default=None):
+    """Return the first value that is not None/NA (pandas.NA-safe)."""
+    for v in vals:
+        if v is None:
+            continue
+        try:
+            if pd.isna(v):
+                continue
+        except Exception:
+            pass
+        return v
+    return default
+
+
+def _str_eq(a, b):
+    """Case-insensitive, NA-safe equality for strings."""
+    a = _coalesce_na(a, default="")
+    b = _coalesce_na(b, default="")
+    return str(a).strip().lower() == str(b).strip().lower()
+
+
 def _infer_current_season(reference: datetime.datetime | None = None) -> int:
     """Infer the current NFL season (year) based on today's date."""
     ref = reference or datetime.datetime.now(datetime.UTC)
@@ -302,47 +323,80 @@ def render_matchup_expander(
         # Injuries & Weather card
         inj_col.markdown("**Injuries & Weather**")
         info_lines: list[str] = []
-        no_weather_context = False
+        weather_caption: str | None = None
         if not injuries_df.empty and event_id is not None:
             match = _safe_filter(injuries_df, "event_id", event_id)
             if match.empty and player:
                 match = _safe_filter(injuries_df, "player", player)
             if not match.empty:
                 for _, inj in match.iloc[:3].iterrows():
-                    status = inj.get("status") or inj.get("designation")
-                    desc = inj.get("note") or inj.get("description")
-                    who = inj.get("player") or inj.get("name")
-                    info_lines.append(f"{who or 'Player'}: {status or 'status n/a'} ({desc or 'n/a'})")
-        if not weather_df.empty and event_id is not None:
-            weather_match = _safe_filter(weather_df, "event_id", event_id)
-            if weather_match.empty and isinstance(event_id, str):
-                weather_match = _safe_filter(weather_df, "game_id", event_id)
-            if weather_match.empty:
-                no_weather_context = True
+                    status = _coalesce_na(
+                        inj.get("status"),
+                        inj.get("designation"),
+                        default="—",
+                    )
+                    who = _coalesce_na(inj.get("player"), inj.get("name"), default="Player")
+                    note = _coalesce_na(inj.get("notes"), inj.get("comment"), default="")
+                    desc = _coalesce_na(
+                        inj.get("note"),
+                        inj.get("description"),
+                        inj.get("detail"),
+                        default="",
+                    )
+                    side = _coalesce_na(inj.get("side"), default="")
+                    team = _coalesce_na(inj.get("team"), inj.get("club"), default="")
+                    details = [
+                        str(val).strip()
+                        for val in (team, side, note, desc)
+                        if isinstance(val, str) and val.strip()
+                    ]
+                    detail_text = f" ({'; '.join(details)})" if details else ""
+                    info_lines.append(f"{who}: {status}{detail_text}")
+
+        if event_id is None or pd.isna(event_id):
+            weather_caption = "No weather context found for this matchup yet."
+        elif weather_df is None or weather_df.empty:
+            weather_caption = "No weather context found for this matchup yet."
+        else:
+            key_col = "event_id" if "event_id" in weather_df.columns else (
+                "game_id" if "game_id" in weather_df.columns else None
+            )
+            if key_col is None:
+                weather_caption = "No weather context found for this matchup yet."
             else:
-                weather_row = weather_match.iloc[-1]
-                temp = weather_row.get("temp_f")
-                wind = weather_row.get("wind_mph")
-                precip = weather_row.get("precip")
-                indoor = weather_row.get("indoor")
-                weather_parts = []
-                if temp is not None and not pd.isna(temp):
-                    weather_parts.append(f"Temp {float(temp):.0f}°F")
-                if wind is not None and not pd.isna(wind):
-                    weather_parts.append(f"Wind {float(wind):.0f} mph")
-                if precip:
-                    weather_parts.append(str(precip))
-                if indoor in (1, True, "1", "Y", "y"):
-                    weather_parts.append("Indoor")
-                if weather_parts:
-                    info_lines.append("Weather: " + ", ".join(weather_parts))
+                try:
+                    wmatch = weather_df.loc[weather_df[key_col].eq(event_id)]
+                except Exception:
+                    wmatch = pd.DataFrame()
+                if wmatch.empty:
+                    weather_caption = "No weather context found for this matchup yet."
+                else:
+                    weather_row = wmatch.iloc[-1]
+                    temp = weather_row.get("temp_f")
+                    wind = weather_row.get("wind_mph")
+                    precip = weather_row.get("precip")
+                    indoor = weather_row.get("indoor")
+                    weather_parts = []
+                    if temp is not None and not pd.isna(temp):
+                        weather_parts.append(f"Temp {float(temp):.0f}°F")
+                    if wind is not None and not pd.isna(wind):
+                        weather_parts.append(f"Wind {float(wind):.0f} mph")
+                    if precip:
+                        weather_parts.append(str(precip))
+                    if indoor in (1, True, "1", "Y", "y"):
+                        weather_parts.append("Indoor")
+                    if weather_parts:
+                        info_lines.append("Weather: " + ", ".join(weather_parts))
+
         if not info_lines:
-            if no_weather_context:
-                inj_col.caption("No weather context found for this matchup yet.")
+            if weather_caption:
+                inj_col.caption(weather_caption)
             else:
                 inj_col.caption("No injury or weather updates yet.")
         else:
             inj_col.markdown("\n".join(f"- {line}" for line in info_lines))
+            if weather_caption and all(not line.startswith("Weather:") for line in info_lines):
+                inj_col.caption(weather_caption)
 
         # Context notes
         st.markdown("**Context notes**")
@@ -582,6 +636,29 @@ def render_app() -> None:
 
     edges_view = edges.copy().reset_index(drop=True)
     edges_view = edges_view.copy()
+
+    # --- Position inference fallback in UI ---
+    def _infer_pos_from_market(market: str) -> str | None:
+        if not market:
+            return None
+        m = str(market).lower()
+        if "qb " in m or "passing" in m or "pass " in m:
+            return "QB"
+        if "rushing" in m or "rush " in m:
+            return "RB"
+        if "tight end" in m or " te " in m:
+            return "TE"
+        if "receptions" in m or "receiving" in m:
+            return "WR"
+        return None
+
+    if "pos" not in edges_view.columns:
+        edges_view["pos"] = None
+    edges_view["pos"] = edges_view["pos"].fillna(
+        edges_view["market"].map(_infer_pos_from_market)
+    )
+    # --- end add ---
+
     edges_view["row_id"] = edges_view.index
     fallback_season = available_seasons[-1] if available_seasons else _infer_current_season()
     season_series = edges_view.get("season")
@@ -619,6 +696,19 @@ def render_app() -> None:
         (edges_view.get("model_p") - edges_view.get("p_model_shrunk")).fillna(0.0) * 100.0
     )
     edges_view["decimal_odds"] = edges_view.get("odds").apply(safe_decimal_from_american)
+
+    # Numeric defaults to avoid NA-related crashes in compute_confidence
+    num_defaults = {
+        "model_p": 0.5,
+        "market_p": 0.5,
+        "ev_per_dollar": 0.0,
+        "minutes_since_update": 9999.0,
+        "kelly_frac": 0.0,
+    }
+    for k, v in num_defaults.items():
+        if k in edges_view.columns:
+            edges_view[k] = pd.to_numeric(edges_view[k], errors="coerce").fillna(v)
+
     edges_view["confidence"] = edges_view.apply(compute_confidence, axis=1)
     edges_view["position_bucket"] = edges_view.get("pos").apply(
         lambda val: val if isinstance(val, str) and val.strip() else None
@@ -744,13 +834,16 @@ def render_app() -> None:
                 index=0,
             )
 
-            available_positions = edges_view["position_bucket"].dropna().astype(str).str.upper().unique()
+            available_positions = (
+                edges_view["position_bucket"].dropna().astype(str).str.upper().tolist()
+            )
+            avail_pos = sorted([p for p in set(available_positions) if p])
+            if not avail_pos:
+                avail_pos = ["QB", "RB", "WR", "TE"]
             preferred_order = ["QB", "RB", "WR", "TE"]
-            ordered_positions = [pos for pos in preferred_order if pos in available_positions]
-            other_positions = sorted(set(available_positions) - set(preferred_order))
+            ordered_positions = [pos for pos in preferred_order if pos in avail_pos]
+            other_positions = sorted([pos for pos in avail_pos if pos not in preferred_order])
             tab_labels = ordered_positions + other_positions
-            if not tab_labels:
-                tab_labels = preferred_order
             position_tabs = st.tabs(tab_labels)
             for position_name, tab in zip(tab_labels, position_tabs):
                 with tab:
@@ -782,13 +875,35 @@ def render_app() -> None:
         if edges_view.empty:
             st.info("No edges available with the current filters.")
         else:
-            books = sorted(edges_view["book"].dropna().unique())
-            if not books:
-                st.caption("No sportsbook metadata available.")
+            books_in_view = sorted(
+                [
+                    b
+                    for b in edges_view.get("book", pd.Series(dtype=str)).dropna().unique().tolist()
+                    if b
+                ]
+            )
+            fallback_books = [
+                "DraftKings",
+                "FanDuel",
+                "BetMGM",
+                "Caesars",
+                "PointsBet",
+                "ESPN BET",
+            ]
+            books = books_in_view if books_in_view else fallback_books
+            selected_book = st.selectbox("Sportsbook", options=books, index=0)
+
+            if "book" in edges_view.columns:
+                sb_df = edges_view[edges_view["book"] == selected_book]
             else:
-                selected_book = st.selectbox("Sportsbook", books, index=0)
-                book_view = edges_view[edges_view["book"] == selected_book].copy()
-                book_view = book_view.sort_values("ev_per_dollar", ascending=False)
+                sb_df = edges_view.iloc[0:0]
+
+            if sb_df.empty:
+                st.caption(
+                    "No edges for this sportsbook at the moment (check filters or stale-line toggle)."
+                )
+            else:
+                book_view = sb_df.copy().sort_values("ev_per_dollar", ascending=False)
                 book_display = book_view[position_columns].head(25).copy()
                 for col in (
                     "line",
@@ -801,10 +916,7 @@ def render_app() -> None:
                 ):
                     if col in book_display.columns:
                         book_display[col] = pd.to_numeric(book_display[col], errors="coerce")
-                if book_display.empty:
-                    st.caption("No plays for this book with the current filters.")
-                else:
-                    st.dataframe(book_display.round(3), width="stretch")
+                st.dataframe(book_display.round(3), width="stretch")
 
     with all_edges_tab:
         st.subheader("Edges (QB/RB/WR props)")
