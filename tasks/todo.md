@@ -1,0 +1,26 @@
+# .cursorrules
+
+You are editing a Python/Streamlit project called Bet-That (Python 3.12, SQLite, Streamlit). 
+Goals: correctness, simplicity, safety.
+
+Principles
+- Think first: locate relevant files, outline a short plan in tasks/todo.md.
+- Keep changes minimal and reversible; no broad rewrites.
+- Never break Make targets: betthat, edges, db-ratings, import-odds, ui.
+- Migrations must be idempotent; don’t drop data.
+- UI must never crash on missing/NA columns; show explicit empty states.
+
+Process
+1. Write/append a clear checklist to tasks/todo.md (bullets with acceptance criteria).
+2. Ask for confirmation before big/ambiguous changes; otherwise apply safe, local patches.
+3. For each change: add or extend a focused test.
+4. Explain briefly what changed after each commit-sized step.
+5. When debugging: trace the full flow end-to-end; no assumptions.
+
+Constraints
+- No new heavy dependencies.
+- Streamlit: use `width='stretch'` or `'content'`, never `use_container_width`.
+- SQLite only; WAL + busy_timeout when writing.
+
+Completion
+- Update a **Review** section in tasks/todo.md summarizing the changes and tradeoffs.
