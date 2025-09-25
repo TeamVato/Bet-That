@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import re
+from typing import Optional
+
 import pandas as pd
 
 from engine.odds_math import (
@@ -21,6 +24,7 @@ REQUIRED_COLUMNS = [
     "odds",
     "book",
     "updated_at",
+    "pos",
 ]
 
 OUTPUT_COLUMNS = [
@@ -37,6 +41,7 @@ OUTPUT_COLUMNS = [
     "under_odds",
     "book",
     "updated_at",
+    "pos",
     "implied_prob",
     "fair_prob",
     "overround",
@@ -104,6 +109,25 @@ def normalize_long_odds(
         if col not in data.columns:
             data[col] = pd.NA
 
+    if "market" in data.columns:
+        market_series = data["market"].apply(_canon_market)
+        fallback_market = (
+            data["market"].astype(str).str.strip().str.lower().where(
+                data["market"].notna(), other=None
+            )
+        )
+        data["market"] = market_series.where(market_series.notna(), fallback_market)
+
+    if "pos" not in data.columns:
+        data["pos"] = pd.NA
+    inferred_pos = data.apply(
+        lambda row: row.get("pos")
+        if pd.notna(row.get("pos")) and str(row.get("pos")).strip()
+        else _infer_pos_from_market(row.get("market")),
+        axis=1,
+    )
+    data["pos"] = inferred_pos.where(inferred_pos.notna(), None)
+
     # Ensure optional bookkeeping columns exist
     for col in ("x_used", "x_remaining", "season"):
         if col not in data.columns:
@@ -160,6 +184,59 @@ def normalize_long_odds(
     result = result.astype(object)
     result = result.where(pd.notna(result), None)
     return result
+
+
+_CANON_MAP: dict[str, tuple[str, ...]] = {
+    "player_pass_yds": (
+        r"pass(?:ing)?[\s_-]*yds?",
+        r"qb[\s_-]*yds?",
+    ),
+    "player_pass_att": (
+        r"pass(?:ing)?[\s_-]*att(?:empts)?",
+    ),
+    "player_rush_yds": (
+        r"rush(?:ing)?[\s_-]*yds?",
+    ),
+    "player_rush_att": (
+        r"rush(?:ing)?[\s_-]*att(?:empts)?",
+        r"carr(?:ies)?",
+    ),
+    "player_rec_yds": (
+        r"rec(?:eiv(?:ing)?)?[\s_-]*yds?",
+    ),
+    "player_receptions": (
+        r"rec(?:ept(?:ions)?)?",
+        r"receptions",
+    ),
+}
+
+
+def _canon_market(raw_market: object) -> Optional[str]:
+    if not isinstance(raw_market, str):
+        return None
+    market = raw_market.strip().lower()
+    if not market:
+        return None
+    for canon, patterns in _CANON_MAP.items():
+        for pat in patterns:
+            if re.search(pat, market):
+                return canon
+    return market
+
+
+def _infer_pos_from_market(raw_market: object) -> Optional[str]:
+    if not isinstance(raw_market, str):
+        return None
+    text = raw_market.lower()
+    if "pass" in text:
+        return "QB"
+    if "rush" in text or "carry" in text or "attempt" in text:
+        return "RB"
+    if "rec" in text or "catch" in text:
+        return "WR"
+    if re.search(r"\bte\b|tight[-_\s]?end", text):
+        return "TE"
+    return None
 
 
 __all__ = ["normalize_long_odds"]

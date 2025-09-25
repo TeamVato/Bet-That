@@ -3,6 +3,12 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+export PYTHONPATH="${PYTHONPATH:-$ROOT}"
+export STALE_MINUTES="${STALE_MINUTES:-120}"
+export SHRINK_WEIGHT="${SHRINK_WEIGHT:-0.25}"
+export DEFAULT_SEASONS="${DEFAULT_SEASONS:-2023,2024,2025}"
+export SHRINK_TO_MARKET_WEIGHT="${SHRINK_TO_MARKET_WEIGHT:-$SHRINK_WEIGHT}"
+
 COMMAND="all"
 if [ $# -gt 0 ]; then
   COMMAND="$1"
@@ -46,7 +52,7 @@ fi
 printf 'Bet-That @ %s\n' "$timestamp"
 printf 'Source: %s\n' "$source_label"
 printf 'Seasons: %s | STALE_MINUTES=%s | SHRINK_WEIGHT=%s\n' \
-  "${DEFAULT_SEASONS:-}" "${STALE_MINUTES:-}" "${SHRINK_TO_MARKET_WEIGHT:-}"
+  "$DEFAULT_SEASONS" "$STALE_MINUTES" "${SHRINK_WEIGHT:-$SHRINK_TO_MARKET_WEIGHT}"
 printf 'Command: %s\n' "$COMMAND"
 
 venv_py="$ROOT/.venv/bin/python"

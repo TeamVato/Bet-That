@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
@@ -16,6 +17,34 @@ from utils.teams import (
     normalize_team_code,
     parse_event_id,
 )
+
+SUPPORTED_MARKETS = {
+    "player_pass_yds",
+    "player_pass_att",
+    "player_rush_yds",
+    "player_rush_att",
+    "player_rec_yds",
+    "player_receptions",
+}
+
+
+def _infer_pos(market: object, explicit: object = None) -> str | None:
+    if explicit is not None and not (isinstance(explicit, float) and np.isnan(explicit)):
+        text = str(explicit).strip()
+        if text:
+            return text.upper()
+    if not isinstance(market, str):
+        return None
+    text = market.lower()
+    if "pass" in text:
+        return "QB"
+    if "rush" in text or "carry" in text or "attempt" in text:
+        return "RB"
+    if "rec" in text or "catch" in text:
+        return "WR"
+    if "tight" in text or " te" in text or text.startswith("te "):
+        return "TE"
+    return None
 
 
 @dataclass
@@ -42,6 +71,8 @@ class EdgeEngine:
         merged["mu"] = merged["mu"].fillna(merged["line"])
         merged["sigma"] = merged["sigma"].fillna(55.0)
         merged["sigma"] = merged["sigma"].clip(lower=35.0)
+        if "market" in merged.columns:
+            merged = merged[merged["market"].isin(SUPPORTED_MARKETS)].copy()
         return merged
 
     def compute_edges(self, props_df: pd.DataFrame, projections_df: pd.DataFrame) -> pd.DataFrame:
@@ -50,6 +81,14 @@ class EdgeEngine:
         for _, row in df.iterrows():
             if pd.isna(row.get("over_odds")) or pd.isna(row.get("under_odds")):
                 continue
+            market = row.get("market")
+            pos_sources = [
+                row.get("pos"),
+                row.get("pos_props"),
+                row.get("pos_proj"),
+            ]
+            explicit_pos = next((val for val in pos_sources if isinstance(val, str) and val.strip()), None)
+            pos = _infer_pos(market, explicit_pos)
             event_id = row.get("event_id")
             mu = float(row.get("mu"))
             sigma = float(row.get("sigma"))
@@ -121,7 +160,10 @@ class EdgeEngine:
                 model_p = p_under
                 ev = ev_under
                 kelly = kelly_under
-            strategy = "AltQB" if abs(line - mu) >= 10 else "BaselineQB"
+            if pos == "QB":
+                strategy = "AltQB" if abs(line - mu) >= 10 else "BaselineQB"
+            else:
+                strategy = f"Baseline{pos}" if pos else "Baseline"
             implied_best = implied_probs.get(best_side)
             fair_best = fair_probs.get(best_side)
             edge_prob = model_p - implied_best if implied_best is not None else None
@@ -139,7 +181,8 @@ class EdgeEngine:
                     "event_id": event_id,
                     "book": row.get("book"),
                     "player": row.get("player"),
-                    "market": row.get("market"),
+                    "market": market,
+                    "pos": pos,
                     "line": line,
                     "odds_side": best_side,
                     "odds": best_odds,
@@ -197,6 +240,8 @@ class EdgeEngine:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN home_team TEXT")
             if "away_team" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN away_team TEXT")
+            if "pos" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN pos TEXT")
             if "is_home" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN is_home INTEGER")
             if "game_date" not in existing_cols:
@@ -241,6 +286,7 @@ class EdgeEngine:
                 "book",
                 "player",
                 "market",
+                "pos",
                 "line",
                 "odds_side",
                 "odds",
@@ -283,6 +329,7 @@ class EdgeEngine:
                         row["book"],
                         row["player"],
                         row["market"],
+                        _coerce(row.get("pos")),
                         row["line"],
                         row["odds_side"],
                         row["odds"],
@@ -325,6 +372,8 @@ class EdgeEngine:
         export_df = edges_df.copy()
         if "season" not in export_df.columns:
             export_df["season"] = pd.NA
+        if "pos" not in export_df.columns:
+            export_df["pos"] = pd.NA
         for col in ("def_tier", "def_score"):
             if col not in export_df.columns:
                 export_df[col] = pd.NA

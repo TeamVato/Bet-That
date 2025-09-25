@@ -151,6 +151,7 @@ def ensure_odds_table(con: sqlite3.Connection) -> None:
             line REAL,
             side TEXT,
             odds INT,
+            pos TEXT,
             book TEXT,
             updated_at TEXT,
             ingest_source TEXT
@@ -184,6 +185,25 @@ def upsert_rows(
     if normalized is None:
         normalized = df
     normalized["ingest_source"] = "odds_api"
+
+    if "pos" not in normalized.columns:
+        normalized["pos"] = None
+    pos_missing = normalized["pos"].isna() | (normalized["pos"].astype(str).str.strip() == "")
+    if pos_missing.any():
+        market_lower = normalized.get("market", "").astype(str).str.lower()
+        normalized.loc[pos_missing & market_lower.str.contains("pass"), "pos"] = "QB"
+        normalized.loc[
+            pos_missing & market_lower.str.contains("rush|rushing|carry|attempt"),
+            "pos",
+        ] = "RB"
+        normalized.loc[
+            pos_missing & market_lower.str.contains("rec|receiv|recept|catch"),
+            "pos",
+        ] = "WR"
+        normalized.loc[
+            pos_missing & market_lower.str.contains(r"\\bte\\b|tight[-_\s]?end", regex=True),
+            "pos",
+        ] = "TE"
 
     raw_rows = len(normalized)
     dedupe_cols = [

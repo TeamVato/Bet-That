@@ -1,10 +1,11 @@
 # jobs/import_odds_from_csv.py
 # Robust CSV -> SQLite importer with progress logs and SQLite lock handling
+from __future__ import annotations
 import os
 import sqlite3
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Tuple
 
@@ -13,6 +14,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 
 from engine.odds_normalizer import normalize_long_odds
+
+UTC = timezone.utc
 
 DB = Path("storage/odds.db")
 DEFAULT_CSV_PATH = Path("storage/imports/odds_snapshot.csv")
@@ -35,6 +38,7 @@ CREATE TABLE IF NOT EXISTS odds_csv_raw (
   under_odds INTEGER,
   book TEXT,
   updated_at TEXT,
+  pos TEXT,
   implied_prob REAL,
   fair_prob REAL,
   overround REAL,
@@ -67,6 +71,7 @@ wide AS (
     market,
     book,
     line,
+    MAX(pos) AS pos,
     MAX(CASE WHEN LOWER(side) = 'over' THEN odds END) AS over_odds,
     MAX(CASE WHEN LOWER(side) = 'under' THEN odds END) AS under_odds,
     MAX(updated_at) AS updated_at,
@@ -112,9 +117,9 @@ def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
 INSERT_SQL = (
     "INSERT INTO odds_csv_raw ("
     "event_id, commence_time, home_team, away_team, player, market, line, side, odds, "
-    "over_odds, under_odds, book, updated_at, implied_prob, fair_prob, overround, is_stale, fair_decimal, "
+    "over_odds, under_odds, book, updated_at, pos, implied_prob, fair_prob, overround, is_stale, fair_decimal, "
     "x_used, x_remaining, season, ingest_source"
-    ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 )
 
 
@@ -133,6 +138,7 @@ def _ensure_columns(con: sqlite3.Connection) -> None:
         "season": "INTEGER",
         "side": "TEXT",
         "odds": "INTEGER",
+        "pos": "TEXT",
         "implied_prob": "REAL",
         "fair_prob": "REAL",
         "overround": "REAL",
@@ -208,6 +214,25 @@ def main():
         df = normalize_long_odds(df, stale_minutes=stale_minutes)
         df["ingest_source"] = "csv"
 
+        if "pos" not in df.columns:
+            df["pos"] = None
+        pos_missing = df["pos"].isna() | (df["pos"].astype(str).str.strip() == "")
+        if pos_missing.any():
+            market_lower = df.get("market", "").astype(str).str.lower()
+            df.loc[pos_missing & market_lower.str.contains("pass"), "pos"] = "QB"
+            df.loc[
+                pos_missing & market_lower.str.contains("rush|rushing|carry|attempt"),
+                "pos",
+            ] = "RB"
+            df.loc[
+                pos_missing & market_lower.str.contains("rec|receiv|recept|catch"),
+                "pos",
+            ] = "WR"
+            df.loc[
+                pos_missing & market_lower.str.contains(r"\\bte\\b|tight[-_\s]?end", regex=True),
+                "pos",
+            ] = "TE"
+
         dedupe_cols = [
             "event_id",
             "player",
@@ -247,6 +272,7 @@ def main():
             "under_odds",
             "book",
             "updated_at",
+            "pos",
             "implied_prob",
             "fair_prob",
             "overround",

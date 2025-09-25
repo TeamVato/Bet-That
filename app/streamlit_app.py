@@ -50,6 +50,22 @@ def load_tables(database_path: Path) -> dict[str, pd.DataFrame]:
                 extras[key] = pd.read_sql_query(f"SELECT * FROM {table}", conn)
             except Exception:
                 extras[key] = pd.DataFrame()
+        context_expected = {
+            "scheme": ["team", "season", "week", "proe", "ed_pass_rate", "pace"],
+            "weather": ["event_id", "game_id", "temp_f", "wind_mph", "precip", "indoor"],
+            "wr_cb": ["event_id", "player", "note", "summary", "source_url", "url"],
+            "injuries": ["event_id", "player", "status", "designation", "note", "description", "name"],
+            "context_notes": ["event_id", "note", "source_url", "created_at"],
+        }
+        for key, expected_cols in context_expected.items():
+            df_ref = extras.get(key)
+            if df_ref is None or df_ref.empty:
+                extras[key] = pd.DataFrame({col: pd.Series(dtype="object") for col in expected_cols})
+                continue
+            missing_cols = [col for col in expected_cols if col not in df_ref.columns]
+            for col in missing_cols:
+                df_ref[col] = pd.NA
+            extras[key] = df_ref
     edges = edges.merge(
         props[["event_id", "player", "season", "def_team"]].drop_duplicates(),
         on=["event_id", "player"],
@@ -527,12 +543,22 @@ def render_app() -> None:
         st.stop()
 
     data = load_tables(database_path)
-    edges = data["edges"]
+    edges = data["edges"].copy()
     props = data["props"]
     projections = data["projections"]
     best_lines = data["best_lines"]
     snapshots = data["snapshots"]
     odds_raw = data.get("odds_raw", pd.DataFrame())
+
+    if "pos" not in edges.columns:
+        edges["pos"] = pd.NA
+    edges["pos"] = edges["pos"].replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
+    if "market" in edges.columns:
+        missing_pos = edges["pos"].isna()
+        if missing_pos.any():
+            inferred = edges.loc[missing_pos, "market"].apply(infer_position_bucket)
+            edges.loc[missing_pos, "pos"] = inferred.replace("Other", pd.NA)
+    edges["pos"] = edges["pos"].apply(lambda val: val.upper() if isinstance(val, str) else val)
 
     if props[["season", "def_team"]].isna().any().any():
         st.warning("Some props are missing season or opponent team metadata. Update the CSV for better projections.")
@@ -594,7 +620,16 @@ def render_app() -> None:
     )
     edges_view["decimal_odds"] = edges_view.get("odds").apply(safe_decimal_from_american)
     edges_view["confidence"] = edges_view.apply(compute_confidence, axis=1)
-    edges_view["position_bucket"] = edges_view.get("market").apply(infer_position_bucket)
+    edges_view["position_bucket"] = edges_view.get("pos").apply(
+        lambda val: val if isinstance(val, str) and val.strip() else None
+    )
+    missing_bucket = edges_view["position_bucket"].isna()
+    if missing_bucket.any():
+        fallback_bucket = edges_view.loc[missing_bucket, "market"].apply(infer_position_bucket)
+        edges_view.loc[missing_bucket, "position_bucket"] = fallback_bucket
+    edges_view["position_bucket"] = edges_view["position_bucket"].apply(
+        lambda val: val.upper() if isinstance(val, str) else val
+    )
     if "is_home" in edges_view.columns:
         edges_view["home_side"] = edges_view["is_home"].map({1: "Home", 0: "Away"}).fillna("n/a")
     else:
@@ -709,8 +744,15 @@ def render_app() -> None:
                 index=0,
             )
 
-            position_tabs = st.tabs(["QB", "RB", "WR", "TE"])
-            for position_name, tab in zip(["QB", "RB", "WR", "TE"], position_tabs):
+            available_positions = edges_view["position_bucket"].dropna().astype(str).str.upper().unique()
+            preferred_order = ["QB", "RB", "WR", "TE"]
+            ordered_positions = [pos for pos in preferred_order if pos in available_positions]
+            other_positions = sorted(set(available_positions) - set(preferred_order))
+            tab_labels = ordered_positions + other_positions
+            if not tab_labels:
+                tab_labels = preferred_order
+            position_tabs = st.tabs(tab_labels)
+            for position_name, tab in zip(tab_labels, position_tabs):
                 with tab:
                     subset = edges_view[edges_view["position_bucket"] == position_name].copy()
                     subset = _apply_def_tier_filter(subset, show_stingy, show_generous)
