@@ -31,20 +31,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-  - name: Fetch latest odds CSV (optional)
-    if: env.SHEETS_EXPORT_URL != ''
-    run: |
-      mkdir -p storage/imports
-      curl -L "$SHEETS_EXPORT_URL" -o storage/imports/odds_snapshot.csv
+      - name: Lint Streamlit deprecations
+        run: |
+          sudo apt-get update && sudo apt-get install -y ripgrep
+          make lint-streamlit
 
-  - name: Poll The Odds API once (NFL only)
-    if: env.ODDS_API_KEYS != ''
-    env:
-      ODDS_API_KEYS: ${{ secrets.ODDS_API_KEYS }}
-      ODDS_REGION: us
-      ODDS_MARKETS: player_props
-      ODDS_BOOKMAKERS: draftkings,fanduel,betmgm
-    run: python jobs/poll_odds.py --once --sport nfl --markets player_props --region us
+      - name: Fetch latest odds CSV (optional)
+        if: env.SHEETS_EXPORT_URL != ''
+        run: |
+          mkdir -p storage/imports
+          curl -L "$SHEETS_EXPORT_URL" -o storage/imports/odds_snapshot.csv
+
+      - name: Poll The Odds API once (NFL only)
+        if: env.ODDS_API_KEYS != ''
+        env:
+          ODDS_API_KEYS: ${{ secrets.ODDS_API_KEYS }}
+          ODDS_REGION: us
+          ODDS_MARKETS: player_props
+          ODDS_BOOKMAKERS: draftkings,fanduel,betmgm
+        run: python jobs/poll_odds.py --once --sport nfl --markets player_props --region us
 
       - name: Build defense ratings (open data)
         run: python jobs/build_defense_ratings.py

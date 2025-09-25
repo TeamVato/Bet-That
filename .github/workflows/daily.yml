@@ -26,6 +26,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Lint Streamlit deprecations
+        run: |
+          sudo apt-get update && sudo apt-get install -y ripgrep
+          make lint-streamlit
+
       - name: Poll odds (dry run)
         run: ./scripts/betthat.sh poll --dry-run --once --sport nfl --markets player_props --region us
 
