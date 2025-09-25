@@ -1,0 +1,9 @@
+event_id,commence_time,home_team,away_team,player,market,line,side,odds,book,updated_at
+EVT_CONTRACT_1,2025-09-25T16:00:00Z,KC,BUF,Patrick Mahomes,player_pass_yds,285.5,Over,-110,draftkings,2025-09-25T15:55:00Z
+EVT_CONTRACT_1,2025-09-25T16:00:00Z,KC,BUF,Patrick Mahomes,player_pass_yds,285.5,Under,-110,draftkings,2025-09-25T15:55:00Z
+EVT_CONTRACT_2,2025-09-25T20:25:00Z,SF,DAL,Christian McCaffrey,player_rush_yds,79.5,Over,+120,fanduel,2025-09-25T20:00:00Z
+EVT_CONTRACT_2,2025-09-25T20:25:00Z,SF,DAL,Christian McCaffrey,player_rush_yds,79.5,Under,-140,fanduel,2025-09-25T20:00:00Z
+EVT_CONTRACT_3,2025-09-25T20:25:00Z,SF,DAL,Deebo Samuel,player_receptions,4.5,Over,-105,betmgm,2025-09-25T20:00:00Z
+EVT_CONTRACT_3,2025-09-25T20:25:00Z,SF,DAL,Deebo Samuel,player_receptions,4.5,Under,-115,betmgm,2025-09-25T20:00:00Z
+EVT_CONTRACT_4,2025-09-25T13:00:00Z,MIA,BUF,Tua Tagovailoa,player_pass_attempts,32.5,Over,-110,CAESARS,2025-09-25T12:55:00Z
+EVT_CONTRACT_4,2025-09-25T13:00:00Z,MIA,BUF,Tua Tagovailoa,player_pass_attempts,32.5,Under,-110,CAESARS,2025-09-25T12:55:00Z

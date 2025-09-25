@@ -75,6 +75,16 @@ case "$COMMAND" in
     "$venv_py" "$ROOT/jobs/poll_odds.py" "$@"
     echo "==> Poll completed @ $(date -u +%FT%TZ)"
     ;;
+  command)
+    require_python
+    if [ $# -eq 0 ]; then
+      echo "==> Available custom commands:"
+      PYTHONPATH="$ROOT" "$venv_py" "$ROOT/run_command.py" list
+    else
+      echo "==> Running custom command: $1"
+      PYTHONPATH="$ROOT" "$venv_py" "$ROOT/run_command.py" "$@"
+    fi
+    ;;
   context)
     require_python
     echo "==> Building defense ratings (open data)…"
@@ -134,6 +144,13 @@ case "$COMMAND" in
     PYTHONPATH="$ROOT" "$venv_streamlit" run "$ROOT/app/streamlit_app.py"
     ;;
   *)
-    err "Unknown subcommand: $COMMAND"
+    # Check if it's a custom command
+    require_python
+    if PYTHONPATH="$ROOT" "$venv_py" "$ROOT/run_command.py" list | grep -q "^  $COMMAND$"; then
+      echo "==> Running custom command: $COMMAND"
+      PYTHONPATH="$ROOT" "$venv_py" "$ROOT/run_command.py" "$COMMAND" "$@"
+    else
+      err "Unknown subcommand: $COMMAND. Run './BetThat command' to see available custom commands."
+    fi
     ;;
 esac

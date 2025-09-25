@@ -11,6 +11,7 @@ CSV1 = Path("tests/fixtures/odds_sample_two_way.csv")
 CSV2 = Path("tests/fixtures/odds_sample_dupes_stale.csv")
 CSV_MULTI = Path("tests/fixtures/odds_sample_multi_pos.csv")
 CSV_NORM = Path("tests/fixtures/odds_book_pos_normalization.csv")
+CSV_CONTRACT = Path("tests/fixtures/odds_ingestion_contract.csv")
 
 
 def run_import(csv_path, stale_minutes=120):
@@ -93,3 +94,58 @@ def test_book_normalization_and_pos_inference(monkeypatch, tmp_path):
         "longest reception", "rushing attempts"
     ])]
     assert inferable_markets["pos"].notna().all(), "All inferable markets should have pos"
+
+
+def test_ingestion_contract_end_to_end(monkeypatch, tmp_path):
+    """Test complete ingestion contract: book normalization, pos inference, season guarantee."""
+    run_import(CSV_CONTRACT)
+    with sqlite3.connect("storage/odds.db") as con:
+        df = pd.read_sql("SELECT * FROM odds_csv_raw ORDER BY event_id, player, market", con)
+
+    # Contract requirement 1: Book name normalization
+    books = df["book"].dropna().unique().tolist()
+    expected_normalized = {"DraftKings", "FanDuel", "BetMGM", "Caesars"}
+    assert expected_normalized.issubset(set(books)), f"Expected normalized books, got {books}"
+
+    # Should not contain any unnormalized variants
+    assert "draftkings" not in books, "Found unnormalized 'draftkings'"
+    assert "fanduel" not in books, "Found unnormalized 'fanduel'"
+    assert "CAESARS" not in books, "Found unnormalized 'CAESARS'"
+    assert "betmgm" not in books, "Found unnormalized 'betmgm'"
+
+    # Contract requirement 2: Position inference and persistence
+    # All QB markets should have QB position
+    qb_markets = df[df["market"].str.contains("pass", na=False)]
+    assert all(qb_markets["pos"] == "QB"), "All passing markets should have QB position"
+
+    # All rushing markets should have RB position
+    rb_markets = df[df["market"].str.contains("rush", na=False)]
+    assert all(rb_markets["pos"] == "RB"), "All rushing markets should have RB position"
+
+    # All reception markets should have WR position (default for receiving)
+    rec_markets = df[df["market"].str.contains("reception", na=False)]
+    assert all(rec_markets["pos"] == "WR"), "All reception markets should have WR position"
+
+    # Contract requirement 3: Season guarantee
+    assert df["season"].notna().all(), "All rows must have season information"
+
+    # Season values should be reasonable (2020-2030 range)
+    seasons = df["season"].dropna().unique()
+    assert all(2020 <= season <= 2030 for season in seasons), f"Invalid seasons found: {seasons}"
+
+    # Verify season inference from commence_time
+    # 2025-09-25 should infer 2025 season
+    expected_season_rows = df[df["event_id"].str.startswith("EVT_CONTRACT")]
+    assert all(expected_season_rows["season"] == 2025), "Season should be inferred as 2025"
+
+    # Contract requirement 4: End-to-end data integrity
+    # Should have expected number of rows (8 from fixture)
+    assert len(df) == 8, f"Expected 8 rows from contract fixture, got {len(df)}"
+
+    # Each event should have Over/Under pairs
+    event_counts = df.groupby(["event_id", "player", "market"]).size()
+    assert all(count == 2 for count in event_counts), "Each market should have Over/Under pair"
+
+    # Verify devig calculations are applied
+    assert df["implied_prob"].notna().any(), "Implied probabilities should be calculated"
+    assert df["fair_prob"].notna().any(), "Fair probabilities should be calculated via devig"

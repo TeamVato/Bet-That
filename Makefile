@@ -16,7 +16,7 @@ define run
 	fi
 endef
 
-.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit
+.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit custom-commands check-ingestion-contract enhance-empty-state bugfix-with-test
 
 help: ## Show available make targets
 	@printf "Available targets (set DRY=1 to preview):\n"
@@ -56,19 +56,31 @@ pr-status: ## Show PR status summary (placeholder)
 	$(call run,printf 'Use gh pr status for pull request status\n')
 
 betthat: ## Run the full local pipeline and launch the UI
-        $(call run,./scripts/betthat.sh)
+	$(call run,./scripts/betthat.sh)
 
 db-ratings: ## Build defense ratings dataset
-        $(call run,. .venv/bin/activate && python jobs/build_defense_ratings.py)
+	$(call run,. .venv/bin/activate && python jobs/build_defense_ratings.py)
 
 import-odds: ## Import odds data from CSV
-        $(call run,. .venv/bin/activate && python jobs/import_odds_from_csv.py)
+	$(call run,. .venv/bin/activate && python jobs/import_odds_from_csv.py)
 
 edges: ## Compute betting edges
-        $(call run,. .venv/bin/activate && python jobs/compute_edges.py)
+	$(call run,. .venv/bin/activate && python jobs/compute_edges.py)
 
 ui: ## Launch Streamlit UI
 	$(call run,PYTHONPATH="$(CURDIR)" . .venv/bin/activate && streamlit run app/streamlit_app.py)
 
 lint-streamlit: ## Ensure Streamlit deprecated arguments are not used
 	$(call run,./scripts/lint_streamlit.sh)
+
+custom-commands: ## List all available custom commands
+	$(call run,. .venv/bin/activate && python run_command.py list)
+
+check-ingestion-contract: ## Verify odds ingestion contract end-to-end
+	$(call run,. .venv/bin/activate && python run_command.py check-ingestion-contract)
+
+enhance-empty-state: ## Add empty-state callout with reset filters button
+	$(call run,. .venv/bin/activate && python run_command.py enhance-empty-state)
+
+bugfix-with-test: ## Interactive bugfix workflow with focused tests
+	$(call run,. .venv/bin/activate && python run_command.py bugfix-with-test)
