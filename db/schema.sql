@@ -202,3 +202,48 @@ CREATE TABLE IF NOT EXISTS context_notes (
     source_url TEXT,
     created_at TEXT
 );
+
+-- --- Bet-That: closing lines + CLV -----------------------------------------
+CREATE TABLE IF NOT EXISTS closing_lines (
+  closing_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL,
+  market TEXT NOT NULL,
+  side TEXT NOT NULL,
+  line REAL,
+  book TEXT NOT NULL,
+  odds_decimal REAL,
+  odds_american INTEGER,
+  implied_prob REAL,
+  overround REAL,
+  fair_prob_close REAL,
+  ts_close TIMESTAMP NOT NULL,
+  is_primary INTEGER DEFAULT 0,
+  ingest_source TEXT,
+  source_run_id TEXT,
+  raw_payload_hash TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_closing_lines_key
+  ON closing_lines(event_id, market, side, line, book);
+
+CREATE TABLE IF NOT EXISTS clv_log (
+  clv_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  edge_id TEXT,
+  bet_id TEXT,
+  event_id TEXT NOT NULL,
+  market TEXT NOT NULL,
+  side TEXT NOT NULL,
+  line REAL,
+  entry_odds INTEGER,
+  close_odds INTEGER,
+  entry_prob_fair REAL,
+  close_prob_fair REAL,
+  delta_prob REAL,
+  delta_logit REAL,
+  clv_cents REAL,
+  beat_close INTEGER,
+  primary_book TEXT,
+  match_tolerance REAL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_clv_log_event_market ON clv_log(event_id, market, side);
+-- ---------------------------------------------------------------------------

@@ -66,9 +66,12 @@ def test_poll_once_normalizes_and_writes(tmp_path, monkeypatch):
         )
         assert cur.fetchone() is not None
         df = pd.read_sql("SELECT * FROM odds_csv_raw", con)
+        closing_df = pd.read_sql("SELECT * FROM closing_lines", con)
     assert len(df) > 0
     assert df["implied_prob"].notna().any()
     assert df["fair_prob"].notna().any()
     assert df["overround"].notna().any()
     assert "is_stale" in df.columns
-
+    assert len(closing_df) > 0
+    assert closing_df["fair_prob_close"].notna().any()
+    assert closing_df["is_primary"].max() == 1

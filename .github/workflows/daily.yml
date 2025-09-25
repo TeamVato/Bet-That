@@ -1,0 +1,50 @@
+name: Daily Chain
+
+on:
+  schedule:
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    env:
+      USE_ODDS_API: "1"
+      ODDS_API_KEYS: dummy
+      SLACK_WEBHOOK_URL: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Poll odds (dry run)
+        run: ./scripts/betthat.sh poll --dry-run --once --sport nfl --markets player_props --region us
+
+      - name: Build context artifacts
+        run: ./scripts/betthat.sh context
+
+      - name: Import odds and compute edges
+        run: ./scripts/betthat.sh edges
+
+      - name: Upload odds snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: odds-history
+          path: storage/imports/history/**
+          if-no-files-found: warn
+
+      - name: Upload edges exports
+        uses: actions/upload-artifact@v4
+        with:
+          name: edges-exports
+          path: storage/edges/**
+          if-no-files-found: warn

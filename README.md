@@ -114,3 +114,11 @@ The workflow (`.github/workflows/edges.yml`) includes a conditional step to poll
 - `database is locked` → close Streamlit while importing; the importer retries automatically; rerun the command.
 - Missing defensive tiers when computing edges → run `python jobs/build_defense_ratings.py` (or `make db-ratings`). Set `BUILD_DEFENSE_RATINGS_ON_DEMAND=1` before `python jobs/compute_edges.py` to auto-build when the table/view is absent.
 - Import or module path issues → launch the UI with `PYTHONPATH="$PWD"` (the `BetThat` script already does this).
+
+
+## Weekly CLV & Calibration
+- Python: 3.12
+- Cron: Mondays 09:00 UTC
+- Outputs: `reports/weekly/YYYY-WW/CLV_Calibration_Report_YYYY-MM-DD.md|.pdf`, `status.json`
+- Gating: writes `config/signal_flags.auto.yaml` and merges with `config/signal_flags.manual.yaml` → `config/signal_flags.effective.yaml`
+- Alerts: Slack `[P0]/[P1]/[OK]` to #bet-that-alerts (via `SLACK_WEBHOOK_URL`)

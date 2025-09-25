@@ -72,6 +72,10 @@ def main() -> None:
     # Weather
     try:
         weather_df = build_weather(schedule)
+        weather_df = _ensure_dataframe(weather_df)
+        for col in ("event_id", "game_id", "temp_f", "wind_mph", "precip", "updated_at"):
+            if col not in weather_df.columns:
+                weather_df[col] = None
         print(f"Derived weather rows: {len(weather_df)}")
         persist_weather(weather_df, db_path)
     except Exception as exc:

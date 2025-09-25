@@ -1,0 +1,19 @@
+thresholds:
+  clv_beat_close: { ok: 0.53, warn: 0.50 }
+  brier_over_baseline: { warn: 0.01, fail: 0.02 }
+  close_match_coverage_min: 0.95
+  overround_violation_rate_warn: 0.005
+  missing_side_rate_warn: 0.005
+  stale_flag_rate_warn: 0.01
+rolling_weeks: 4
+routing:
+  slack_webhook_env: SLACK_WEBHOOK_URL
+  ci_summary_env: GITHUB_STEP_SUMMARY
+  write_artifacts: true
+  artifact_dir: reports/weekly
+gating:
+  fail_ci_on_p0: true
+  auto_disable_signals: true
+flags_file_auto: config/signal_flags.auto.yaml
+flags_file_manual: config/signal_flags.manual.yaml
+flags_file_effective: config/signal_flags.effective.yaml

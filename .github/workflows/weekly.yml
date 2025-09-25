@@ -1,0 +1,52 @@
+name: Weekly Report
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Ensure database schema
+        run: |
+          python db/migrate.py || true
+
+      - name: Generate weekly report
+        run: |
+          python jobs/report_weekly.py --as-of $(date -u +%F)
+
+      - name: Install pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+
+      - name: Convert latest report to PDF
+        run: |
+          LATEST_MD=$(ls -t reports/weekly/*/*.md | head -n 1)
+          if [ -n "$LATEST_MD" ]; then
+            pandoc "$LATEST_MD" -o "${LATEST_MD%.md}.pdf"
+          fi
+
+      - name: Upload weekly reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-reports
+          path: reports/weekly/**
+          if-no-files-found: warn

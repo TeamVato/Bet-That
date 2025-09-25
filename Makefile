@@ -16,7 +16,7 @@ define run
 	fi
 endef
 
-.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui
+.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit
 
 help: ## Show available make targets
 	@printf "Available targets (set DRY=1 to preview):\n"
@@ -68,4 +68,7 @@ edges: ## Compute betting edges
         $(call run,. .venv/bin/activate && python jobs/compute_edges.py)
 
 ui: ## Launch Streamlit UI
-        $(call run,PYTHONPATH="$(CURDIR)" . .venv/bin/activate && streamlit run app/streamlit_app.py)
+	$(call run,PYTHONPATH="$(CURDIR)" . .venv/bin/activate && streamlit run app/streamlit_app.py)
+
+lint-streamlit: ## Ensure Streamlit deprecated arguments are not used
+	$(call run,./scripts/lint_streamlit.sh)

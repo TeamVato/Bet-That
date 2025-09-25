@@ -66,6 +66,46 @@ def load_tables(database_path: Path) -> dict[str, pd.DataFrame]:
     }
 
 
+def _safe_filter(df: pd.DataFrame | None, col: str, value: object) -> pd.DataFrame:
+    """Return an empty frame instead of raising when the column is missing."""
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        return pd.DataFrame(columns=[col])
+    if col not in df.columns:
+        return df.iloc[0:0]
+    return df.loc[df[col].eq(value)]
+
+
+def _infer_current_season(reference: datetime.datetime | None = None) -> int:
+    """Infer the current NFL season (year) based on today's date."""
+    ref = reference or datetime.datetime.now(datetime.UTC)
+    return ref.year if ref.month >= 8 else ref.year - 1
+
+
+def _load_available_seasons(database_path: Path, edges_df: pd.DataFrame) -> list[int]:
+    seasons: set[int] = set()
+    if isinstance(edges_df, pd.DataFrame) and "season" in edges_df.columns:
+        try:
+            seasons.update(int(s) for s in edges_df["season"].dropna().astype(int).unique())
+        except Exception:
+            pass
+
+    try:
+        with sqlite3.connect(database_path) as conn:
+            defense_df = pd.read_sql_query("SELECT DISTINCT season FROM defense_ratings", conn)
+    except Exception:
+        defense_df = pd.DataFrame()
+
+    if not defense_df.empty and "season" in defense_df.columns:
+        try:
+            seasons.update(int(s) for s in defense_df["season"].dropna().astype(int).unique())
+        except Exception:
+            pass
+
+    if not seasons:
+        seasons.add(_infer_current_season())
+    return sorted(seasons)
+
+
 def export_picks(df: pd.DataFrame) -> Path:
     export_dir = Path("storage/exports")
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -227,9 +267,9 @@ def render_matchup_expander(
         wr_cb_col.markdown("**WR/CB Context**")
         wr_cb_info = "No matchup notes found."
         if not wr_cb_df.empty and event_id is not None:
-            candidates = wr_cb_df[wr_cb_df.get("event_id") == event_id]
+            candidates = _safe_filter(wr_cb_df, "event_id", event_id)
             if candidates.empty and player:
-                candidates = wr_cb_df[wr_cb_df.get("player") == player]
+                candidates = _safe_filter(wr_cb_df, "player", player)
             if not candidates.empty:
                 top = candidates.iloc[0]
                 blurb = top.get("note") or top.get("summary")
@@ -246,10 +286,11 @@ def render_matchup_expander(
         # Injuries & Weather card
         inj_col.markdown("**Injuries & Weather**")
         info_lines: list[str] = []
+        no_weather_context = False
         if not injuries_df.empty and event_id is not None:
-            match = injuries_df[injuries_df.get("event_id") == event_id]
+            match = _safe_filter(injuries_df, "event_id", event_id)
             if match.empty and player:
-                match = injuries_df[injuries_df.get("player") == player]
+                match = _safe_filter(injuries_df, "player", player)
             if not match.empty:
                 for _, inj in match.iloc[:3].iterrows():
                     status = inj.get("status") or inj.get("designation")
@@ -257,10 +298,12 @@ def render_matchup_expander(
                     who = inj.get("player") or inj.get("name")
                     info_lines.append(f"{who or 'Player'}: {status or 'status n/a'} ({desc or 'n/a'})")
         if not weather_df.empty and event_id is not None:
-            weather_match = weather_df[weather_df.get("event_id") == event_id]
+            weather_match = _safe_filter(weather_df, "event_id", event_id)
             if weather_match.empty and isinstance(event_id, str):
-                weather_match = weather_df[weather_df.get("game_id") == event_id]
-            if not weather_match.empty:
+                weather_match = _safe_filter(weather_df, "game_id", event_id)
+            if weather_match.empty:
+                no_weather_context = True
+            else:
                 weather_row = weather_match.iloc[-1]
                 temp = weather_row.get("temp_f")
                 wind = weather_row.get("wind_mph")
@@ -278,7 +321,10 @@ def render_matchup_expander(
                 if weather_parts:
                     info_lines.append("Weather: " + ", ".join(weather_parts))
         if not info_lines:
-            inj_col.caption("No injury or weather updates yet.")
+            if no_weather_context:
+                inj_col.caption("No weather context found for this matchup yet.")
+            else:
+                inj_col.caption("No injury or weather updates yet.")
         else:
             inj_col.markdown("\n".join(f"- {line}" for line in info_lines))
 
@@ -491,8 +537,10 @@ def render_app() -> None:
     if props[["season", "def_team"]].isna().any().any():
         st.warning("Some props are missing season or opponent team metadata. Update the CSV for better projections.")
 
-    season_options = sorted({int(s) for s in props["season"].dropna().unique()})
-    selected_seasons = st.sidebar.multiselect("Season filter", season_options, default=season_options)
+    available_seasons = _load_available_seasons(database_path, edges)
+    selected_seasons = st.sidebar.multiselect(
+        "Season filter", available_seasons, default=available_seasons
+    )
     odds_min, odds_max = st.sidebar.slider("Odds range (American)", -400, 400, (-250, 250))
     min_ev = st.sidebar.slider("Minimum EV per $1", -1.0, 1.0, 0.0, step=0.01)
     stale_minutes_default = int(os.getenv("STALE_MINUTES", "120"))
@@ -509,12 +557,14 @@ def render_app() -> None:
     edges_view = edges.copy().reset_index(drop=True)
     edges_view = edges_view.copy()
     edges_view["row_id"] = edges_view.index
-    current_year = datetime.datetime.now().year
-    fallback_season = current_year if datetime.datetime.now().month >= 8 else current_year - 1
-    if "season" not in edges_view.columns:
-        edges_view["season"] = fallback_season
-    elif edges_view["season"].isna().all():
-        edges_view["season"] = fallback_season
+    fallback_season = available_seasons[-1] if available_seasons else _infer_current_season()
+    season_series = edges_view.get("season")
+    if season_series is None:
+        season_series = pd.Series(fallback_season, index=edges_view.index, dtype=int)
+    else:
+        season_series = pd.to_numeric(season_series, errors="coerce")
+        season_series = season_series.fillna(fallback_season).astype(int)
+    edges_view["season"] = season_series
     for col in ("def_tier", "def_score"):
         if col not in edges_view.columns:
             edges_view[col] = None
@@ -551,7 +601,7 @@ def render_app() -> None:
         edges_view["home_side"] = "n/a"
 
     if selected_seasons:
-        edges_view = edges_view[edges_view["season"].isin(selected_seasons)]
+        edges_view = edges_view.loc[season_series.isin(selected_seasons)]
     edges_view = edges_view[(edges_view["odds"] >= odds_min) & (edges_view["odds"] <= odds_max)]
     edges_view = edges_view[edges_view["ev_per_dollar"] >= min_ev]
     if hide_stale:
@@ -683,7 +733,7 @@ def render_app() -> None:
                     if display_df.empty:
                         st.caption("No plays for this position with the current filters.")
                     else:
-                        st.dataframe(display_df.round(3), use_container_width=True)
+                        st.dataframe(display_df.round(3), width="stretch")
 
     with sportsbook_tab:
         st.subheader("Top plays by sportsbook")
@@ -712,7 +762,7 @@ def render_app() -> None:
                 if book_display.empty:
                     st.caption("No plays for this book with the current filters.")
                 else:
-                    st.dataframe(book_display.round(3), use_container_width=True)
+                    st.dataframe(book_display.round(3), width="stretch")
 
     with all_edges_tab:
         st.subheader("Edges (QB/RB/WR props)")
@@ -779,7 +829,7 @@ def render_app() -> None:
             column_config=column_config,
             hide_index=True,
             num_rows="dynamic",
-            use_container_width=True,
+            width="stretch",
             key="edges_editor",
         )
 
