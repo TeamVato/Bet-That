@@ -123,6 +123,23 @@ def _coalesce(*vals, default=None):
     return default
 
 
+def _coalesce_na(*values, default=""):
+    """Return the first non-null/non-NA string value from the given values."""
+    for value in values:
+        if value is None:
+            continue
+        try:
+            if pd.isna(value):
+                continue
+        except Exception:
+            pass
+        if isinstance(value, str):
+            return value
+        # Convert non-string values to string if they're not null/NA
+        return str(value)
+    return default
+
+
 def _str_eq(a, b):
     """Case-insensitive, NA-safe equality for strings."""
     a = _coalesce(a, default="")
@@ -132,48 +149,70 @@ def _str_eq(a, b):
 
 def _infer_current_season(reference: datetime.datetime | None = None) -> int:
     """Infer the current NFL season (year) based on today's date."""
-    ref = reference or datetime.datetime.now(datetime.UTC)
+    ref = reference or datetime.datetime.now(datetime.timezone.utc)
     return ref.year if ref.month >= 8 else ref.year - 1
 
 
 def _load_available_seasons(database_path: Path, edges_df: pd.DataFrame) -> list[int]:
+    """
+    Load available seasons from defense_ratings and edges_df.
+    Returns sorted list in descending order with proper Int64 casting and NA handling.
+    """
     seasons: set[int] = set()
-    if isinstance(edges_df, pd.DataFrame) and "season" in edges_df.columns:
-        try:
-            seasons.update(int(s) for s in edges_df["season"].dropna().astype(int).unique())
-        except Exception:
-            pass
 
+    # Query defense_ratings seasons from SQLite
     try:
         with sqlite3.connect(database_path) as conn:
             defense_df = pd.read_sql_query("SELECT DISTINCT season FROM defense_ratings", conn)
+            if not defense_df.empty and "season" in defense_df.columns:
+                # Cast to Int64, drop NA, convert to int
+                defense_seasons = pd.to_numeric(defense_df["season"], errors="coerce").astype("Int64")
+                seasons.update(int(s) for s in defense_seasons.dropna().unique())
     except Exception:
-        defense_df = pd.DataFrame()
+        pass
 
-    if not defense_df.empty and "season" in defense_df.columns:
+    # Union with edges_df seasons if present
+    if isinstance(edges_df, pd.DataFrame) and "season" in edges_df.columns:
         try:
-            seasons.update(int(s) for s in defense_df["season"].dropna().astype(int).unique())
+            # Cast to Int64, drop NA, convert to int
+            edges_seasons = pd.to_numeric(edges_df["season"], errors="coerce").astype("Int64")
+            seasons.update(int(s) for s in edges_seasons.dropna().unique())
         except Exception:
             pass
 
+    # If empty, return current season
     if not seasons:
         seasons.add(_infer_current_season())
-    return sorted(seasons)
+
+    # Sort in descending order (most recent first)
+    return sorted(seasons, reverse=True)
 
 
-def apply_season_filter(edges_df: pd.DataFrame, selected: Sequence[int]) -> pd.DataFrame:
+def apply_season_filter(edges_df: pd.DataFrame, selected: Sequence[int], available_seasons: list[int]) -> pd.DataFrame:
     """Return a copy filtered by selected seasons, handling NA safely."""
     if not isinstance(edges_df, pd.DataFrame):
         return pd.DataFrame()
     result = edges_df.copy()
     if "season" not in result.columns or not selected:
         return result
+
     try:
         safe_selected = [int(s) for s in selected]
     except Exception:
         return result
-    season_series = pd.to_numeric(result["season"], errors="coerce")
-    mask = season_series.fillna(-1).isin(safe_selected)
+
+    # Coerce season to Int64 for consistent handling
+    season_series = pd.to_numeric(result["season"], errors="coerce").astype("Int64")
+
+    # NA-safe membership: include NA values if "All" seasons are selected
+    all_selected = len(safe_selected) == len(available_seasons)
+    if all_selected:
+        # When all seasons selected, include both matching seasons and NA values
+        mask = season_series.isin(safe_selected) | season_series.isna()
+    else:
+        # When specific seasons selected, only include matching seasons (exclude NA)
+        mask = season_series.isin(safe_selected)
+
     return result.loc[mask].copy()
 
 
@@ -483,10 +522,10 @@ def render_matchup_expander(
                 match = _safe_filter(injuries_df, "player", player)
             if not match.empty:
                 for _, inj in match.iloc[:3].iterrows():
-                    status = _coalesce(
+                    status = _coalesce_na(
                         inj.get("status"),
                         inj.get("designation"),
-                        default="—",
+                        default="(status unknown)",
                     )
                     who = _coalesce(inj.get("player"), inj.get("name"), default="Player")
                     note = _coalesce(inj.get("notes"), inj.get("comment"), default="")
@@ -820,7 +859,7 @@ def render_app() -> None:
     if "season" not in edges_view.columns:
         edges_view["season"] = pd.Series(pd.NA, index=edges_view.index)
 
-    edges_view = apply_season_filter(edges_view, selected_seasons)
+    edges_view = apply_season_filter(edges_view, selected_seasons, available_seasons)
 
     if "season" in edges_view.columns:
         season_numeric = pd.to_numeric(edges_view["season"], errors="coerce")

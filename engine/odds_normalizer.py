@@ -12,6 +12,33 @@ from engine.odds_math import (
 )
 from engine.season import infer_season_series
 
+
+def normalize_book(book: str) -> str:
+    """Return canonical sportsbook names with stable mappings."""
+    if not book:
+        return ""
+
+    book_lower = str(book).strip().lower()
+    if not book_lower:
+        return ""
+
+    # Canonical mappings for sportsbooks
+    CANONICAL_BOOK_MAP = {
+        "draftkings": "DraftKings",
+        "dk": "DraftKings",
+        "fanduel": "FanDuel",
+        "fd": "FanDuel",
+        "caesars": "Caesars",
+        "betmgm": "BetMGM",
+        "espnbet": "ESPN BET",
+        "pointsbet": "PointsBet",
+        "bet365": "Bet365"
+    }
+
+    # Return canonical mapping or title-case default
+    return CANONICAL_BOOK_MAP.get(book_lower, book.strip().title())
+
+
 REQUIRED_COLUMNS = [
     "event_id",
     "commence_time",
@@ -137,6 +164,9 @@ def normalize_long_odds(
     data["odds"] = pd.to_numeric(data["odds"], errors="coerce").astype("Int64")
     data["side"] = data["side"].map(_normalize_side)
 
+    # Normalize book names
+    data["book"] = data["book"].apply(normalize_book)
+
     updated_at = pd.to_datetime(data["updated_at"], utc=True, errors="coerce")
     data["_updated_at"] = updated_at
     data = data.sort_values("_updated_at")
@@ -228,14 +258,27 @@ def _infer_pos_from_market(raw_market: object) -> Optional[str]:
     if not isinstance(raw_market, str):
         return None
     text = raw_market.lower()
-    if "pass" in text:
+
+    # QB markets - passing stats, interceptions, touchdowns
+    if re.search(r"pass|qb|quarterback|completion|interception|int\b|td\b|touchdown", text):
         return "QB"
-    if "rush" in text or "carry" in text or "attempt" in text:
+
+    # RB markets - rushing yards/attempts, longest rush
+    if re.search(r"rush|carry|attempt|longest.+rush", text):
         return "RB"
-    if "rec" in text or "catch" in text:
+
+    # WR/TE markets - receiving yards/receptions, longest reception
+    # Prefer player position if available, but default to WR for receiving
+    if re.search(r"rec|catch|reception|target|longest.+rec", text):
+        # Check for TE specific indicators first
+        if re.search(r"\bte\b|tight[-_\s]?end", text):
+            return "TE"
         return "WR"
+
+    # Specific TE indicators
     if re.search(r"\bte\b|tight[-_\s]?end", text):
         return "TE"
+
     return None
 
 

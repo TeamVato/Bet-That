@@ -17,6 +17,7 @@ from adapters.nflverse_provider import build_event_lookup, get_player_game_logs,
 from adapters.odds.csv_props_provider import CsvQBPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
+from engine.team_map import normalize_team_code as normalize_team_code_for_defense
 from models.qb_projection import ProjectionConfig, build_qb_projections
 from engine.season import infer_season, infer_season_series
 from utils.teams import normalize_team_code
@@ -354,8 +355,15 @@ def main() -> None:
                             }
                         )
                         for idx in edges_df.index[missing_mask]:
+                            # Normalize team code for defense merge
+                            raw_def_code = edges_df.at[idx, "opponent_def_code"]
+                            if pd.isna(raw_def_code) or raw_def_code is None:
+                                continue  # Skip rows with no opponent defense code
+                            normalized_def_code = normalize_team_code_for_defense(str(raw_def_code))
+                            if not normalized_def_code:  # Skip empty normalized codes
+                                continue
                             key = (
-                                edges_df.at[idx, "opponent_def_code"],
+                                normalized_def_code,
                                 edges_df.at[idx, "season"],
                             )
                             if key in tier_lookup and pd.isna(edges_df.at[idx, "def_tier"]):

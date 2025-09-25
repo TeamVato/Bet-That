@@ -10,6 +10,13 @@ Goals: correctness, simplicity, safety.
 - Migrations must be idempotent; don't drop data.
 - UI must never crash on missing/NA columns; show explicit empty states.
 
+## Always:
+- Think first; outline a short plan in tasks/todo.md.
+- Keep diffs minimal and reversible; add a focused test with each fix.
+- Never crash on NA/missing columns; show explicit empty states.
+- Don’t add heavy dependencies; preserve Make targets (betthat, edges, db-ratings, import-odds, ui).
+- Streamlit sizing: use width='stretch'|'content' only.
+
 ## Process
 1. Write/append a clear checklist to tasks/todo.md (bullets with acceptance criteria).
 2. Ask for confirmation before big/ambiguous changes; otherwise apply safe, local patches.
@@ -24,3 +31,8 @@ Goals: correctness, simplicity, safety.
 
 ## Completion
 - Update a **Review** section in tasks/todo.md summarizing the changes and tradeoffs.
+
+
+Debugging:
+- Trace the entire data flow end-to-end (no assumptions).
+- Prefer left-joins with clear NA labeling over dropping rows.

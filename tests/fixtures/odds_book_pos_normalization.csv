@@ -1,0 +1,11 @@
+event_id,commence_time,home_team,away_team,player,market,line,side,odds,book,updated_at
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Patrick Mahomes,player_pass_yds,299.5,Over,-110,draftkings,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Patrick Mahomes,player_pass_yds,299.5,Under,-110,draftkings,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Derrick Henry,player_rush_yds,89.5,Over,-105,dk,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Derrick Henry,player_rush_yds,89.5,Under,-115,dk,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Travis Kelce,player_receptions,5.5,Over,-120,fanduel,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Travis Kelce,player_receptions,5.5,Under,+100,FanDuel,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Mike Williams,longest reception,15.5,Over,+110,betmgm,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Mike Williams,longest reception,15.5,Under,-130,BetMGM,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Josh Jacobs,rushing attempts,18.5,Over,-105,CAESARS,2024-01-07 10:00:00+00:00
+2024-01-07-KC-LAC,2024-01-07 13:00:00+00:00,LAC,KC,Josh Jacobs,rushing attempts,18.5,Under,-115,caesars,2024-01-07 10:00:00+00:00
