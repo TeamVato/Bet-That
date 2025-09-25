@@ -4,13 +4,29 @@ from __future__ import annotations
 import datetime
 import os
 import sqlite3
+from collections.abc import Sequence
+from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
+from app.debug_panel import (
+    _connect,
+    active_env_settings,
+    count_rows,
+    counts_by,
+    edges_quality,
+    edges_weather_coverage,
+    max_updated,
+    odds_staleness,
+)
+from app.ui_badges import context_key, is_why_open, render_header_with_badge
+from app.why_empty import Filters as EmptyFilters, explain_empty
 from engine import steam_detector
 from engine.odds_math import american_to_decimal
 from engine.portfolio import greedy_select, kelly_fraction
@@ -91,8 +107,8 @@ def _safe_filter(df: pd.DataFrame | None, col: str, value: object) -> pd.DataFra
     return df.loc[df[col].eq(value)]
 
 
-def _coalesce_na(*vals, default=None):
-    """Return the first value that is not None/NA (pandas.NA-safe)."""
+def _coalesce(*vals, default=None):
+    """Return the first value that is not NA/None/empty-string."""
     for v in vals:
         if v is None:
             continue
@@ -101,14 +117,16 @@ def _coalesce_na(*vals, default=None):
                 continue
         except Exception:
             pass
+        if isinstance(v, str) and not v.strip():
+            continue
         return v
     return default
 
 
 def _str_eq(a, b):
     """Case-insensitive, NA-safe equality for strings."""
-    a = _coalesce_na(a, default="")
-    b = _coalesce_na(b, default="")
+    a = _coalesce(a, default="")
+    b = _coalesce(b, default="")
     return str(a).strip().lower() == str(b).strip().lower()
 
 
@@ -142,6 +160,129 @@ def _load_available_seasons(database_path: Path, edges_df: pd.DataFrame) -> list
         seasons.add(_infer_current_season())
     return sorted(seasons)
 
+
+def apply_season_filter(edges_df: pd.DataFrame, selected: Sequence[int]) -> pd.DataFrame:
+    """Return a copy filtered by selected seasons, handling NA safely."""
+    if not isinstance(edges_df, pd.DataFrame):
+        return pd.DataFrame()
+    result = edges_df.copy()
+    if "season" not in result.columns or not selected:
+        return result
+    try:
+        safe_selected = [int(s) for s in selected]
+    except Exception:
+        return result
+    season_series = pd.to_numeric(result["season"], errors="coerce")
+    mask = season_series.fillna(-1).isin(safe_selected)
+    return result.loc[mask].copy()
+
+
+def render_debug_panel(
+    database_path: Path,
+    edges_df: pd.DataFrame,
+    filter_state: dict,
+) -> None:
+    """Render the debug panel with lightweight diagnostics when enabled."""
+
+    env_settings = active_env_settings()
+    with closing(_connect(str(database_path))) as con:
+        debug_expander = st.expander("🔎 Debug Panel", expanded=True)
+        with debug_expander:
+            st.markdown("#### Data Sources")
+            data_sources = {
+                "db_path": str(database_path),
+                "tables": {
+                    "odds_csv_raw": count_rows(con, "odds_csv_raw"),
+                    "current_best_lines": count_rows(con, "current_best_lines"),
+                    "edges": count_rows(con, "edges"),
+                    "defense_ratings": count_rows(con, "defense_ratings"),
+                    "weather": count_rows(con, "weather"),
+                    "injuries": count_rows(con, "injuries"),
+                },
+                "max_updated": {
+                    "odds_csv_raw": max_updated(con, "odds_csv_raw"),
+                    "current_best_lines": max_updated(con, "current_best_lines"),
+                    "edges": max_updated(con, "edges"),
+                    "weather": max_updated(con, "weather"),
+                },
+            }
+            st.write(data_sources)
+
+            st.markdown("#### Coverage")
+            odds_by_book = counts_by(con, "odds_csv_raw", "book").rename(columns={"key": "book"})
+            if odds_by_book.empty:
+                st.caption("No odds CSV rows grouped by sportsbook yet.")
+            else:
+                st.caption("Odds by sportsbook")
+                st.dataframe(odds_by_book, width="stretch")
+
+            edges_season_db = counts_by(con, "edges", "season").rename(columns={"key": "season"})
+            if not edges_season_db.empty:
+                st.caption("Edges (database) by season")
+                st.dataframe(edges_season_db, width="stretch")
+
+            defense_season_db = counts_by(con, "defense_ratings", "season").rename(columns={"key": "season"})
+            if not defense_season_db.empty:
+                st.caption("Defense ratings by season")
+                st.dataframe(defense_season_db, width="stretch")
+
+            if not edges_df.empty:
+                if "season" in edges_df.columns:
+                    season_counts = (
+                        edges_df.assign(
+                            season=edges_df["season"].fillna("Unknown")
+                        )
+                        .groupby("season")
+                        .size()
+                        .reset_index(name="count")
+                        .sort_values("count", ascending=False)
+                    )
+                    st.caption("Edges (current view) by season")
+                    st.dataframe(season_counts, width="stretch")
+                if "pos" in edges_df.columns:
+                    pos_counts = (
+                        edges_df.assign(
+                            pos=edges_df["pos"].fillna("Unknown")
+                        )
+                        .groupby("pos")
+                        .size()
+                        .reset_index(name="count")
+                        .sort_values("count", ascending=False)
+                    )
+                    st.caption("Edges (current view) by position")
+                    st.dataframe(pos_counts, width="stretch")
+
+            st.markdown("#### Staleness")
+            st.write({**odds_staleness(con), "STALE_MINUTES": env_settings["STALE_MINUTES"]})
+
+            st.markdown("#### Joins & Quality")
+            st.write(edges_quality(con))
+            st.write(edges_weather_coverage(con))
+
+            st.markdown("#### Filters (effective)")
+            st.write(filter_state)
+
+            st.markdown("#### Environment")
+            st.write(env_settings)
+
+
+def render_empty_explainer(
+    edges_source: pd.DataFrame,
+    filters_obj: EmptyFilters,
+    database_path: Path,
+    force_open: bool,
+    ctx_key: str,
+) -> None:
+    """Render the explainer, optionally forced open via the context key."""
+
+    tips = explain_empty(edges_source, filters_obj, database_path)
+    with st.expander("ℹ️ Why is this empty (or limited)?", expanded=force_open):
+        for line in tips.get("tips", []):
+            st.write(line)
+        for extra in tips.get("extras", []):
+            st.caption(extra)
+    if force_open:
+        st.session_state[ctx_key] = False
 
 def export_picks(df: pd.DataFrame) -> Path:
     export_dir = Path("storage/exports")
@@ -234,22 +375,34 @@ def render_matchup_expander(
     row: pd.Series,
     data: dict[str, pd.DataFrame],
     database_path: Path,
+    filters: Optional[EmptyFilters] = None,
+    edges_source: Optional[pd.DataFrame] = None,
 ) -> None:
     event_id = row.get("event_id")
-    player = row.get("player") or "Unknown player"
-    market = row.get("market") or "Unknown market"
+    player = _coalesce(row.get("player"), default="Unknown player")
+    market = _coalesce(row.get("market"), default="Unknown market")
     label = f"Matchup: {player} · {market}"
+    ctx_drawer = context_key("matchup", event_id or player)
 
     scheme_df = data.get("scheme", pd.DataFrame())
     weather_df = data.get("weather", pd.DataFrame())
     injuries_df = data.get("injuries", pd.DataFrame())
     wr_cb_df = data.get("wr_cb", pd.DataFrame())
 
-    def_tier = row.get("def_tier") or "n/a"
+    def_tier = _coalesce(row.get("def_tier"), default="n/a")
     def_score = row.get("def_score")
     def_score_display = f"{def_score:.2f}" if isinstance(def_score, (int, float)) and not np.isnan(def_score) else "n/a"
 
     with st.expander(label, expanded=False):
+        render_header_with_badge("Matchup context", None, ctx_drawer)
+        if filters is not None and edges_source is not None and is_why_open(ctx_drawer):
+            render_empty_explainer(
+                edges_source,
+                filters,
+                database_path,
+                force_open=True,
+                ctx_key=ctx_drawer,
+            )
         def_col, scheme_col, wr_cb_col, inj_col = st.columns(4)
 
         # Defense card
@@ -267,7 +420,7 @@ def render_matchup_expander(
         scheme_col.markdown("**Scheme & Tendencies**")
         scheme_info = "n/a"
         if not scheme_df.empty:
-            offense_team = row.get("team") or row.get("team_code")
+            offense_team = _coalesce(row.get("team"), row.get("team_code"))
             season = row.get("season")
             week = row.get("week")
             if offense_team in (None, "") and isinstance(event_id, str) and "-" in event_id:
@@ -309,8 +462,8 @@ def render_matchup_expander(
                 candidates = _safe_filter(wr_cb_df, "player", player)
             if not candidates.empty:
                 top = candidates.iloc[0]
-                blurb = top.get("note") or top.get("summary")
-                link = top.get("source_url") or top.get("url")
+                blurb = _coalesce(top.get("note"), top.get("summary"), default="")
+                link = _coalesce(top.get("source_url"), top.get("url"), default="")
                 parts = []
                 if isinstance(blurb, str) and blurb.strip():
                     parts.append(blurb.strip())
@@ -330,21 +483,21 @@ def render_matchup_expander(
                 match = _safe_filter(injuries_df, "player", player)
             if not match.empty:
                 for _, inj in match.iloc[:3].iterrows():
-                    status = _coalesce_na(
+                    status = _coalesce(
                         inj.get("status"),
                         inj.get("designation"),
                         default="—",
                     )
-                    who = _coalesce_na(inj.get("player"), inj.get("name"), default="Player")
-                    note = _coalesce_na(inj.get("notes"), inj.get("comment"), default="")
-                    desc = _coalesce_na(
+                    who = _coalesce(inj.get("player"), inj.get("name"), default="Player")
+                    note = _coalesce(inj.get("notes"), inj.get("comment"), default="")
+                    desc = _coalesce(
                         inj.get("note"),
                         inj.get("description"),
                         inj.get("detail"),
                         default="",
                     )
-                    side = _coalesce_na(inj.get("side"), default="")
-                    team = _coalesce_na(inj.get("team"), inj.get("club"), default="")
+                    side = _coalesce(inj.get("side"), default="")
+                    team = _coalesce(inj.get("team"), inj.get("club"), default="")
                     details = [
                         str(val).strip()
                         for val in (team, side, note, desc)
@@ -374,14 +527,16 @@ def render_matchup_expander(
                     weather_row = wmatch.iloc[-1]
                     temp = weather_row.get("temp_f")
                     wind = weather_row.get("wind_mph")
-                    precip = weather_row.get("precip")
+                    precip = _coalesce(weather_row.get("precip"), default="")
                     indoor = weather_row.get("indoor")
                     weather_parts = []
                     if temp is not None and not pd.isna(temp):
                         weather_parts.append(f"Temp {float(temp):.0f}°F")
                     if wind is not None and not pd.isna(wind):
                         weather_parts.append(f"Wind {float(wind):.0f} mph")
-                    if precip:
+                    if isinstance(precip, str) and precip.strip():
+                        weather_parts.append(precip.strip())
+                    elif precip not in (None, "") and not pd.isna(precip):
                         weather_parts.append(str(precip))
                     if indoor in (1, True, "1", "Y", "y"):
                         weather_parts.append("Indoor")
@@ -393,6 +548,14 @@ def render_matchup_expander(
                 inj_col.caption(weather_caption)
             else:
                 inj_col.caption("No injury or weather updates yet.")
+            if filters is not None and edges_source is not None:
+                render_empty_explainer(
+                    edges_source,
+                    filters,
+                    database_path,
+                    force_open=True,
+                    ctx_key=ctx_drawer,
+                )
         else:
             inj_col.markdown("\n".join(f"- {line}" for line in info_lines))
             if weather_caption and all(not line.startswith("Weather:") for line in info_lines):
@@ -603,6 +766,7 @@ def render_app() -> None:
     best_lines = data["best_lines"]
     snapshots = data["snapshots"]
     odds_raw = data.get("odds_raw", pd.DataFrame())
+    base_edges_count = len(edges)
 
     if "pos" not in edges.columns:
         edges["pos"] = pd.NA
@@ -619,8 +783,15 @@ def render_app() -> None:
 
     available_seasons = _load_available_seasons(database_path, edges)
     selected_seasons = st.sidebar.multiselect(
-        "Season filter", available_seasons, default=available_seasons
+        "Season filter",
+        options=available_seasons,
+        default=available_seasons,
+        key="season_filter",
     )
+    if hasattr(st.sidebar, "toggle"):
+        debug_mode = st.sidebar.toggle("Debug mode", value=False, key="debug_mode_toggle")
+    else:
+        debug_mode = st.sidebar.checkbox("Debug mode", value=False, key="debug_mode_toggle")
     odds_min, odds_max = st.sidebar.slider("Odds range (American)", -400, 400, (-250, 250))
     min_ev = st.sidebar.slider("Minimum EV per $1", -1.0, 1.0, 0.0, step=0.01)
     stale_minutes_default = int(os.getenv("STALE_MINUTES", "120"))
@@ -636,6 +807,27 @@ def render_app() -> None:
 
     edges_view = edges.copy().reset_index(drop=True)
     edges_view = edges_view.copy()
+
+    filters_base = EmptyFilters(
+        seasons=list(selected_seasons) if selected_seasons else [],
+        odds_min=int(odds_min),
+        odds_max=int(odds_max),
+        ev_min=float(min_ev),
+        hide_stale=bool(hide_stale),
+        best_priced_only=bool(show_best_only),
+    )
+
+    if "season" not in edges_view.columns:
+        edges_view["season"] = pd.Series(pd.NA, index=edges_view.index)
+
+    edges_view = apply_season_filter(edges_view, selected_seasons)
+
+    if "season" in edges_view.columns:
+        season_numeric = pd.to_numeric(edges_view["season"], errors="coerce")
+        try:
+            edges_view["season"] = season_numeric.astype("Int64")
+        except Exception:
+            edges_view["season"] = season_numeric
 
     # --- Position inference fallback in UI ---
     def _infer_pos_from_market(market: str) -> str | None:
@@ -660,14 +852,6 @@ def render_app() -> None:
     # --- end add ---
 
     edges_view["row_id"] = edges_view.index
-    fallback_season = available_seasons[-1] if available_seasons else _infer_current_season()
-    season_series = edges_view.get("season")
-    if season_series is None:
-        season_series = pd.Series(fallback_season, index=edges_view.index, dtype=int)
-    else:
-        season_series = pd.to_numeric(season_series, errors="coerce")
-        season_series = season_series.fillna(fallback_season).astype(int)
-    edges_view["season"] = season_series
     for col in ("def_tier", "def_score"):
         if col not in edges_view.columns:
             edges_view[col] = None
@@ -725,8 +909,6 @@ def render_app() -> None:
     else:
         edges_view["home_side"] = "n/a"
 
-    if selected_seasons:
-        edges_view = edges_view.loc[season_series.isin(selected_seasons)]
     edges_view = edges_view[(edges_view["odds"] >= odds_min) & (edges_view["odds"] <= odds_max)]
     edges_view = edges_view[edges_view["ev_per_dollar"] >= min_ev]
     if hide_stale:
@@ -739,6 +921,22 @@ def render_app() -> None:
             "player",
             "market",
         ])
+
+    ctx_main = context_key("edges", "main")
+
+    filter_state = {
+        "season_selected": list(selected_seasons),
+        "odds_range": [odds_min, odds_max],
+        "min_ev_per_dollar": min_ev,
+        "hide_stale": hide_stale,
+        "only_generous_defenses": only_generous,
+        "best_priced_only": show_best_only,
+        "rows_before_filters": base_edges_count,
+        "rows_after_filters": len(edges_view),
+        "rows_excluded": max(base_edges_count - len(edges_view), 0),
+    }
+    if debug_mode:
+        render_debug_panel(database_path, edges_view, filter_state)
 
     display_cols = [
         "player",
@@ -792,6 +990,7 @@ def render_app() -> None:
 
     tabs = st.tabs(["By Position", "By Sportsbook", "All edges"])
     position_tab, sportsbook_tab, all_edges_tab = tabs
+    selected_edges = edges_view.iloc[0:0]
 
     def _apply_def_tier_filter(df: pd.DataFrame, stingy: bool, generous: bool) -> pd.DataFrame:
         if stingy and generous:
@@ -824,6 +1023,13 @@ def render_app() -> None:
         st.subheader("Top plays by position")
         if edges_view.empty:
             st.info("No edges available with the current filters.")
+            render_empty_explainer(
+                edges,
+                filters_base,
+                database_path,
+                force_open=True,
+                ctx_key=context_key("edges", "position_overview"),
+            )
         else:
             col1, col2, col3 = st.columns([1, 1, 2])
             show_stingy = col1.checkbox("Only vs stingy defenses", value=False, key="pos_stingy")
@@ -851,6 +1057,10 @@ def render_app() -> None:
                     subset = _apply_def_tier_filter(subset, show_stingy, show_generous)
                     subset = _apply_position_preset(subset, position_name, preset_choice)
                     subset = subset.sort_values("ev_per_dollar", ascending=False)
+                    ctx_pos = context_key("edges", "pos", position_name)
+
+                    render_header_with_badge(position_name, subset, ctx_pos)
+
                     display_df = subset[position_columns].copy()
                     numeric_cols = [
                         "line",
@@ -865,15 +1075,28 @@ def render_app() -> None:
                         if col in display_df.columns:
                             display_df[col] = pd.to_numeric(display_df[col], errors="coerce")
                     display_df = display_df.head(25)
-                    if display_df.empty:
-                        st.caption("No plays for this position with the current filters.")
-                    else:
+                    if display_df.empty or is_why_open(ctx_pos):
+                        render_empty_explainer(
+                            edges,
+                            replace(filters_base, pos=position_name),
+                            database_path,
+                            force_open=is_why_open(ctx_pos) or display_df.empty,
+                            ctx_key=ctx_pos,
+                        )
+                    if not display_df.empty:
                         st.dataframe(display_df.round(3), width="stretch")
 
     with sportsbook_tab:
         st.subheader("Top plays by sportsbook")
         if edges_view.empty:
             st.info("No edges available with the current filters.")
+            render_empty_explainer(
+                edges,
+                filters_base,
+                database_path,
+                force_open=True,
+                ctx_key=context_key("edges", "book_overview"),
+            )
         else:
             books_in_view = sorted(
                 [
@@ -898,11 +1121,19 @@ def render_app() -> None:
             else:
                 sb_df = edges_view.iloc[0:0]
 
-            if sb_df.empty:
-                st.caption(
-                    "No edges for this sportsbook at the moment (check filters or stale-line toggle)."
+            ctx_book = context_key("edges", "book", selected_book)
+            render_header_with_badge(selected_book, sb_df, ctx_book)
+
+            if sb_df.empty or is_why_open(ctx_book):
+                render_empty_explainer(
+                    edges,
+                    replace(filters_base, book=selected_book),
+                    database_path,
+                    force_open=is_why_open(ctx_book) or sb_df.empty,
+                    ctx_key=ctx_book,
                 )
-            else:
+
+            if not sb_df.empty:
                 book_view = sb_df.copy().sort_values("ev_per_dollar", ascending=False)
                 book_display = book_view[position_columns].head(25).copy()
                 for col in (
@@ -916,110 +1147,130 @@ def render_app() -> None:
                 ):
                     if col in book_display.columns:
                         book_display[col] = pd.to_numeric(book_display[col], errors="coerce")
-                st.dataframe(book_display.round(3), width="stretch")
+                if book_display.empty or is_why_open(ctx_book):
+                    render_empty_explainer(
+                        edges,
+                        replace(filters_base, book=selected_book),
+                        database_path,
+                        force_open=is_why_open(ctx_book) or book_display.empty,
+                        ctx_key=ctx_book,
+                    )
+                if not book_display.empty:
+                    st.dataframe(book_display.round(3), width="stretch")
 
     with all_edges_tab:
-        st.subheader("Edges (QB/RB/WR props)")
-        table_data = edges_view[display_cols].copy()
-        for prob_col in ("implied_prob", "fair_prob", "overround"):
-            if prob_col in table_data.columns:
-                table_data[prob_col] = pd.to_numeric(table_data[prob_col], errors="coerce")
-        round_map = {
-            "model_p": 3,
-            "p_model_shrunk": 3,
-            "ev_per_dollar": 3,
-            "kelly_frac": 3,
-            "confidence": 3,
-        }
-        for prob_col in ("implied_prob", "fair_prob", "overround"):
-            if prob_col in table_data.columns:
-                round_map[prob_col] = 3
-        if "def_score" in table_data.columns:
-            round_map["def_score"] = 3
-        table_data = table_data.round(round_map)
-
-        editor_df = table_data.copy()
-        editor_df.insert(0, "Select", False)
-        editor_df.index = edges_view["row_id"]
-
-        column_config = {
-            "decimal_odds": st.column_config.NumberColumn(
-                "decimal_odds",
-                help="Sportsbook decimal odds derived from the American price.",
-                format="%.3f",
-            ),
-            "confidence": st.column_config.ProgressColumn(
-                "Confidence",
-                help="Blend of freshness, uncertainty and market agreement (higher is better).",
-                min_value=0.0,
-                max_value=1.0,
-                format="%.0f%%",
-            ),
-            "shrink_pct": st.column_config.NumberColumn(
-                "Shrink Δ (bps)",
-                help="Difference between raw and market-shrunk probabilities (basis points).",
-                format="%.1f",
-            ),
-        }
-        if "def_score" in table_data.columns:
-            column_config["def_score"] = st.column_config.NumberColumn(
-                "def_score",
-                help="Higher means more generous defense over recent games; 0 = league average.",
-                format="%.3f",
-            )
-        if "home_side" in table_data.columns:
-            column_config["home_side"] = st.column_config.TextColumn(
-                "Home/Away",
-                help="Indicator whether the listed offense is at home or on the road.",
-            )
-        if "game_date" in table_data.columns:
-            column_config["game_date"] = st.column_config.TextColumn(
-                "Game Date",
-                help="ISO date of the matchup (if known).",
+        render_header_with_badge("Edges (QB/RB/WR props)", edges_view, ctx_main)
+        if edges_view.empty or is_why_open(ctx_main):
+            if edges_view.empty:
+                st.info("No edges match the active filters.")
+            render_empty_explainer(
+                edges,
+                filters_base,
+                database_path,
+                force_open=is_why_open(ctx_main) or edges_view.empty,
+                ctx_key=ctx_main,
             )
 
-        editor_result = st.data_editor(
-            editor_df,
-            column_config=column_config,
-            hide_index=True,
-            num_rows="dynamic",
-            width="stretch",
-            key="edges_editor",
-        )
+        if not edges_view.empty:
+            table_data = edges_view[display_cols].copy()
+            for prob_col in ("implied_prob", "fair_prob", "overround"):
+                if prob_col in table_data.columns:
+                    table_data[prob_col] = pd.to_numeric(table_data[prob_col], errors="coerce")
+            round_map = {
+                "model_p": 3,
+                "p_model_shrunk": 3,
+                "ev_per_dollar": 3,
+                "kelly_frac": 3,
+                "confidence": 3,
+            }
+            for prob_col in ("implied_prob", "fair_prob", "overround"):
+                if prob_col in table_data.columns:
+                    round_map[prob_col] = 3
+            if "def_score" in table_data.columns:
+                round_map["def_score"] = 3
+            table_data = table_data.round(round_map)
 
-        selected_ids = editor_result.index[editor_result["Select"] == True].tolist()
-        selected_edges = edges_view[edges_view["row_id"].isin(selected_ids)]
+            editor_df = table_data.copy()
+            editor_df.insert(0, "Select", False)
+            editor_df.index = edges_view["row_id"]
 
-        if st.button("Export today's picks"):
-            export_path = export_picks(edges_view)
-            append_bets_log(database_path, edges_view)
-            st.success(f"Exported {len(edges_view)} picks to {export_path}")
+            column_config = {
+                "decimal_odds": st.column_config.NumberColumn(
+                    "decimal_odds",
+                    help="Sportsbook decimal odds derived from the American price.",
+                    format="%.3f",
+                ),
+                "confidence": st.column_config.ProgressColumn(
+                    "Confidence",
+                    help="Blend of freshness, uncertainty and market agreement (higher is better).",
+                    min_value=0.0,
+                    max_value=1.0,
+                    format="%.0f%%",
+                ),
+                "shrink_pct": st.column_config.NumberColumn(
+                    "Shrink Δ (bps)",
+                    help="Difference between raw and market-shrunk probabilities (basis points).",
+                    format="%.1f",
+                ),
+            }
+            if "def_score" in table_data.columns:
+                column_config["def_score"] = st.column_config.NumberColumn(
+                    "def_score",
+                    help="Higher means more generous defense over recent games; 0 = league average.",
+                    format="%.3f",
+                )
+            if "home_side" in table_data.columns:
+                column_config["home_side"] = st.column_config.TextColumn(
+                    "Home/Away",
+                    help="Indicator whether the listed offense is at home or on the road.",
+                )
+            if "game_date" in table_data.columns:
+                column_config["game_date"] = st.column_config.TextColumn(
+                    "Game Date",
+                    help="ISO date of the matchup (if known).",
+                )
 
-        st.subheader("My Card")
-        card_df = prepare_card_dataframe(selected_edges, bankroll, kelly_fraction_input)
-        if card_df.empty:
-            st.info("Select rows in the table above to build your card.")
-        else:
-            summary_cols = [
-                "player",
-                "market",
-                "line",
-                "book",
-                "odds_side",
-                "decimal_odds",
-                "p_model_shrunk",
-                "stake",
-                "expected_value",
-            ]
-            st.metric(
-                "Total Stake",
-                f"${card_df['stake'].sum():,.2f}",
-                help="Sum of fractional Kelly stakes across selected edges.",
+            editor_result = st.data_editor(
+                editor_df,
+                column_config=column_config,
+                hide_index=True,
+                num_rows="dynamic",
+                width="stretch",
+                key="edges_editor",
             )
-            st.dataframe(card_df[summary_cols].round(3))
-            if st.button("Export selected card"):
-                csv_path, parquet_path = export_card(card_df, prefix="card_selected")
-                st.success(f"Exported card to {csv_path}")
+            selected_ids = editor_result.index[editor_result["Select"] == True].tolist()
+            selected_edges = edges_view[edges_view["row_id"].isin(selected_ids)]
+
+            if st.button("Export today's picks"):
+                export_path = export_picks(edges_view)
+                append_bets_log(database_path, edges_view)
+                st.success(f"Exported {len(edges_view)} picks to {export_path}")
+
+            st.subheader("My Card")
+            card_df = prepare_card_dataframe(selected_edges, bankroll, kelly_fraction_input)
+            if card_df.empty:
+                st.info("Select rows in the table above to build your card.")
+            else:
+                summary_cols = [
+                    "player",
+                    "market",
+                    "line",
+                    "book",
+                    "odds_side",
+                    "decimal_odds",
+                    "p_model_shrunk",
+                    "stake",
+                    "expected_value",
+                ]
+                st.metric(
+                    "Total Stake",
+                    f"${card_df['stake'].sum():,.2f}",
+                    help="Sum of fractional Kelly stakes across selected edges.",
+                )
+                st.dataframe(card_df[summary_cols].round(3), width="stretch")
+                if st.button("Export selected card"):
+                    csv_path, parquet_path = export_card(card_df, prefix="card_selected")
+                    st.success(f"Exported card to {csv_path}")
 
     if st.sidebar.button("Auto-build card") and not edges_view.empty:
         auto_source = edges_view.copy()
@@ -1048,7 +1299,7 @@ def render_app() -> None:
             f"${auto_card['stake'].sum():,.2f}",
             help="Total stake recommended by the greedy selector.",
         )
-        st.dataframe(auto_card[summary_cols].round(3))
+        st.dataframe(auto_card[summary_cols].round(3), width="stretch")
         if st.button("Export auto card"):
             csv_path, parquet_path = export_card(auto_card, prefix="card_auto")
             st.success(f"Exported auto card to {csv_path}")
@@ -1059,7 +1310,13 @@ def render_app() -> None:
     else:
         matchup_source = selected_edges if not selected_edges.empty else edges_view.head(5)
         for _, matchup_row in matchup_source.iterrows():
-            render_matchup_expander(matchup_row, data, database_path)
+            render_matchup_expander(
+                matchup_row,
+                data,
+                database_path,
+                filters=filters_base,
+                edges_source=edges,
+            )
 
     st.subheader("Line shopping across books")
     if odds_raw.empty:
@@ -1092,10 +1349,10 @@ def render_app() -> None:
                     "fair_prob",
                     "updated_at",
                 ]
-                st.dataframe(view[display_cols_inner])
+                st.dataframe(view[display_cols_inner], width="stretch")
         if not best_lines.empty:
             st.markdown("#### Current best lines summary")
-            st.dataframe(best_lines)
+            st.dataframe(best_lines, width="stretch")
 
     st.subheader("Steam alerts")
     if snapshots.empty:
@@ -1105,7 +1362,7 @@ def render_app() -> None:
         if alerts.empty:
             st.success("No steam detected in the most recent snapshots.")
         else:
-            st.dataframe(alerts)
+            st.dataframe(alerts, width="stretch")
 
         st.caption("Exports are saved under storage/exports/. Use jobs/export_bi.py for BI snapshots.")
 

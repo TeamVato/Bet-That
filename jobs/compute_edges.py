@@ -167,6 +167,20 @@ def ensure_edges_season(
     return edges_df
 
 
+def apply_defense_defaults(edges_df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure defense metadata columns exist with neutral defaults."""
+    result = edges_df.copy()
+    if "def_tier" in result.columns:
+        result["def_tier"] = result["def_tier"].fillna("neutral")
+    else:
+        result["def_tier"] = "neutral"
+    if "def_score" in result.columns:
+        result["def_score"] = pd.to_numeric(result["def_score"], errors="coerce").fillna(0.0)
+    else:
+        result["def_score"] = 0.0
+    return result
+
+
 def get_database_path() -> Path:
     load_dotenv()
     url = os.getenv("DATABASE_URL", "sqlite:///storage/odds.db")
@@ -350,11 +364,7 @@ def main() -> None:
         except Exception as exc:
             print(f"Warning: unable to merge defense ratings ({exc})")
 
-    for col in ("def_tier", "def_score"):
-        if col not in edges_df.columns:
-            edges_df[col] = pd.NA
-    if "def_score" in edges_df.columns:
-        edges_df["def_score"] = pd.to_numeric(edges_df["def_score"], errors="coerce")
+    edges_df = apply_defense_defaults(edges_df)
     engine.persist_edges(edges_df)
     engine.export(edges_df)
 
