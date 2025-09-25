@@ -3,6 +3,45 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+set -a
+if [ -f "$ROOT/.env.local" ]; then
+  # shellcheck disable=SC1090
+  . "$ROOT/.env.local"
+fi
+set +a
+
+USE_ODDS_API="${USE_ODDS_API:-0}"
+
+if [ "$USE_ODDS_API" = "1" ] && [ -z "${ODDS_API_KEYS:-}" ] && [ ! -f "$ROOT/.env.local" ]; then
+  printf 'Enter The Odds API keys (comma-separated), or leave blank to use CSV: '
+  read -r input_keys
+  if [ -n "$input_keys" ]; then
+    {
+      printf 'ODDS_API_KEYS=%s\n' "$input_keys"
+      printf 'USE_ODDS_API=1\n'
+    } >> "$ROOT/.env.local"
+    echo "Saved to .env.local (not committed)."
+    # shellcheck disable=SC1090
+    . "$ROOT/.env.local"
+  fi
+fi
+
+timestamp=$(date -u +%FT%TZ)
+key_status=""
+if [ "$USE_ODDS_API" = "1" ]; then
+  if [ -n "${ODDS_API_KEYS:-}" ]; then
+    key_status=" (keys set)"
+  fi
+  source_label="odds_api${key_status}"
+else
+  source_label="csv"
+fi
+
+printf 'Bet-That @ %s\n' "$timestamp"
+printf 'Source: %s\n' "$source_label"
+printf 'Seasons: %s | STALE_MINUTES=%s | SHRINK_WEIGHT=%s\n' \
+  "${DEFAULT_SEASONS:-}" "${STALE_MINUTES:-}" "${SHRINK_TO_MARKET_WEIGHT:-}"
+
 venv_py="$ROOT/.venv/bin/python"
 venv_streamlit="$ROOT/.venv/bin/streamlit"
 
@@ -14,6 +53,9 @@ err() { printf "\n\033[31mERROR:\033[0m %s\n\n" "$*" >&2; exit 1; }
 
 echo "==> Building defense ratings (open data)…"
 "$venv_py" "$ROOT/jobs/build_defense_ratings.py"
+
+echo "==> Building matchup context (scheme, injuries, weather)…"
+"$venv_py" "$ROOT/jobs/build_matchup_context.py"
 
 if [ "${USE_ODDS_API:-0}" = "1" ]; then
   echo "==> Polling The Odds API once (NFL-only)…"

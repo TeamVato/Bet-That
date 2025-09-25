@@ -149,7 +149,8 @@ def ensure_odds_table(con: sqlite3.Connection) -> None:
             side TEXT,
             odds INT,
             book TEXT,
-            updated_at TEXT
+            updated_at TEXT,
+            ingest_source TEXT
         )
         """
     )
@@ -176,6 +177,32 @@ def upsert_rows(
         df,
         stale_minutes=minutes,
         now_ts=pd.Timestamp(now_utc()),
+    )
+    normalized["ingest_source"] = "odds_api"
+
+    raw_rows = len(normalized)
+    dedupe_cols = [
+        "event_id",
+        "player",
+        "market",
+        "book",
+        "side",
+        "line",
+        "updated_at",
+    ]
+    available_cols = [c for c in dedupe_cols if c in normalized.columns]
+    if available_cols:
+        normalized = normalized.sort_values("updated_at").drop_duplicates(available_cols, keep="last")
+    deduped_rows = len(normalized)
+    stale_rows = int(normalized.get("is_stale", pd.Series(dtype="float64")).fillna(0).astype(int).sum())
+    source_counts = normalized["ingest_source"].value_counts(dropna=False).to_dict()
+    print(
+        "Upsert rows → raw: {raw} | deduped: {deduped} | stale flagged: {stale} | by source: {sources}".format(
+            raw=raw_rows,
+            deduped=deduped_rows,
+            stale=stale_rows,
+            sources=source_counts,
+        )
     )
 
     existing = {r[1] for r in con.execute("PRAGMA table_info(odds_csv_raw)")}
@@ -290,4 +317,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

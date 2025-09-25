@@ -4,6 +4,7 @@ import os
 import sqlite3
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import List, Tuple
 
@@ -41,7 +42,8 @@ CREATE TABLE IF NOT EXISTS odds_csv_raw (
   fair_decimal REAL,
   x_used INTEGER,
   x_remaining INTEGER,
-  season INTEGER
+  season INTEGER,
+  ingest_source TEXT
 );
 """
 
@@ -78,6 +80,20 @@ SELECT * FROM wide;
 """
 
 
+
+
+def dedupe_latest(df: pd.DataFrame, subset: list[str], *, sort_col: str | None = None) -> pd.DataFrame:
+    """Return the latest rows per subset columns, keeping the most recent updated_at."""
+    if df.empty or not subset:
+        return df
+    working = df.copy()
+    if sort_col and sort_col in working.columns:
+        working = working.sort_values(sort_col)
+    return working.drop_duplicates(subset, keep="last")
+
+
+
+
 def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
     attempt = 0
     while True:
@@ -97,8 +113,8 @@ INSERT_SQL = (
     "INSERT INTO odds_csv_raw ("
     "event_id, commence_time, home_team, away_team, player, market, line, side, odds, "
     "over_odds, under_odds, book, updated_at, implied_prob, fair_prob, overround, is_stale, fair_decimal, "
-    "x_used, x_remaining, season"
-    ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    "x_used, x_remaining, season, ingest_source"
+    ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 )
 
 
@@ -122,6 +138,7 @@ def _ensure_columns(con: sqlite3.Connection) -> None:
         "overround": "REAL",
         "is_stale": "INTEGER",
         "fair_decimal": "REAL",
+        "ingest_source": "TEXT",
     }
     for col, col_type in optional_cols.items():
         if col not in cols:
@@ -177,7 +194,73 @@ def main():
 
         df = _wide_to_long(df)
 
+        history_dir = Path("storage/imports/history")
+        history_dir.mkdir(parents=True, exist_ok=True)
+        snapshot_name = datetime.now(UTC).strftime("odds_raw_%Y%m%d.csv.gz")
+        snapshot_path = history_dir / snapshot_name
+        try:
+            df.to_csv(snapshot_path, index=False, compression="gzip")
+            print(f"     Saved raw snapshot to {snapshot_path}")
+        except Exception as err:
+            print(f"     Warning: failed to write raw snapshot ({err})")
+
+        raw_rows = len(df)
         df = normalize_long_odds(df, stale_minutes=stale_minutes)
+        df["ingest_source"] = "csv"
+
+        dedupe_cols = [
+            "event_id",
+            "player",
+            "market",
+            "book",
+            "side",
+            "line",
+            "updated_at",
+        ]
+        available_cols = [c for c in dedupe_cols if c in df.columns]
+        if available_cols:
+            df = dedupe_latest(df, available_cols, sort_col="updated_at")
+        deduped_rows = len(df)
+        stale_series = pd.to_numeric(df.get("is_stale"), errors="coerce")
+        stale_rows = int(stale_series.fillna(0).astype(int).sum()) if not stale_series.empty else 0
+        source_counts = df["ingest_source"].value_counts(dropna=False).to_dict()
+        print(
+            "     Row counts → raw: {raw} | deduped: {deduped} | stale flagged: {stale} | by source: {sources}".format(
+                raw=raw_rows,
+                deduped=deduped_rows,
+                stale=stale_rows,
+                sources=source_counts,
+            )
+        )
+
+        expected_cols = [
+            "event_id",
+            "commence_time",
+            "home_team",
+            "away_team",
+            "player",
+            "market",
+            "line",
+            "side",
+            "odds",
+            "over_odds",
+            "under_odds",
+            "book",
+            "updated_at",
+            "implied_prob",
+            "fair_prob",
+            "overround",
+            "is_stale",
+            "fair_decimal",
+            "x_used",
+            "x_remaining",
+            "season",
+            "ingest_source",
+        ]
+        for col in expected_cols:
+            if col not in df.columns:
+                df[col] = pd.NA
+        df = df[expected_cols]
 
         con.execute("BEGIN IMMEDIATE;")   # take write lock
         con.execute("DELETE FROM odds_csv_raw;")

@@ -22,6 +22,10 @@ SCHEDULE_COLUMNS = [
     "home_team",
     "gameday",
     "venue",
+    "roof",
+    "surface",
+    "temp",
+    "wind",
 ]
 
 PLAYER_LOG_COLUMNS = [
@@ -60,6 +64,9 @@ def _load_cached_schedule(seasons: Iterable[int]) -> pd.DataFrame:
         return _empty_schedule()
     if cached.empty:
         return _empty_schedule()
+    for col in SCHEDULE_COLUMNS:
+        if col not in cached.columns:
+            cached[col] = pd.NA
     if "season" in cached.columns:
         filtered = cached[cached["season"].isin(seasons)]
         if not filtered.empty:
@@ -86,6 +93,9 @@ def _update_schedule_cache(df: pd.DataFrame) -> None:
         except Exception:
             existing = pd.DataFrame(columns=SCHEDULE_COLUMNS)
         if not existing.empty:
+            for col in cols:
+                if col not in existing.columns:
+                    existing[col] = pd.NA
             to_store = pd.concat([existing[cols], to_store], ignore_index=True, sort=False)
     subset = [c for c in ("game_id", "gameday", "home_team", "away_team") if c in to_store.columns]
     if subset:

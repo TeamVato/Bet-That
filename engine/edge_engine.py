@@ -10,6 +10,12 @@ import pandas as pd
 from scipy.stats import norm
 
 from engine import odds_math
+from utils.teams import (
+    infer_is_home,
+    infer_offense_team,
+    normalize_team_code,
+    parse_event_id,
+)
 
 
 @dataclass
@@ -44,6 +50,7 @@ class EdgeEngine:
         for _, row in df.iterrows():
             if pd.isna(row.get("over_odds")) or pd.isna(row.get("under_odds")):
                 continue
+            event_id = row.get("event_id")
             mu = float(row.get("mu"))
             sigma = float(row.get("sigma"))
             line = float(row.get("line"))
@@ -58,8 +65,17 @@ class EdgeEngine:
             opponent_def_code = row.get("def_team_proj")
             if pd.isna(opponent_def_code):
                 opponent_def_code = row.get("def_team_props")
-            if pd.isna(opponent_def_code):
-                opponent_def_code = None
+            opponent_def_code = normalize_team_code(opponent_def_code)
+            game_date, away_team_raw, home_team_raw = parse_event_id(event_id)
+            away_team = normalize_team_code(away_team_raw)
+            home_team = normalize_team_code(home_team_raw)
+            inferred_team = row.get("team_proj")
+            if pd.isna(inferred_team):
+                inferred_team = row.get("team_props")
+            offense_team = normalize_team_code(
+                inferred_team if pd.notna(inferred_team) else infer_offense_team(event_id, opponent_def_code)
+            )
+            is_home_flag = infer_is_home(event_id, offense_team)
             if sigma <= 0:
                 sigma = 55.0
             distribution = norm(loc=mu, scale=sigma)
@@ -120,7 +136,7 @@ class EdgeEngine:
             rows.append(
                 {
                     "created_at": datetime.now(timezone.utc).isoformat(),
-                    "event_id": row.get("event_id"),
+                    "event_id": event_id,
                     "book": row.get("book"),
                     "player": row.get("player"),
                     "market": row.get("market"),
@@ -131,6 +147,11 @@ class EdgeEngine:
                     "season": season_val,
                     "week": week_val,
                     "opponent_def_code": opponent_def_code,
+                    "team": offense_team,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "is_home": is_home_flag if is_home_flag is None else int(is_home_flag),
+                    "game_date": game_date,
                     "ev_per_dollar": ev,
                     "kelly_frac": kelly,
                     "strategy_tag": strategy,
@@ -170,6 +191,16 @@ class EdgeEngine:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN week INT")
             if "opponent_def_code" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN opponent_def_code TEXT")
+            if "team" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN team TEXT")
+            if "home_team" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN home_team TEXT")
+            if "away_team" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN away_team TEXT")
+            if "is_home" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN is_home INTEGER")
+            if "game_date" not in existing_cols:
+                alter_statements.append("ALTER TABLE edges ADD COLUMN game_date TEXT")
             if "def_tier" not in existing_cols:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN def_tier TEXT")
             if "def_score" not in existing_cols:
@@ -221,6 +252,11 @@ class EdgeEngine:
                 "season",
                 "week",
                 "opponent_def_code",
+                "team",
+                "home_team",
+                "away_team",
+                "is_home",
+                "game_date",
                 "def_tier",
                 "def_score",
                 "implied_prob",
@@ -258,6 +294,11 @@ class EdgeEngine:
                         _coerce(row.get("season")),
                         _coerce(row.get("week")),
                         _coerce(row.get("opponent_def_code")),
+                        row.get("team"),
+                        row.get("home_team"),
+                        row.get("away_team"),
+                        _coerce(row.get("is_home")),
+                        row.get("game_date"),
                         _coerce(row.get("def_tier")),
                         _coerce(row.get("def_score")),
                         _coerce(row.get("implied_prob")),

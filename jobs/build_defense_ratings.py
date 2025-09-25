@@ -347,13 +347,24 @@ parts = []
 for pos, df in buckets.items():
     if df.empty:
         continue
-    g = df.groupby(["defteam","season","week"], as_index=False).apply(agg)
-    g = g.reset_index().drop(columns=["level_3"], errors="ignore")
-    g["pos"] = pos
-    parts.append(g)
+    working = df.copy()
+    if pos in {"QB_PASS", "RB_REC", "WR", "TE"}:
+        source_col = "explosive_pass"
+    else:
+        source_col = "explosive_rush"
+    working["explosive_metric"] = pd.to_numeric(working.get(source_col), errors="coerce")
+    grouped = working.groupby(["defteam", "season", "week"], as_index=False).agg(
+        plays=("epa", "size"),
+        epa_per_play=("epa", "mean"),
+        success_rate=("successful", "mean"),
+        yards_per_play=("yards_gained", "mean"),
+        explosive_rate=("explosive_metric", "mean"),
+    )
+    grouped["pos"] = pos
+    parts.append(grouped)
 
 ratings = pd.concat(parts, ignore_index=True)
-ratings = ratings.sort_values(["defteam","pos","season","week"])
+ratings = ratings.sort_values(["defteam", "pos", "season", "week"])
 
 # Rolling last-8 with min 4 games to stabilize
 MIN_ROLL_GAMES = 4

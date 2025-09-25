@@ -187,6 +187,7 @@ class QBProjectionModel:
         season: Optional[int],
         week: Optional[int],
         default_line: Optional[float],
+        team: Optional[str],
     ) -> Dict[str, float]:
         schedule_info = self.schedule_lookup.get(event_id, {})
         if season is None:
@@ -218,6 +219,7 @@ class QBProjectionModel:
             "season": season,
             "week": week,
             "def_team": def_team,
+            "team": team,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -237,6 +239,12 @@ class QBProjectionModel:
                 if week_series is not None and week_series.notna().any()
                 else None
             )
+            team_series = group.get("team")
+            offense_team = (
+                team_series.dropna().iloc[0]
+                if team_series is not None and team_series.notna().any()
+                else None
+            )
             def_team_series = group.get("def_team")
             def_team = (
                 def_team_series.dropna().iloc[0]
@@ -251,6 +259,7 @@ class QBProjectionModel:
                 season=season,
                 week=week,
                 default_line=default_line,
+                team=offense_team,
             )
             records.append(proj)
         return pd.DataFrame(records)

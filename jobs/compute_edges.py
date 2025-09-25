@@ -8,7 +8,6 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import os
-from pathlib import Path
 import sqlite3
 
 import pandas as pd
@@ -20,29 +19,7 @@ from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
 from models.qb_projection import ProjectionConfig, build_qb_projections
 from engine.season import infer_season, infer_season_series
-
-
-TEAM_CODE_FIXES = {
-    "LVR": "LV",
-    "OAK": "LV",
-    "STL": "LA",
-    "SD": "LAC",
-    "SDC": "LAC",
-    "WSH": "WAS",
-    "JAC": "JAX",
-    "KCC": "KC",
-    "TBB": "TB",
-    "NWE": "NE",
-    "GNB": "GB",
-}
-
-
-def normalize_team_code(code: str) -> str:
-    if not isinstance(code, str):
-        return code
-    code = code.strip().upper()
-    return TEAM_CODE_FIXES.get(code, code)
-
+from utils.teams import normalize_team_code
 
 def _env_truthy(value: str | None) -> bool:
     if value is None:
