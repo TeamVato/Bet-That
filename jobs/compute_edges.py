@@ -15,12 +15,13 @@ from dotenv import load_dotenv
 
 from adapters.nflverse_provider import build_event_lookup, get_player_game_logs, get_schedules
 from adapters.odds.csv_props_provider import CsvQBPropsAdapter
+from adapters.odds.db_props_provider import DbPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
-from engine.team_map import normalize_team_code as normalize_team_code_for_defense
+from engine.team_map import normalize_team_code
 from models.qb_projection import ProjectionConfig, build_qb_projections
 from engine.season import infer_season, infer_season_series
-from utils.teams import normalize_team_code
+from utils.teams import parse_event_id, infer_offense_team, infer_is_home
 
 def _env_truthy(value: str | None) -> bool:
     if value is None:
@@ -220,11 +221,17 @@ def main() -> None:
     database_path = get_database_path()
     migrate()
 
-    adapter = CsvQBPropsAdapter()
+    # Use database adapter if USE_DB_ADAPTER=1, otherwise use CSV adapter
+    use_db_adapter = _env_truthy(os.getenv("USE_DB_ADAPTER"))
+    if use_db_adapter:
+        adapter = DbPropsAdapter(database_path)
+    else:
+        adapter = CsvQBPropsAdapter()
+
     props_df = adapter.fetch()
     adapter.persist(props_df, database_path)
 
-    seasons_env = os.getenv("DEFAULT_SEASONS", "2023,2024")
+    seasons_env = os.getenv("DEFAULT_SEASONS", "2023,2024,2025")
     seasons = [int(s.strip()) for s in seasons_env.split(",") if s.strip()]
     schedule = get_schedules(seasons)
     schedule_lookup = build_event_lookup(schedule)
@@ -239,7 +246,7 @@ def main() -> None:
     )
     persist_projections(projections, database_path)
 
-    engine = EdgeEngine(EdgeEngineConfig(database_path=database_path))
+    engine = EdgeEngine(EdgeEngineConfig(database_path=database_path), schedule_lookup=schedule_lookup)
     edges_df = engine.compute_edges(props_df, projections)
     # Optional market-aware shrinkage toward consensus
     try:
@@ -282,6 +289,52 @@ def main() -> None:
                 "tier_effective",
                 "score_effective",
             ]]
+
+            # Enhanced join diagnostics with key coverage analysis
+            debug_joins = _env_truthy(os.getenv("DEBUG_EDGE_JOINS"))
+            total_edges = len(edges_df)
+
+            # Analyze join key coverage before merge
+            season_coverage = (~edges_df["season"].isna()).sum()
+            week_coverage = (~edges_df["week"].isna()).sum()
+            opponent_coverage = (~edges_df["opponent_def_code"].isna()).sum()
+            complete_keys = (
+                (~edges_df["season"].isna()) &
+                (~edges_df["week"].isna()) &
+                (~edges_df["opponent_def_code"].isna())
+            ).sum()
+
+            print(f"INFO: Defense ratings join preparation - {total_edges} edges total")
+            print(f"INFO: Join key coverage: season={season_coverage}/{total_edges} ({season_coverage/total_edges*100:.1f}%), week={week_coverage}/{total_edges} ({week_coverage/total_edges*100:.1f}%), opponent_def_code={opponent_coverage}/{total_edges} ({opponent_coverage/total_edges*100:.1f}%)")
+            print(f"INFO: Complete join keys: {complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)")
+
+            if debug_joins:
+                # Detailed diagnostics for missing keys
+                missing_season = edges_df[edges_df["season"].isna()]
+                missing_week = edges_df[edges_df["week"].isna()]
+                missing_opponent = edges_df[edges_df["opponent_def_code"].isna()]
+
+                if not missing_season.empty:
+                    print(f"DEBUG: {len(missing_season)} edges missing season - event_id samples: {missing_season['event_id'].head(5).tolist()}")
+                if not missing_week.empty:
+                    print(f"DEBUG: {len(missing_week)} edges missing week - event_id samples: {missing_week['event_id'].head(5).tolist()}")
+                if not missing_opponent.empty:
+                    print(f"DEBUG: {len(missing_opponent)} edges missing opponent_def_code - event_id samples: {missing_opponent['event_id'].head(5).tolist()}")
+
+            # Join diagnostics: log sample of codes being joined
+            edges_sample = edges_df[["opponent_def_code", "season", "week"]].dropna()
+            unique_def_codes = edges_sample["opponent_def_code"].unique()
+            ratings_def_codes = qb_ratings["defteam"].unique()
+
+            print(f"INFO: Joining edges with defense ratings")
+            if debug_joins:
+                print(f"DEBUG: All edges opponent_def_codes: {sorted(unique_def_codes)}")
+                print(f"DEBUG: All ratings defteam codes: {sorted(ratings_def_codes)}")
+            else:
+                print(f"INFO: Edges opponent_def_codes (sample): {sorted(unique_def_codes)[:10]}")
+                print(f"INFO: Ratings defteam codes (sample): {sorted(ratings_def_codes)[:10]}")
+
+            before_join_count = len(edges_df)
             edges_df = (
                 edges_df.merge(
                     qb_ratings,
@@ -292,6 +345,19 @@ def main() -> None:
                 .rename(columns={"tier_effective": "def_tier", "score_effective": "def_score"})
                 .drop(columns=["defteam"], errors="ignore")
             )
+
+            # Log join success/failure statistics
+            after_join_count = len(edges_df)
+            joined_successfully = (~edges_df["def_tier"].isna()).sum()
+            print(f"INFO: Join result: {before_join_count} -> {after_join_count} rows, {joined_successfully} successful joins")
+
+            # Log unmatched opponent_def_codes (capped to prevent spam)
+            unmatched_mask = (edges_df["def_tier"].isna() & edges_df["opponent_def_code"].notna())
+            if unmatched_mask.any():
+                unmatched_codes = edges_df.loc[unmatched_mask, "opponent_def_code"].unique()
+                sample_size = min(20, len(unmatched_codes))
+                print(f"INFO: Unmatched opponent_def_codes ({len(unmatched_codes)} total, showing {sample_size}): {sorted(unmatched_codes)[:sample_size]}")
+
             missing_mask = (
                 edges_df["def_tier"].isna()
                 & edges_df["season"].notna()
@@ -359,7 +425,7 @@ def main() -> None:
                             raw_def_code = edges_df.at[idx, "opponent_def_code"]
                             if pd.isna(raw_def_code) or raw_def_code is None:
                                 continue  # Skip rows with no opponent defense code
-                            normalized_def_code = normalize_team_code_for_defense(str(raw_def_code))
+                            normalized_def_code = normalize_team_code(str(raw_def_code))
                             if not normalized_def_code:  # Skip empty normalized codes
                                 continue
                             key = (

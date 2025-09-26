@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.streamlit_app import _safe_filter, load_tables, _coalesce_na, _load_available_seasons, _infer_current_season
+from app.streamlit_app import _safe_filter, load_tables, _coalesce_na, _display_season, _load_available_seasons, _infer_current_season
 
 
 def test_safe_filter_returns_empty_dataframe() -> None:
@@ -154,3 +154,61 @@ def test_load_available_seasons_with_na_values(tmp_path):
     # Should return {2023, 2024} sorted descending, ignoring NA/None/invalid
     expected = [2024, 2023]
     assert result == expected, f"Expected {expected}, got {result}"
+
+
+def test_display_season_handles_nullable_int64():
+    """Test that _display_season converts nullable Int64 to string with 'Unknown' for NA."""
+    # Test with nullable Int64 series
+    series = pd.Series([2023, 2024, pd.NA], dtype="Int64")
+    result = _display_season(series)
+
+    expected = pd.Series(["2023", "2024", "Unknown"])
+    pd.testing.assert_series_equal(result.reset_index(drop=True), expected.reset_index(drop=True))
+
+
+def test_display_season_handles_regular_int():
+    """Test that _display_season handles regular int series."""
+    series = pd.Series([2023, 2024])
+    result = _display_season(series)
+
+    expected = pd.Series(["2023", "2024"])
+    pd.testing.assert_series_equal(result.reset_index(drop=True), expected.reset_index(drop=True))
+
+
+def test_display_season_empty_series():
+    """Test that _display_season handles empty series."""
+    empty_series = pd.Series([], dtype="Int64")
+    result = _display_season(empty_series)
+
+    assert result.empty
+    assert len(result) == 0
+
+
+def test_display_season_mixed_values():
+    """Test _display_season with mixed values including None and NaN."""
+    series = pd.Series([2023, None, pd.NA, 2025], dtype="object")
+    result = _display_season(series)
+
+    # Should convert None, pd.NA to "Unknown", keep valid values as strings
+    expected_values = ["2023", "Unknown", "Unknown", "2025"]
+    assert result.tolist() == expected_values
+
+
+def test_coalesce_na_comprehensive():
+    """Comprehensive test for _coalesce_na covering edge cases from the plan."""
+    # Test the exact case from the plan: _coalesce_na(pd.NA, "", None, "Q") == "Q"
+    result = _coalesce_na(pd.NA, "", None, "Q")
+    assert result == "Q"
+
+    # Test all NA-like values
+    result = _coalesce_na(pd.NA, None, "", default="fallback")
+    assert result == "fallback"
+
+    # Test with first valid value
+    result = _coalesce_na(pd.NA, None, "first_valid", "second_valid", default="fallback")
+    assert result == "first_valid"
+
+    # Test with pandas NaN
+    import numpy as np
+    result = _coalesce_na(np.nan, pd.NA, "valid", default="fallback")
+    assert result == "valid"

@@ -1,14 +1,33 @@
 """Reusable UI helpers for section count badges and inline explainer triggers."""
 from __future__ import annotations
 
+import hashlib
 import pandas as pd
 import streamlit as st
+import time
 
 
 def context_key(*parts) -> str:
-    """Generate a deterministic key for session_state tracking."""
-    safe_parts = [str(part).strip().lower().replace(" ", "_") for part in parts if part is not None]
-    return "why_open__" + "__".join(safe_parts)
+    """Generate a guaranteed unique key for session_state tracking."""
+    safe_parts = []
+    for part in parts:
+        if part is not None:
+            # Convert to string, strip whitespace, lowercase, replace problematic chars
+            safe_part = str(part).strip().lower()
+            safe_part = safe_part.replace(" ", "_").replace("-", "_").replace(".", "_")
+            # Remove any remaining non-alphanumeric characters except underscores
+            safe_part = "".join(c if c.isalnum() or c == "_" else "" for c in safe_part)
+            if safe_part:  # Only add non-empty parts
+                safe_parts.append(safe_part)
+
+    # Create base key from parts
+    base_key = "__".join(safe_parts) if safe_parts else "unknown"
+
+    # Add hash of original parts for guaranteed uniqueness
+    original_str = "__".join(str(part) for part in parts if part is not None)
+    hash_suffix = hashlib.md5(original_str.encode()).hexdigest()[:8]
+
+    return f"why_open__{base_key}__{hash_suffix}"
 
 
 def render_header_with_badge(

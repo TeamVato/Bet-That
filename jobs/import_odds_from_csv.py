@@ -14,6 +14,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 
 from engine.odds_normalizer import normalize_long_odds
+from engine.week_populator import populate_week_from_schedule
 
 UTC = timezone.utc
 
@@ -76,8 +77,15 @@ wide AS (
     MAX(CASE WHEN LOWER(side) = 'under' THEN odds END) AS under_odds,
     MAX(updated_at) AS updated_at,
     MAX(event_id) AS event_id,
+    MAX(commence_time) AS commence_time,
     MAX(home_team) AS home_team,
-    MAX(away_team) AS away_team
+    MAX(away_team) AS away_team,
+    -- Add critical join keys for EdgeEngine
+    MAX(season) AS season,
+    NULL AS week,  -- Will be populated by post-processing
+    NULL AS team_code,  -- Will be populated by post-processing
+    NULL AS opponent_def_code,  -- Will be populated by post-processing
+    MAX(is_stale) AS is_stale
   FROM filtered
   GROUP BY player, market, book, line
 )
@@ -129,6 +137,122 @@ def _resolve_csv_path() -> Path:
 
 def _resolve_stale_minutes() -> int:
     return int(os.getenv("STALE_MINUTES", "120"))
+
+
+def _populate_join_keys(con: sqlite3.Connection) -> None:
+    """Populate week, team_code, and opponent_def_code in current_best_lines."""
+    from utils.teams import parse_event_id, normalize_team_code
+    from engine.season import infer_season
+
+    # Get rows that need join key population
+    cur = con.execute("""
+        SELECT rowid, event_id, home_team, away_team, season
+        FROM current_best_lines
+        WHERE event_id IS NOT NULL
+    """)
+    rows = cur.fetchall()
+
+    updates = []
+    for rowid, event_id, home_team, away_team, season in rows:
+        try:
+            # Parse event_id for date and team info
+            game_date, away_parsed, home_parsed = parse_event_id(event_id)
+
+            # Use parsed teams if available, fall back to stored teams
+            away_final = normalize_team_code(away_parsed or away_team)
+            home_final = normalize_team_code(home_parsed or home_team)
+
+            # Infer week from game_date and season (basic estimation)
+            week = None
+            if game_date and season:
+                try:
+                    # Simple week estimation - NFL season typically starts in September
+                    import datetime
+                    date_obj = datetime.datetime.strptime(game_date, "%Y-%m-%d")
+                    # Week 1 typically starts around Sept 5-12
+                    # This is a rough approximation - real schedule data would be better
+                    if date_obj.month == 9:
+                        week = max(1, (date_obj.day - 5) // 7 + 1)
+                    elif date_obj.month == 10:
+                        week = min(8, (date_obj.day + 25) // 7 + 1)
+                    elif date_obj.month == 11:
+                        week = min(12, (date_obj.day + 30) // 7 + 1)
+                    elif date_obj.month == 12:
+                        week = min(18, (date_obj.day + 34) // 7 + 1)
+                    elif date_obj.month == 1:  # January playoffs
+                        week = min(22, 18 + date_obj.day // 7 + 1)
+                except (ValueError, AttributeError):
+                    pass
+
+            # For now, we'll set team_code and opponent_def_code to None
+            # These will be populated by EdgeEngine logic during edge computation
+            updates.append((week, None, None, rowid))
+
+        except Exception as e:
+            print(f"     Warning: Failed to parse event_id {event_id}: {e}")
+            updates.append((None, None, None, rowid))
+
+    # Batch update the join keys
+    if updates:
+        con.executemany("""
+            UPDATE current_best_lines
+            SET week = ?, team_code = ?, opponent_def_code = ?
+            WHERE rowid = ?
+        """, updates)
+
+        populated_weeks = sum(1 for week, _, _, _ in updates if week is not None)
+        print(f"     Populated week for {populated_weeks}/{len(updates)} rows")
+
+
+def _populate_week_from_schedule(con: sqlite3.Connection) -> None:
+    """Populate week column in current_best_lines using schedule data."""
+    import os
+
+    sched_csv = os.getenv("SCHEDULE_CSV", "tests/fixtures/schedule_2025_mini.csv")
+    if not Path(sched_csv).exists():
+        print(f"     Warning: Schedule CSV not found at {sched_csv}")
+        return
+
+    try:
+        # Load current_best_lines data
+        lines_df = pd.read_sql("SELECT * FROM current_best_lines", con)
+        if lines_df.empty:
+            return
+
+        # Load schedule data
+        schedule_df = pd.read_csv(sched_csv)
+
+        # Ensure week column exists in DataFrame
+        if "week" not in lines_df.columns:
+            lines_df["week"] = pd.NA
+
+        before_missing = lines_df["week"].isna().sum()
+
+        # Populate week using the enhanced helper
+        lines_df = populate_week_from_schedule(lines_df, schedule_df)
+
+        # Extract detailed match statistics
+        stats = getattr(lines_df, '_week_population_stats', {
+            'stage1_count': 0, 'stage2_count': 0, 'total_filled': 0, 'total_rows': len(lines_df)
+        })
+
+        stage1_count = stats['stage1_count']
+        stage2_count = stats['stage2_count']
+        total_filled = stats['total_filled']
+        total_rows = stats['total_rows']
+
+        if total_filled > 0:
+            # Update the database with new week data
+            con.execute("DELETE FROM current_best_lines")  # Clear and rebuild
+            lines_df.to_sql("current_best_lines", con, if_exists="append", index=False)
+            print(f"     Populated week for {total_filled}/{total_rows} rows (stage1 {stage1_count}, stage2 {stage2_count})")
+        else:
+            print(f"     No week data populated from schedule (0/{total_rows} rows matched)")
+
+    except Exception as e:
+        import traceback
+        print(f"     Warning: Schedule week population failed ({e})")
+        print(f"     Debug traceback: {traceback.format_exc()}")
 
 
 def _ensure_columns(con: sqlite3.Connection) -> None:
@@ -310,6 +434,13 @@ def main():
 
         print("[4/5] Refreshing current_best_lines ...")
         con.executescript(DDL_BEST)
+
+        print("     Populating join keys (week, team_code, opponent_def_code) ...")
+        _populate_join_keys(con)
+
+        print("     Populating week from schedule data ...")
+        _populate_week_from_schedule(con)
+
         print("[5/5] Done. Rows loaded:", total)
     finally:
         con.close()

@@ -17,6 +17,7 @@ from utils.teams import (
     normalize_team_code,
     parse_event_id,
 )
+from typing import Dict, Optional
 
 SUPPORTED_MARKETS = {
     "player_pass_yds",
@@ -57,8 +58,9 @@ class EdgeEngineConfig:
 class EdgeEngine:
     """Compute edges for QB prop markets."""
 
-    def __init__(self, config: EdgeEngineConfig) -> None:
+    def __init__(self, config: EdgeEngineConfig, schedule_lookup: Optional[Dict[str, Dict[str, Optional[str]]]] = None) -> None:
         self.config = config
+        self.schedule_lookup = schedule_lookup or {}
         self.config.export_dir.mkdir(parents=True, exist_ok=True)
 
     def _prepare_dataframe(self, props_df: pd.DataFrame, projections_df: pd.DataFrame) -> pd.DataFrame:
@@ -100,10 +102,49 @@ class EdgeEngine:
             week_val = row.get("week_proj")
             if pd.isna(week_val):
                 week_val = row.get("week_props")
-            week_val = int(week_val) if pd.notna(week_val) else None
+
             opponent_def_code = row.get("def_team_proj")
             if pd.isna(opponent_def_code):
                 opponent_def_code = row.get("def_team_props")
+
+            # Schedule-based fallbacks for missing week/opponent data
+            if (pd.isna(week_val) or pd.isna(opponent_def_code)) and event_id and self.schedule_lookup:
+                # Try direct game_id lookup first
+                game_date, away_team_raw, home_team_raw = parse_event_id(event_id)
+                schedule_info = self.schedule_lookup.get(event_id)
+
+                # If no direct match, try date-team combination keys
+                if not schedule_info and game_date and away_team_raw and home_team_raw:
+                    alt_key = f"{game_date}-{away_team_raw}-{home_team_raw}"
+                    schedule_info = self.schedule_lookup.get(alt_key)
+
+                if schedule_info:
+                    # Use schedule week if missing
+                    if pd.isna(week_val) and schedule_info.get("week"):
+                        try:
+                            week_val = int(schedule_info["week"])
+                        except (ValueError, TypeError):
+                            pass
+
+                    # Infer opponent defense code from schedule if missing
+                    if pd.isna(opponent_def_code) and away_team_raw and home_team_raw:
+                        # Get player's offensive team to determine opponent
+                        inferred_team = row.get("team_proj")
+                        if pd.isna(inferred_team):
+                            inferred_team = row.get("team_props")
+
+                        if pd.notna(inferred_team):
+                            offense_team_norm = normalize_team_code(inferred_team)
+                            away_team_norm = normalize_team_code(away_team_raw)
+                            home_team_norm = normalize_team_code(home_team_raw)
+
+                            # Opponent is the team that's not the offense team
+                            if offense_team_norm == away_team_norm:
+                                opponent_def_code = home_team_norm
+                            elif offense_team_norm == home_team_norm:
+                                opponent_def_code = away_team_norm
+
+            week_val = int(week_val) if pd.notna(week_val) else None
             opponent_def_code = normalize_team_code(opponent_def_code)
             game_date, away_team_raw, home_team_raw = parse_event_id(event_id)
             away_team = normalize_team_code(away_team_raw)

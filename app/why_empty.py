@@ -111,7 +111,9 @@ def stepwise_drop(edges_all: pd.DataFrame, filters: Filters) -> List[Tuple[str, 
     # Season filter
     if filters.seasons:
         before = len(working)
-        working = working[working.get("season").isin(filters.seasons)]
+        season_col = working.get("season")
+        if season_col is not None:
+            working = working[season_col.isin(filters.seasons)]
         note(
             "Season filter",
             before,

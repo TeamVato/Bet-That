@@ -269,7 +269,7 @@ def render_debug_panel(
                 if "season" in edges_df.columns:
                     season_counts = (
                         edges_df.assign(
-                            season=edges_df["season"].fillna("Unknown")
+                            season=_display_season(edges_df["season"])
                         )
                         .groupby("season")
                         .size()
@@ -295,7 +295,53 @@ def render_debug_panel(
             st.write({**odds_staleness(con), "STALE_MINUTES": env_settings["STALE_MINUTES"]})
 
             st.markdown("#### Joins & Quality")
-            st.write(edges_quality(con))
+            quality_data = edges_quality(con)
+            st.write(quality_data)
+
+            # Join key coverage analysis for current view
+            if not edges_df.empty:
+                st.caption("Join key coverage (current view)")
+                total_edges = len(edges_df)
+
+                coverage_stats = {}
+                for key_col in ["season", "week", "opponent_def_code"]:
+                    if key_col in edges_df.columns:
+                        non_null = (~edges_df[key_col].isna()).sum()
+                        coverage_stats[key_col] = f"{non_null}/{total_edges} ({non_null/total_edges*100:.1f}%)"
+                    else:
+                        coverage_stats[key_col] = "column missing"
+
+                # Complete join key coverage
+                if all(col in edges_df.columns for col in ["season", "week", "opponent_def_code"]):
+                    complete_keys = (
+                        (~edges_df["season"].isna()) &
+                        (~edges_df["week"].isna()) &
+                        (~edges_df["opponent_def_code"].isna())
+                    ).sum()
+                    coverage_stats["complete_join_keys"] = f"{complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)"
+
+                st.json(coverage_stats)
+
+                # Defense ratings merge success
+                if "def_tier" in edges_df.columns:
+                    successful_joins = (~edges_df["def_tier"].isna()).sum()
+                    st.caption(f"Defense ratings merge success: {successful_joins}/{total_edges} ({successful_joins/total_edges*100:.1f}%)")
+
+                    if successful_joins < total_edges:
+                        unmatched = edges_df[edges_df["def_tier"].isna()]
+                        if not unmatched.empty:
+                            missing_reasons = {}
+                            missing_reasons["missing_season"] = unmatched["season"].isna().sum()
+                            missing_reasons["missing_week"] = unmatched["week"].isna().sum()
+                            missing_reasons["missing_opponent_def_code"] = unmatched["opponent_def_code"].isna().sum()
+
+                            # Show sample of unmatched opponent codes
+                            unmatched_codes = unmatched[unmatched["opponent_def_code"].notna()]["opponent_def_code"].unique()
+                            if len(unmatched_codes) > 0:
+                                missing_reasons["unmatched_opponent_codes_sample"] = sorted(unmatched_codes)[:10]
+
+                            st.caption("Unmatched join analysis:")
+                            st.json(missing_reasons)
             st.write(edges_weather_coverage(con))
 
             st.markdown("#### Filters (effective)")
@@ -527,16 +573,16 @@ def render_matchup_expander(
                         inj.get("designation"),
                         default="(status unknown)",
                     )
-                    who = _coalesce(inj.get("player"), inj.get("name"), default="Player")
-                    note = _coalesce(inj.get("notes"), inj.get("comment"), default="")
-                    desc = _coalesce(
+                    who = _coalesce_na(inj.get("player"), inj.get("name"), default="Player")
+                    note = _coalesce_na(inj.get("notes"), inj.get("comment"), default="")
+                    desc = _coalesce_na(
                         inj.get("note"),
                         inj.get("description"),
                         inj.get("detail"),
                         default="",
                     )
-                    side = _coalesce(inj.get("side"), default="")
-                    team = _coalesce(inj.get("team"), inj.get("club"), default="")
+                    side = _coalesce_na(inj.get("side"), default="")
+                    team = _coalesce_na(inj.get("team"), inj.get("club"), default="")
                     details = [
                         str(val).strip()
                         for val in (team, side, note, desc)
@@ -612,9 +658,14 @@ def render_matchup_expander(
                 }
             )[["Note", "Source", "Created"]]
             st.table(display_notes)
-        with st.form(key=f"context_note_form_{row.get('row_id')}"):
-            note_text = st.text_area("Add note", key=f"note_input_{row.get('row_id')}")
-            link_input = st.text_input("Source link (optional)", key=f"link_input_{row.get('row_id')}")
+        # Create unique keys based on event_id and player to avoid duplicates
+        event_id_safe = str(row.get('event_id', 'no_event')).replace('-', '_').replace(' ', '_')
+        player_safe = str(row.get('player', 'no_player')).replace(' ', '_').replace('-', '_')
+        row_id_safe = str(row.get('row_id', 'no_row'))
+        unique_id = f"{event_id_safe}_{player_safe}_{row_id_safe}"
+        with st.form(key=f"context_note_form_{unique_id}"):
+            note_text = st.text_area("Add note", key=f"note_input_{unique_id}")
+            link_input = st.text_input("Source link (optional)", key=f"link_input_{unique_id}")
             submitted = st.form_submit_button("Save note")
             if submitted:
                 if not note_text.strip():
@@ -640,6 +691,39 @@ def _as_bool01(value: object) -> int:
         return 1 if bool(int(value)) else 0
     except Exception:
         return 1 if bool(value) else 0
+
+
+def _display_season(series: pd.Series) -> pd.Series:
+    """Cast nullable Int64 series to string with 'Unknown' for NA values."""
+    if series.empty:
+        return series
+    # Convert to string first to handle nullable Int64 dtype
+    str_series = series.astype(str)
+    # Replace 'nan' and '<NA>' string representations with 'Unknown'
+    return str_series.replace(['nan', '<NA>', 'None'], 'Unknown')
+
+
+def _coalesce_na(*vals, default=""):
+    """Return the first non-NA, non-None, non-empty string value."""
+    for val in vals:
+        if val is None or val is pd.NA:
+            continue
+        if isinstance(val, float) and np.isnan(val):
+            continue
+        str_val = str(val).strip()
+        if str_val and str_val.lower() not in ('none', 'nan', '<na>'):
+            return str_val
+    return default
+
+
+def _safe_filter(df: pd.DataFrame, col: str, value) -> pd.DataFrame:
+    """Filter DataFrame by column value, returning empty DataFrame if column doesn't exist."""
+    if df.empty:
+        # Return empty DataFrame with the expected column structure
+        return pd.DataFrame(columns=[col] if col else [])
+    if col not in df.columns:
+        return pd.DataFrame(columns=df.columns)
+    return df[df[col] == value]
 
 
 def infer_position_bucket(market: object) -> str:
@@ -807,14 +891,19 @@ def render_app() -> None:
     odds_raw = data.get("odds_raw", pd.DataFrame())
     base_edges_count = len(edges)
 
+    # Ensure pos column exists and is normalized
     if "pos" not in edges.columns:
         edges["pos"] = pd.NA
     edges["pos"] = edges["pos"].replace({"": pd.NA, "nan": pd.NA, "None": pd.NA})
+
+    # Fill missing positions from market inference as fallback
     if "market" in edges.columns:
         missing_pos = edges["pos"].isna()
         if missing_pos.any():
             inferred = edges.loc[missing_pos, "market"].apply(infer_position_bucket)
             edges.loc[missing_pos, "pos"] = inferred.replace("Other", pd.NA)
+
+    # Normalize position values to uppercase
     edges["pos"] = edges["pos"].apply(lambda val: val.upper() if isinstance(val, str) else val)
 
     if props[["season", "def_team"]].isna().any().any():
@@ -824,8 +913,8 @@ def render_app() -> None:
     selected_seasons = st.sidebar.multiselect(
         "Season filter",
         options=available_seasons,
-        default=available_seasons,
         key="season_filter",
+        help="Select seasons to analyze. Empty selection will show no data."
     )
     if hasattr(st.sidebar, "toggle"):
         debug_mode = st.sidebar.toggle("Debug mode", value=False, key="debug_mode_toggle")
@@ -833,9 +922,33 @@ def render_app() -> None:
         debug_mode = st.sidebar.checkbox("Debug mode", value=False, key="debug_mode_toggle")
     odds_min, odds_max = st.sidebar.slider("Odds range (American)", -400, 400, (-250, 250))
     min_ev = st.sidebar.slider("Minimum EV per $1", -1.0, 1.0, 0.0, step=0.01)
+    # Freshness controls - upcoming games only, optional staleness
+    st.sidebar.markdown("### Freshness controls")
+
+    # Hide past games by commence_time (default True)
+    hide_past_games = st.sidebar.checkbox(
+        "Hide past games",
+        value=True,
+        help="Only show games with commence_time >= now (UTC)"
+    )
+
+    # Optional staleness filter toggle
+    stale_odds_toggle = st.sidebar.checkbox(
+        "Filter by odds staleness",
+        value=False,
+        help="Enable filtering based on how long ago odds were updated"
+    )
+
+    # Staleness threshold slider (only enabled when toggle is on)
     stale_minutes_default = int(os.getenv("STALE_MINUTES", "120"))
-    hide_stale = st.sidebar.checkbox(
-        f"Hide stale lines (> {stale_minutes_default} min)", value=True
+    staleness_minutes = st.sidebar.slider(
+        "Staleness threshold (minutes)",
+        min_value=30,
+        max_value=480,
+        value=stale_minutes_default,
+        step=15,
+        disabled=not stale_odds_toggle,
+        help="Hide odds older than this threshold (only when staleness filter is enabled)"
     )
     show_best_only = st.sidebar.checkbox("Show only best-priced edges", value=True)
     bankroll = st.sidebar.number_input("Bankroll ($)", min_value=0.0, value=1000.0, step=50.0)
@@ -852,7 +965,7 @@ def render_app() -> None:
         odds_min=int(odds_min),
         odds_max=int(odds_max),
         ev_min=float(min_ev),
-        hide_stale=bool(hide_stale),
+        hide_stale=bool(stale_odds_toggle),
         best_priced_only=bool(show_best_only),
     )
 
@@ -861,6 +974,15 @@ def render_app() -> None:
 
     edges_view = apply_season_filter(edges_view, selected_seasons, available_seasons)
 
+    # Also apply season filtering to best_lines for summary display
+    if not best_lines.empty and "season" in best_lines.columns:
+        best_lines = apply_season_filter(best_lines, selected_seasons, available_seasons)
+
+    # Handle empty season selection
+    if not selected_seasons:
+        st.info("💡 Select one or more seasons from the sidebar to view edges and analyze betting opportunities.")
+        st.stop()
+
     if "season" in edges_view.columns:
         season_numeric = pd.to_numeric(edges_view["season"], errors="coerce")
         try:
@@ -868,27 +990,9 @@ def render_app() -> None:
         except Exception:
             edges_view["season"] = season_numeric
 
-    # --- Position inference fallback in UI ---
-    def _infer_pos_from_market(market: str) -> str | None:
-        if not market:
-            return None
-        m = str(market).lower()
-        if "qb " in m or "passing" in m or "pass " in m:
-            return "QB"
-        if "rushing" in m or "rush " in m:
-            return "RB"
-        if "tight end" in m or " te " in m:
-            return "TE"
-        if "receptions" in m or "receiving" in m:
-            return "WR"
-        return None
-
+    # Position column should already be processed from edges DataFrame
     if "pos" not in edges_view.columns:
-        edges_view["pos"] = None
-    edges_view["pos"] = edges_view["pos"].fillna(
-        edges_view["market"].map(_infer_pos_from_market)
-    )
-    # --- end add ---
+        edges_view["pos"] = pd.NA
 
     edges_view["row_id"] = edges_view.index
     for col in ("def_tier", "def_score"):
@@ -933,16 +1037,61 @@ def render_app() -> None:
             edges_view[k] = pd.to_numeric(edges_view[k], errors="coerce").fillna(v)
 
     edges_view["confidence"] = edges_view.apply(compute_confidence, axis=1)
-    edges_view["position_bucket"] = edges_view.get("pos").apply(
-        lambda val: val if isinstance(val, str) and val.strip() else None
-    )
-    missing_bucket = edges_view["position_bucket"].isna()
-    if missing_bucket.any():
-        fallback_bucket = edges_view.loc[missing_bucket, "market"].apply(infer_position_bucket)
-        edges_view.loc[missing_bucket, "position_bucket"] = fallback_bucket
-    edges_view["position_bucket"] = edges_view["position_bucket"].apply(
-        lambda val: val.upper() if isinstance(val, str) else val
-    )
+
+    # Apply freshness filters in order: upcoming -> staleness
+    import datetime
+    current_time = datetime.datetime.now(datetime.timezone.utc)
+
+    # Filter 1: Hide past games by commence_time (UTC)
+    if hide_past_games and "commence_time" in edges_view.columns:
+        def is_upcoming_game(commence_time):
+            if pd.isna(commence_time) or commence_time is None:
+                return True  # Keep games without commence_time
+            try:
+                if isinstance(commence_time, str):
+                    game_time = datetime.datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                else:
+                    game_time = pd.to_datetime(commence_time, utc=True)
+                return game_time >= current_time
+            except Exception:
+                return True  # Keep if can't parse
+
+        before_upcoming = len(edges_view)
+        edges_view = edges_view[edges_view["commence_time"].apply(is_upcoming_game)]
+        upcoming_filtered = before_upcoming - len(edges_view)
+    else:
+        upcoming_filtered = 0
+
+    # Filter 2: Optional staleness filter (only if toggle enabled)
+    if stale_odds_toggle and "updated_at" in edges_view.columns:
+        def is_fresh_odds(updated_at):
+            if pd.isna(updated_at) or updated_at is None:
+                return False  # Remove odds without update time
+            try:
+                if isinstance(updated_at, str):
+                    update_time = datetime.datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                else:
+                    update_time = pd.to_datetime(updated_at, utc=True)
+                delta_minutes = (current_time - update_time).total_seconds() / 60.0
+                return delta_minutes <= staleness_minutes
+            except Exception:
+                return False  # Remove if can't parse
+
+        before_staleness = len(edges_view)
+        edges_view = edges_view[edges_view["updated_at"].apply(is_fresh_odds)]
+        staleness_filtered = before_staleness - len(edges_view)
+    else:
+        staleness_filtered = 0
+
+    # Use pos column directly as position_bucket, strict filtering to QB/RB/WR only
+    def normalize_position(pos_val):
+        if not isinstance(pos_val, str) or not pos_val.strip():
+            return None
+        pos_clean = pos_val.strip().upper()
+        # Only allow QB, RB, WR per user requirements
+        return pos_clean if pos_clean in {"QB", "RB", "WR"} else None
+
+    edges_view["position_bucket"] = edges_view["pos"].apply(normalize_position)
     if "is_home" in edges_view.columns:
         edges_view["home_side"] = edges_view["is_home"].map({1: "Home", 0: "Away"}).fillna("n/a")
     else:
@@ -951,7 +1100,10 @@ def render_app() -> None:
     edges_view = edges_view[(edges_view["odds"] >= odds_min) & (edges_view["odds"] <= odds_max)]
     edges_view = edges_view[edges_view["ev_per_dollar"] >= min_ev]
     if hide_stale:
-        edges_view = edges_view[edges_view["is_stale"].fillna(0) == 0]
+        if "is_stale_custom" in edges_view.columns:
+            edges_view = edges_view[edges_view["is_stale_custom"].fillna(0) == 0]
+        else:
+            edges_view = edges_view[edges_view["is_stale"].fillna(0) == 0]
     if only_generous:
         edges_view = edges_view.loc[edges_view["def_tier"] == "generous"]
     if show_best_only:
@@ -967,12 +1119,16 @@ def render_app() -> None:
         "season_selected": list(selected_seasons),
         "odds_range": [odds_min, odds_max],
         "min_ev_per_dollar": min_ev,
-        "hide_stale": hide_stale,
+        "hide_past_games": hide_past_games,
+        "stale_odds_toggle": stale_odds_toggle,
+        "staleness_minutes": staleness_minutes,
         "only_generous_defenses": only_generous,
         "best_priced_only": show_best_only,
         "rows_before_filters": base_edges_count,
         "rows_after_filters": len(edges_view),
         "rows_excluded": max(base_edges_count - len(edges_view), 0),
+        "upcoming_filtered": upcoming_filtered,
+        "staleness_filtered": staleness_filtered,
     }
     if debug_mode:
         render_debug_panel(database_path, edges_view, filter_state)
@@ -1005,6 +1161,8 @@ def render_app() -> None:
     for col in ("implied_prob", "fair_prob", "overround", "is_stale"):
         if col in edges_view.columns and col not in display_cols:
             display_cols.append(col)
+
+    # Freshness is now handled by the upcoming games filter and optional staleness toggle
 
     position_columns = [
         "player",
@@ -1079,16 +1237,8 @@ def render_app() -> None:
                 index=0,
             )
 
-            available_positions = (
-                edges_view["position_bucket"].dropna().astype(str).str.upper().tolist()
-            )
-            avail_pos = sorted([p for p in set(available_positions) if p])
-            if not avail_pos:
-                avail_pos = ["QB", "RB", "WR", "TE"]
-            preferred_order = ["QB", "RB", "WR", "TE"]
-            ordered_positions = [pos for pos in preferred_order if pos in avail_pos]
-            other_positions = sorted([pos for pos in avail_pos if pos not in preferred_order])
-            tab_labels = ordered_positions + other_positions
+            # Always render QB, RB, WR tabs regardless of available data
+            tab_labels = ["QB", "RB", "WR"]
             position_tabs = st.tabs(tab_labels)
             for position_name, tab in zip(tab_labels, position_tabs):
                 with tab:
@@ -1097,6 +1247,11 @@ def render_app() -> None:
                     subset = _apply_position_preset(subset, position_name, preset_choice)
                     subset = subset.sort_values("ev_per_dollar", ascending=False)
                     ctx_pos = context_key("edges", "pos", position_name)
+
+                    if subset.empty:
+                        st.info(f"No {position_name} edges available with current filters.")
+                        render_empty_explainer(edges_view, filters_base, database_path, False, ctx_pos)
+                        continue
 
                     render_header_with_badge(position_name, subset, ctx_pos)
 
@@ -1268,6 +1423,7 @@ def render_app() -> None:
                     "Game Date",
                     help="ISO date of the matchup (if known).",
                 )
+            # Freshness is now handled by upcoming games filter and staleness toggle
 
             editor_result = st.data_editor(
                 editor_df,
@@ -1386,7 +1542,6 @@ def render_app() -> None:
                     "decimal_odds",
                     "implied_prob",
                     "fair_prob",
-                    "updated_at",
                 ]
                 st.dataframe(view[display_cols_inner], width="stretch")
         if not best_lines.empty:

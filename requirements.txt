@@ -13,3 +13,4 @@ pyarrow>=13.0
 nfl_data_py>=0.3.1
 tenacity>=8.2
 scikit-learn>=1.5
+pandera>=0.17.2
