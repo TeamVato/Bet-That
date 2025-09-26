@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  bet-that-api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - ./api:/app/api
+    environment:
+      - DB_PATH=/app/storage/odds.db
+      - ENVIRONMENT=development
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
