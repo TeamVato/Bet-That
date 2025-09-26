@@ -30,6 +30,8 @@ Copy `config/.env.example` to `config/.env` (or export the variables in your she
 - `storage/odds.db` is the primary SQLite database used by the jobs and UI.
 - `storage/imports/` and `storage/exports/` hold CSV snapshots exchanged with external systems.
 - `app/streamlit_app.py` powers the local dashboard for exploring edges.
+- `frontend/` contains the React frontend application with TypeScript and Vite.
+- `api/` contains the FastAPI backend service.
 
 ## Daily workflow (local)
 
@@ -65,6 +67,51 @@ make ui            # launch the Streamlit dashboard (opens a browser)
 ```
 
 `make` ensures jobs run with the current working directory on `PYTHONPATH` so imports resolve correctly.
+
+## Frontend Development
+
+The React frontend is located in the `frontend/` directory and uses TypeScript, Vite, and Tailwind CSS.
+
+### Frontend Setup
+
+```bash
+cd frontend
+pnpm install
+```
+
+### Frontend Development Commands
+
+```bash
+cd frontend
+pnpm dev          # start development server (localhost:5173)
+pnpm build        # build for production
+pnpm preview      # preview production build
+pnpm test         # run tests
+pnpm lint         # lint code
+pnpm format       # format code with Prettier
+```
+
+### Full Stack Development
+
+Run both backend and frontend with Docker Compose:
+
+```bash
+docker-compose up --build
+```
+
+This starts:
+- Backend API at http://localhost:8000
+- Frontend at http://localhost:5173
+
+For local development without Docker:
+
+```bash
+# Terminal 1: Start backend
+./BetThat
+
+# Terminal 2: Start frontend
+cd frontend && pnpm dev
+```
 
 ## Google Apps Script (Odds API)
 
