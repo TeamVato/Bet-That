@@ -28,20 +28,20 @@ export default function Dashboard(){
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="text-left">
-                <th className="py-2">Game</th>
+                <th className="py-2">Player</th>
                 <th>Market</th>
-                <th>Home</th>
-                <th>Away</th>
-                <th className="text-right">Timestamp <span className="badge border-gray-300 ml-1">UTC</span></th>
+                <th>Book</th>
+                <th>Odds</th>
+                <th className="text-right">Updated <span className="badge border-gray-300 ml-1">UTC</span></th>
               </tr></thead>
               <tbody>
-                {data.items.map((r:any, idx:number)=>(
+                {data.lines.map((r:any, idx:number)=>(
                   <tr key={idx} className="border-t">
-                    <td className="py-2">{r.game_id}</td>
+                    <td className="py-2">{r.selection}</td>
                     <td>{r.market}</td>
-                    <td>{r.price_home}</td>
-                    <td>{r.price_away}</td>
-                    <td className="text-right">{formatUTC(r.ts)}</td>
+                    <td>{r.book}</td>
+                    <td>{r.odds_american}</td>
+                    <td className="text-right">{formatUTC(r.updated_at)}</td>
                   </tr>
                 ))}
               </tbody>
