@@ -1,4 +1,5 @@
-"""Enhanced week population with robust column mapping and validation."""
+# engine/week_populator.py
+"""Production-ready week population from schedule data with team normalization and validation."""
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
@@ -26,61 +27,15 @@ def normalize_team_code(team: Union[str, None]) -> str:
     """Normalize team codes to canonical 2-3 letter abbreviations."""
     if not team:
         return ""
+
     team_upper = str(team).upper().strip()
     return _TEAM_NORM.get(team_upper, team_upper)
-
-
-def validate_and_normalize_schedule(schedule: pd.DataFrame) -> pd.DataFrame:
-    """Validate and normalize schedule DataFrame with robust column mapping."""
-    if schedule.empty:
-        raise ValueError("Schedule DataFrame is empty")
-    
-    # Column mapping for different schedule data sources
-    column_mappings = {
-        # Standard mappings  
-        'visiting_team': 'away_team',
-        'visitor': 'away_team',
-        'away': 'away_team', 
-        'home': 'home_team',
-        'host': 'home_team',
-        'home_code': 'home_team',
-        'away_code': 'away_team', 
-        'visitor_code': 'away_team',
-        'game_date': 'game_date',
-        'date': 'game_date',
-        'gameday': 'game_date'
-    }
-    
-    # Apply column mappings
-    schedule_normalized = schedule.copy()
-    for old_col, new_col in column_mappings.items():
-        if old_col in schedule_normalized.columns and new_col not in schedule_normalized.columns:
-            schedule_normalized[new_col] = schedule_normalized[old_col]
-    
-    # Validate required columns exist after mapping
-    required_cols = ['home_team', 'away_team', 'season', 'week', 'game_date']
-    missing_cols = [col for col in required_cols if col not in schedule_normalized.columns]
-    
-    if missing_cols:
-        available_cols = list(schedule_normalized.columns)
-        raise ValueError(
-            f"Schedule missing required columns: {missing_cols}. "
-            f"Available columns: {available_cols}. "
-            f"Applied mappings: {column_mappings}"
-        )
-    
-    # Add default season/week if missing 
-    if 'season' not in schedule_normalized.columns:
-        schedule_normalized['season'] = 2025
-    if 'week' not in schedule_normalized.columns:
-        schedule_normalized['week'] = 1
-        
-    return schedule_normalized
 
 
 def validate_team_codes(df: pd.DataFrame, team_columns: list[str]) -> Dict[str, list]:
     """Validate team codes in DataFrame columns and report issues."""
     issues = {"unknown_teams": [], "missing_teams": []}
+
     valid_teams = set(_TEAM_NORM.values())
 
     for col in team_columns:
@@ -135,14 +90,6 @@ def populate_week_from_schedule(
         logger.warning("Schedule DataFrame is empty")
         return lines
 
-    # CRITICAL FIX: Validate and normalize schedule data
-    try:
-        schedule = validate_and_normalize_schedule(schedule)
-        logger.info(f"Schedule validation successful: {len(schedule)} rows with required columns")
-    except ValueError as e:
-        logger.error(f"Schedule validation failed: {e}")
-        return lines
-
     out = lines.copy()
     stage1_count = 0
     stage2_count = 0
@@ -156,10 +103,17 @@ def populate_week_from_schedule(
 
     # Validate required columns
     required_lines_cols = ["commence_time"]
+    required_schedule_cols = ["season", "week", "game_date", "home_team", "away_team"]
+
     missing_lines_cols = [col for col in required_lines_cols if col not in out.columns]
+    missing_schedule_cols = [col for col in required_schedule_cols if col not in schedule.columns]
 
     if missing_lines_cols:
         logger.error(f"Lines missing required columns: {missing_lines_cols}")
+        return out
+
+    if missing_schedule_cols:
+        logger.error(f"Schedule missing required columns: {missing_schedule_cols}")
         return out
 
     # Team validation if requested
@@ -292,7 +246,7 @@ def populate_week_from_schedule(
 
 
 def load_schedule_data(schedule_path: Union[str, Path]) -> pd.DataFrame:
-    """Load and validate schedule data from CSV file with enhanced error handling."""
+    """Load and validate schedule data from CSV file."""
     logger = logging.getLogger(__name__)
     schedule_path = Path(schedule_path)
 
@@ -303,17 +257,18 @@ def load_schedule_data(schedule_path: Union[str, Path]) -> pd.DataFrame:
     try:
         schedule = pd.read_csv(schedule_path)
 
-        # Basic data validation  
+        # Validate required columns
+        required_cols = ["season", "week", "game_date", "home_team", "away_team"]
+        missing_cols = [col for col in required_cols if col not in schedule.columns]
+
+        if missing_cols:
+            logger.error(f"Schedule missing required columns: {missing_cols}")
+            return pd.DataFrame()
+
+        # Basic data validation
         if schedule.empty:
             logger.warning("Schedule file is empty")
             return schedule
-
-        # Apply column validation and normalization
-        try:
-            schedule = validate_and_normalize_schedule(schedule)
-        except ValueError as e:
-            logger.error(f"Schedule validation failed: {e}")
-            return pd.DataFrame()
 
         # Validate data types and ranges
         schedule["season"] = pd.to_numeric(schedule["season"], errors="coerce")
@@ -347,7 +302,16 @@ def ensure_week_populated(
     schedule_path: Optional[Union[str, Path]] = None,
     default_schedule_paths: Optional[list[str]] = None
 ) -> pd.DataFrame:
-    """Ensure DataFrame has week column populated, with fallback schedule loading."""
+    """Ensure DataFrame has week column populated, with fallback schedule loading.
+
+    Args:
+        df: DataFrame to populate weeks for
+        schedule_path: Explicit schedule file path
+        default_schedule_paths: List of default paths to try if schedule_path not provided
+
+    Returns:
+        DataFrame with week column populated where possible
+    """
     logger = logging.getLogger(__name__)
 
     if df.empty:
