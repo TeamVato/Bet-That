@@ -1,4 +1,5 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+import { BETA_VIEW_ONLY } from '@/config/beta'
+import { API_BASE_URL } from '@/config/api'
 const DEMO_USER_ID = import.meta.env.VITE_DEMO_USER_ID || ''
 
 export class ApiError extends Error {
@@ -16,7 +17,7 @@ async function request(path: string, opts: RequestInit = {}, needAuth = false){
     if (!DEMO_USER_ID) throw new ApiError('Unauthorized: set VITE_DEMO_USER_ID', 401)
     headers['X-User-Id'] = DEMO_USER_ID
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...opts, headers: { ...headers, ...(opts.headers||{}) } })
+  const res = await fetch(`${API_BASE_URL}${path}`, { ...opts, headers: { ...headers, ...(opts.headers||{}) } })
   if (!res.ok){
     const retry = res.headers.get('Retry-After') ? parseInt(res.headers.get('Retry-After')!, 10) : undefined
     let detail: any = undefined
@@ -32,6 +33,11 @@ export const api = {
   oddsBest: (market?: string) => request(`/odds/best${market ? `?market=${encodeURIComponent(market)}`:''}`),
   register: (payload: { external_id: string, email: string }) => request('/me/register', { method:'POST', body: JSON.stringify(payload)}),
   myBets: () => request('/me/bets', {}, true),
-  createBet: (payload: any) => request('/me/bets', { method:'POST', body: JSON.stringify(payload) }, true),
+  createBet: (payload: any) => {
+    if (BETA_VIEW_ONLY) {
+      throw new ApiError('Bet creation disabled in beta view-only mode.', 403, { reason: 'view_only' })
+    }
+    return request('/me/bets', { method:'POST', body: JSON.stringify(payload) }, true)
+  },
   subscribe: () => request('/digest/subscribe', { method:'POST' }, true)
 }

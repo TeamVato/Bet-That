@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 import logging
 from contextlib import asynccontextmanager
 
-from .endpoints import health, odds, bets, digest
+from .endpoints import health, odds, bets, digest, edges
 from .utils.logging_middleware import LoggingMiddleware
 from .utils.ratelimit import RateLimiter
 from .errors import add_error_handlers
@@ -86,6 +86,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(odds.router, prefix="/odds", tags=["Odds"])
 app.include_router(bets.router, prefix="/me", tags=["User Bets"])
 app.include_router(digest.router, prefix="/digest", tags=["Digest"])
+app.include_router(edges.router)
 
 @app.get("/")
 async def root():

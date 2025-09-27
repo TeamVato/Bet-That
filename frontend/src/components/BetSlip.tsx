@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { api, type Edge } from '@/services/api'
+import { BETA_VIEW_ONLY, BETA_DISCLAIMER, BETA_WARNING_TITLE } from '@/config/beta'
 
 interface BetSlipProps {
   edge: Edge
@@ -8,11 +9,19 @@ interface BetSlipProps {
 }
 
 export const BetSlip: React.FC<BetSlipProps> = ({ edge, onClose, onSuccess }) => {
+  const viewOnly = BETA_VIEW_ONLY
   const [stake, setStake] = useState<string>('50')
   const [placing, setPlacing] = useState(false)
+  const safetyNotice = BETA_DISCLAIMER
+  const heading = viewOnly ? BETA_WARNING_TITLE : 'Place Bet'
   const [error, setError] = useState<string>('')
 
   const handlePlaceBet = async () => {
+    if (viewOnly) {
+      setError('Bet placement is disabled while we are in beta view-only mode.')
+      return
+    }
+
     const parsedStake = Number.parseFloat(stake)
     if (Number.isNaN(parsedStake) || parsedStake <= 0) {
       setError('Enter a valid stake amount greater than zero.')
@@ -55,7 +64,13 @@ export const BetSlip: React.FC<BetSlipProps> = ({ edge, onClose, onSuccess }) =>
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-xl font-bold">Place Bet</h2>
+        <h2 className="mb-4 text-xl font-bold">{heading}</h2>
+
+        {viewOnly && (
+          <div className="mb-4 rounded border-l-4 border-yellow-500 bg-yellow-50 p-3 text-sm text-yellow-800" role="note">
+            {safetyNotice}
+          </div>
+        )}
 
         <div className="mb-4">
           <p className="font-semibold">{edge.game}</p>

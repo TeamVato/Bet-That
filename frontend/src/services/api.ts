@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import type { WeeklyOddsResponse, TokenStatus } from '@/types'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+import { BETA_VIEW_ONLY } from '@/config/beta'
+import { API_BASE_URL } from '@/config/api'
 const CACHE_TTL_MS = 4 * 60 * 1000 // 4 minutes keeps us under the 5 minute refresh cadence
 
 type CacheRecord<T> = {
@@ -144,6 +144,10 @@ export function invalidateCache(): void {
 }
 
 export async function placeBet(betData: BetPlacement): Promise<PlaceBetResponse> {
+  if (BETA_VIEW_ONLY) {
+    throw new Error('Bet placement is disabled in beta view-only mode.')
+  }
+
   try {
     const response = await client.post('/api/v1/bets/place', betData)
     return response.data
