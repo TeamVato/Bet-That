@@ -1,29 +1,38 @@
-from __future__ import annotations
-
-import logging
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import redis.asyncio as redis
+from app.api.endpoints import odds
+from app.core.config import settings
 
-from app.api.endpoints.odds import router as odds_router
-from app.core.config import get_settings
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Redis connection on startup
+    app.state.redis = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    try:
+        await app.state.redis.ping()
+        print("✅ Redis connected successfully")
+    except Exception as e:
+        print(f"⚠️ Redis connection failed: {e}")
+        app.state.redis = None
+    yield
+    if app.state.redis:
+        await app.state.redis.close()
 
-logging.basicConfig(level=logging.INFO)
+app = FastAPI(title="Bet-That API", version="1.0.0", lifespan=lifespan)
 
+# CORS configuration for frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-def create_application() -> FastAPI:
-    settings = get_settings()
-    app = FastAPI(title="Bet-That Odds API", version="0.1.0", docs_url="/docs")
+app.include_router(odds.router, prefix="/api/v1/odds", tags=["odds"])
 
-    @app.get("/health", tags=["health"])
-    async def healthcheck() -> dict:
-        return {
-            "status": "ok",
-            "environment": settings.environment,
-        }
-
-    app.include_router(odds_router)
-
-    return app
-
-
-app = create_application()
+@app.get("/health")
+async def health_check():
+    redis_status = "connected" if hasattr(app.state, 'redis') and app.state.redis else "disconnected"
+    return {"status": "healthy", "service": "bet-that-api", "redis": redis_status}

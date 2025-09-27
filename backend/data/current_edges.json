@@ -1,0 +1,49 @@
+{
+  "STRONG_BETS": [
+    {
+      "game": "Minnesota Vikings @ Pittsburgh Steelers",
+      "bet": "UNDER 41.5",
+      "book": "DraftKings",
+      "reason": "Crosses key number 41",
+      "confidence": "HIGH",
+      "edge_pct": 5.5
+    },
+    {
+      "game": "Carolina Panthers @ New England Patriots",
+      "bet": "UNDER 43.5",
+      "book": "FanDuel",
+      "reason": "Crosses key number 43",
+      "confidence": "HIGH",
+      "edge_pct": 5.5
+    },
+    {
+      "game": "Green Bay Packers @ Dallas Cowboys",
+      "bet": "UNDER 47.5",
+      "book": "DraftKings",
+      "reason": "Crosses key number 47",
+      "confidence": "HIGH",
+      "edge_pct": 5.5
+    },
+    {
+      "game": "Cincinnati Bengals @ Denver Broncos",
+      "bet": "UNDER 44.5",
+      "book": "DraftKings",
+      "reason": "Crosses key number 44",
+      "confidence": "HIGH",
+      "edge_pct": 5.5
+    }
+  ],
+  "VALUE_PLAYS": [],
+  "LINE_SHOPS": [
+    {
+      "game": "Baltimore Ravens @ Kansas City Chiefs",
+      "line": "Total 48.5",
+      "best_book": "BetMGM",
+      "best_price": -110,
+      "worst_book": "DraftKings",
+      "worst_price": -120,
+      "savings": 10
+    }
+  ],
+  "MONITOR": []
+}

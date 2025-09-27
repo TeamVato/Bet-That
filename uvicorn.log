@@ -1,0 +1,90 @@
+INFO:     Will watch for changes in these directories: ['/Users/vato/work/Bet-That/backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [34696] using StatReload
+INFO:     Started server process [34698]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53357 - "GET /health HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'scripts/find_best_edges_now.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [34698]
+INFO:     Started server process [35372]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/endpoints/odds.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35372]
+INFO:     Started server process [35613]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/endpoints/odds.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35613]
+INFO:     Started server process [35798]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53388 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53389 - "GET /api/v1/odds/token-status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53410 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53411 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53411 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53410 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53410 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53411 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53414 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53417 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53421 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53424 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53429 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53430 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53446 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53447 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53447 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53446 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53446 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53447 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53492 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53493 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53493 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53492 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53492 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53493 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53493 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53492 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53492 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53493 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "OPTIONS /me/bets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53519 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53521 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53521 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53519 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53532 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53533 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53533 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53532 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53549 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53549 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53549 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53550 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53594 - "GET /me/bets HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53602 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53603 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53603 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53602 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found

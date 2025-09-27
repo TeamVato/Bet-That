@@ -60,3 +60,7 @@ def get_cache_prefix(*suffixes: str) -> str:
     settings = get_settings()
     parts = [settings.redis_cache_prefix, *suffixes]
     return ":".join(parts)
+
+
+# Cached settings instance used across the app
+settings = get_settings()
