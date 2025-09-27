@@ -369,3 +369,11 @@ INFO:     127.0.0.1:54775 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:54777 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:55764 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:55765 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+WARNING:  StatReload detected changes in 'scripts/playerprofiler_complete_discovery.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [49024]
+INFO:     Started server process [86875]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.

@@ -1,0 +1,204 @@
+{
+  "report": {
+    "discovery_timestamp": "2025-09-27T03:34:44.318499",
+    "root_path": "/Users/vato/work/Bet-That/storage/imports/PlayerProfiler",
+    "summary": {
+      "total_folders": 6,
+      "total_files": 36,
+      "total_size_mb": 145.34,
+      "data_files": 32,
+      "documentation_files": 1
+    },
+    "key_discoveries": {},
+    "strategy_support": {},
+    "data_dictionary_entries": 0,
+    "recommended_files": [
+      {
+        "file": "Custom Advanced Report (OFF All_QB:RB:WR:TE_2025).csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.454,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "Custom Advanced Report (OFF All_QB:RB:WR:TE_2024) .csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.648,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "Custom Advanced Report (OFF All_QB:RB:WR:TE_2023) .csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.638,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2021-Advanced-PBP-Data.csv",
+        "folder": "Advanced Play by Play",
+        "size_mb": 29.245,
+        "strategies": [
+          "qb_td_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2024-Advanced-Gamelog.csv",
+        "folder": "Game Log",
+        "size_mb": 1.54,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2021-Advanced-Gamelog.csv",
+        "folder": "Game Log",
+        "size_mb": 2.574,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2025-Advanced-Gamelog.csv",
+        "folder": "Game Log",
+        "size_mb": 0.266,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2023-Advanced-Gamelog.csv",
+        "folder": "Game Log",
+        "size_mb": 1.72,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2022-Advanced-Gamelog.csv",
+        "folder": "Game Log",
+        "size_mb": 1.696,
+        "strategies": [
+          "rb_under_strategy",
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "Custom Advanced Report (DEF All_OL:DL:EDGE:LB:CB:S_2025).csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.206,
+        "strategies": [
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "Custom Advanced Report (DEF All_OL:DL:EDGE:LB:CB:S_2024).csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.184,
+        "strategies": [
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "Custom Advanced Report (DEF All_OL:DL:EDGE:LB:CB:S_2023).csv",
+        "folder": "Custom Reports",
+        "size_mb": 0.179,
+        "strategies": [
+          "wr_under_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2020-Advanced-PBP-Data.csv",
+        "folder": "Advanced Play by Play",
+        "size_mb": 21.166,
+        "strategies": [
+          "qb_td_strategy",
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2024-Advanced-PBP-Data.csv",
+        "folder": "Advanced Play by Play",
+        "size_mb": 18.923,
+        "strategies": [
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2025-Advanced-PBP-Data.csv",
+        "folder": "Advanced Play by Play",
+        "size_mb": 3.511,
+        "strategies": [
+          "defensive_stats"
+        ]
+      },
+      {
+        "file": "2023-Advanced-PBP-Data.csv",
+        "folder": "Advanced Play by Play",
+        "size_mb": 21.206,
+        "strategies": [
+          "defensive_stats"
+        ]
+      }
+    ],
+    "next_actions": [
+      "Process recommended files for strategy implementation"
+    ]
+  },
+  "data_dictionary": {},
+  "folder_summary": {
+    "ROOT": {
+      "file_count": 2,
+      "subfolders": [
+        "Custom Reports",
+        "Advanced Play by Play",
+        "Weekly Roster Key",
+        "Game Log",
+        "Medical History Report"
+      ]
+    },
+    "Custom Reports": {
+      "file_count": 7,
+      "subfolders": []
+    },
+    "Advanced Play by Play": {
+      "file_count": 6,
+      "subfolders": []
+    },
+    "Weekly Roster Key": {
+      "file_count": 6,
+      "subfolders": []
+    },
+    "Game Log": {
+      "file_count": 7,
+      "subfolders": []
+    },
+    "Medical History Report": {
+      "file_count": 8,
+      "subfolders": []
+    }
+  }
+}

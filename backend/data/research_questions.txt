@@ -1,0 +1,64 @@
+PLAYERPROFILER TERMS REQUIRING CLARIFICATION
+==================================================
+
+Reference: https://www.playerprofiler.com/terms-glossary/
+
+UNKNOWN COLUMN DEFINITIONS NEEDED:
+- Body Part
+- Body Zone
+- Games Missed
+- Games On Injury Report
+- IR from Previous inj.
+- Incident Date
+- Injured Reserve
+- Injury Description
+- Injury Detail
+- O-D
+- Player
+- Player_ID
+- Recovery Timetable
+- Severity
+- Surgery
+- Team
+- Year
+- accuracy_rating
+- accuracy_rating_vs_man
+- accuracy_rating_vs_zone
+- adjusted_attempts
+- adjusted_yards_per_attempt
+- age
+- air_yards
+- air_yards_pass
+- air_yards_per_attempt
+- air_yards_per_game
+- air_yards_share
+- assisted_tackles
+- assisted_tackles_per_game
+- attempts_inside_10
+- attempts_inside_10_per_game
+- attempts_inside_5
+- attempts_inside_5_per_game
+- average_defenders_in_the_box
+- average_men_in_the_box
+- average_target_distance
+- away_score
+- away_team
+- away_team_moneyline
+- backfield_formation
+- backfield_rb1_id
+- backfield_rb1_motion
+- backfield_rb1_route
+- backfield_rb2_id
+- backfield_rb2_motion
+- backfield_rb2_route
+- backfield_rb3_id
+- backfield_rb3_motion
+- backfield_rb3_route
+
+
+SPECIFIC QUESTIONS FOR STRATEGY IMPLEMENTATION:
+1. What does 'Target Share' mean in PlayerProfiler context?
+2. How is 'Opportunity Share' calculated?
+3. What is 'Weighted Opportunities'?
+4. How to interpret 'Game Script' metrics?
+5. What defensive metrics best predict QB TD performance?
