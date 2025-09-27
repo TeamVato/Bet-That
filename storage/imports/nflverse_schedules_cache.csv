@@ -617,7 +617,7 @@ game_id,season,week,game_type,away_team,home_team,gameday,roof,surface,temp,wind
 2025_03_ARI_SF,2025,3,REG,ARI,SF,2025-09-21,outdoors,grass,72.0,7.0
 2025_03_KC_NYG,2025,3,REG,KC,NYG,2025-09-21,outdoors,fieldturf,65.0,5.0
 2025_03_DET_BAL,2025,3,REG,DET,BAL,2025-09-22,outdoors,grass,74.0,7.0
-2025_04_SEA_ARI,2025,4,REG,SEA,ARI,2025-09-25,closed,,,
+2025_04_SEA_ARI,2025,4,REG,SEA,ARI,2025-09-25,closed,grass,,
 2025_04_MIN_PIT,2025,4,REG,MIN,PIT,2025-09-28,outdoors,grass,,
 2025_04_WAS_ATL,2025,4,REG,WAS,ATL,2025-09-28,closed,fieldturf,,
 2025_04_NO_BUF,2025,4,REG,NO,BUF,2025-09-28,outdoors,a_turf,,

@@ -257,7 +257,7 @@ class TheOddsAPIClient(OddsAdapter):
         reraise=True,
         retry=retry_if_exception_type((requests.RequestException, TheOddsAPIRateLimitError)),
         stop=stop_after_attempt(3),
-        wait=wait_exponential_jitter(multiplier=1, max=30, jitter=5),
+        wait=wait_exponential_jitter(initial=1, max=30, jitter=5),
         after=_log_retry,
     )
     def _request_with_key(self, key_info: APIKeyInfo, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Tuple[Any, requests.Response]:

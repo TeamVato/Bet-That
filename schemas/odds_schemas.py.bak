@@ -1,0 +1,425 @@
+"""Pandera schemas for odds data validation and quality assurance."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+import pandas as pd
+import pandera as pa
+from pandera import Field, Check
+from pandera.typing import DataFrame, Series
+
+
+class OddsSnapshotSchema(pa.DataFrameModel):
+    """Schema for raw odds snapshots from The Odds API."""
+
+    fetched_at: Series[str] = Field(
+        description="UTC timestamp when data was fetched",
+        checks=Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+    )
+
+    sport_key: Series[str] = Field(
+        description="Sport identifier (e.g., 'americanfootball_nfl')",
+        checks=Check.str_length(min_val=3, max_val=50)
+    )
+
+    event_id: Series[str] = Field(
+        description="Unique event identifier",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    commence_time: Optional[Series[str]] = Field(
+        description="Game start time in ISO format",
+        nullable=True
+    )
+
+    home_team: Optional[Series[str]] = Field(
+        description="Home team name",
+        nullable=True,
+        checks=Check.str_length(max_val=50)
+    )
+
+    away_team: Optional[Series[str]] = Field(
+        description="Away team name",
+        nullable=True,
+        checks=Check.str_length(max_val=50)
+    )
+
+    bookmaker_key: Series[str] = Field(
+        description="Bookmaker identifier",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    market_key: Series[str] = Field(
+        description="Market type identifier",
+        checks=Check.isin(['h2h', 'spreads', 'totals', 'outrights', 'player_props'])
+    )
+
+    outcome: Series[str] = Field(
+        description="Bet outcome name",
+        checks=Check.str_length(min_val=1, max_val=100)
+    )
+
+    price: Series[int] = Field(
+        description="American odds (e.g., -110, +150)",
+        checks=Check.in_range(-2000, 2000, include_min=True, include_max=True)
+    )
+
+    points: Optional[Series[float]] = Field(
+        description="Point spread or total (for applicable markets)",
+        nullable=True,
+        checks=Check.in_range(-100.0, 100.0, include_min=True, include_max=True)
+    )
+
+    line: Optional[Series[float]] = Field(
+        description="Betting line value (alias for points)",
+        nullable=True,
+        checks=Check.in_range(-100.0, 100.0, include_min=True, include_max=True)
+    )
+
+    iso_time: Optional[Series[str]] = Field(
+        description="Last update time from bookmaker",
+        nullable=True
+    )
+
+    odds_raw_json: Optional[Series[str]] = Field(
+        description="Raw JSON data from API",
+        nullable=True,
+        checks=Check.str_length(max_val=2000)
+    )
+
+    class Config:
+        """Pandera configuration."""
+        strict = True
+        coerce = True
+        ordered = False
+
+
+class CurrentBestLinesSchema(pa.DataFrameModel):
+    """Schema for current best lines table."""
+
+    event_id: Series[str] = Field(
+        description="Unique event identifier",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    market_key: Series[str] = Field(
+        description="Market type identifier",
+        checks=Check.isin(['h2h', 'spreads', 'totals', 'outrights', 'player_props'])
+    )
+
+    outcome: Series[str] = Field(
+        description="Bet outcome name",
+        checks=Check.str_length(min_val=1, max_val=100)
+    )
+
+    best_book: Series[str] = Field(
+        description="Bookmaker offering best price",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    best_price: Series[int] = Field(
+        description="Best available American odds",
+        checks=Check.in_range(-2000, 2000, include_min=True, include_max=True)
+    )
+
+    best_points: Optional[Series[float]] = Field(
+        description="Point spread or total for best line",
+        nullable=True,
+        checks=Check.in_range(-100.0, 100.0, include_min=True, include_max=True)
+    )
+
+    updated_at: Series[str] = Field(
+        description="Timestamp when best line was computed",
+        checks=Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+    )
+
+    class Config:
+        """Pandera configuration."""
+        strict = True
+        coerce = True
+        ordered = False
+
+
+class QBPropsOddsSchema(pa.DataFrameModel):
+    """Schema for QB props odds data (legacy CSV format)."""
+
+    event_id: Series[str] = Field(
+        description="Unique event identifier",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    player: Series[str] = Field(
+        description="Player name",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    market: Series[str] = Field(
+        description="Prop market type",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    line: Series[float] = Field(
+        description="Betting line value",
+        checks=Check.in_range(0.0, 1000.0, include_min=True, include_max=True)
+    )
+
+    over_odds: Series[int] = Field(
+        description="Over odds in American format",
+        checks=Check.in_range(-1000, 1000, include_min=True, include_max=True)
+    )
+
+    under_odds: Series[int] = Field(
+        description="Under odds in American format",
+        checks=Check.in_range(-1000, 1000, include_min=True, include_max=True)
+    )
+
+    book: Series[str] = Field(
+        description="Sportsbook name",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    season: Optional[Series[int]] = Field(
+        description="NFL season year",
+        nullable=True,
+        checks=Check.in_range(2020, 2030, include_min=True, include_max=True)
+    )
+
+    def_team: Optional[Series[str]] = Field(
+        description="Opposing defense team code",
+        nullable=True,
+        checks=Check.str_length(min_val=2, max_val=5)
+    )
+
+    team: Optional[Series[str]] = Field(
+        description="Player's team code",
+        nullable=True,
+        checks=Check.str_length(min_val=2, max_val=5)
+    )
+
+    class Config:
+        """Pandera configuration."""
+        strict = True
+        coerce = True
+        ordered = False
+
+
+class EdgeSchema(pa.DataFrameModel):
+    """Schema for computed betting edges."""
+
+    created_at: Series[str] = Field(
+        description="UTC timestamp when edge was computed",
+        checks=Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+    )
+
+    event_id: Series[str] = Field(
+        description="Unique event identifier",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    book: Series[str] = Field(
+        description="Sportsbook name",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    player: Series[str] = Field(
+        description="Player name",
+        checks=Check.str_length(min_val=2, max_val=50)
+    )
+
+    market: Series[str] = Field(
+        description="Betting market type",
+        checks=Check.str_length(min_val=5, max_val=100)
+    )
+
+    pos: Optional[Series[str]] = Field(
+        description="Player position",
+        nullable=True,
+        checks=Check.isin(['QB', 'RB', 'WR', 'TE'])
+    )
+
+    line: Series[float] = Field(
+        description="Betting line value",
+        checks=Check.in_range(0.0, 1000.0, include_min=True, include_max=True)
+    )
+
+    odds_side: Series[str] = Field(
+        description="Recommended bet side",
+        checks=Check.isin(['over', 'under', 'Over', 'Under'])
+    )
+
+    odds: Series[int] = Field(
+        description="American odds for recommended side",
+        checks=Check.in_range(-1000, 1000, include_min=True, include_max=True)
+    )
+
+    model_p: Series[float] = Field(
+        description="Model probability (0-1)",
+        checks=Check.in_range(0.0, 1.0, include_min=True, include_max=True)
+    )
+
+    p_model_shrunk: Optional[Series[float]] = Field(
+        description="Market-shrunk model probability",
+        nullable=True,
+        checks=Check.in_range(0.0, 1.0, include_min=True, include_max=True)
+    )
+
+    ev_per_dollar: Series[float] = Field(
+        description="Expected value per dollar bet",
+        checks=Check.in_range(-1.0, 10.0, include_min=True, include_max=True)
+    )
+
+    kelly_frac: Series[float] = Field(
+        description="Kelly criterion fraction",
+        checks=Check.in_range(0.0, 1.0, include_min=True, include_max=True)
+    )
+
+    strategy_tag: Series[str] = Field(
+        description="Strategy classification",
+        checks=Check.str_length(min_val=3, max_val=50)
+    )
+
+    season: Optional[Series[int]] = Field(
+        description="NFL season year",
+        nullable=True,
+        checks=Check.in_range(2020, 2030, include_min=True, include_max=True)
+    )
+
+    week: Optional[Series[int]] = Field(
+        description="NFL week number",
+        nullable=True,
+        checks=Check.in_range(1, 22, include_min=True, include_max=True)
+    )
+
+    opponent_def_code: Optional[Series[str]] = Field(
+        description="Opponent defense team code",
+        nullable=True,
+        checks=Check.str_length(min_val=2, max_val=5)
+    )
+
+    def_tier: Optional[Series[str]] = Field(
+        description="Defense tier classification",
+        nullable=True,
+        checks=Check.isin(['generous', 'stingy', 'neutral'])
+    )
+
+    def_score: Optional[Series[float]] = Field(
+        description="Defense strength score",
+        nullable=True,
+        checks=Check.in_range(-10.0, 10.0, include_min=True, include_max=True)
+    )
+
+    class Config:
+        """Pandera configuration."""
+        strict = True
+        coerce = True
+        ordered = False
+
+
+class DefenseRatingsSchema(pa.DataFrameModel):
+    """Schema for defense ratings data."""
+
+    defteam: Series[str] = Field(
+        description="Defense team code",
+        checks=Check.str_length(min_val=2, max_val=5)
+    )
+
+    season: Series[int] = Field(
+        description="NFL season year",
+        checks=Check.in_range(2020, 2030, include_min=True, include_max=True)
+    )
+
+    pos: Series[str] = Field(
+        description="Position group being defended",
+        checks=Check.isin(['QB_PASS', 'RB_RUSH', 'WR_REC', 'TE_REC'])
+    )
+
+    week: Optional[Series[int]] = Field(
+        description="Week number (null for season-long)",
+        nullable=True,
+        checks=Check.in_range(1, 22, include_min=True, include_max=True)
+    )
+
+    score: Series[float] = Field(
+        description="Defense performance score",
+        checks=Check.in_range(-10.0, 10.0, include_min=True, include_max=True)
+    )
+
+    tier: Series[str] = Field(
+        description="Defense tier classification",
+        checks=Check.isin(['generous', 'stingy', 'neutral'])
+    )
+
+    score_adj: Optional[Series[float]] = Field(
+        description="Adjusted defense score",
+        nullable=True,
+        checks=Check.in_range(-10.0, 10.0, include_min=True, include_max=True)
+    )
+
+    tier_adj: Optional[Series[str]] = Field(
+        description="Adjusted defense tier",
+        nullable=True,
+        checks=Check.isin(['generous', 'stingy', 'neutral'])
+    )
+
+    class Config:
+        """Pandera configuration."""
+        strict = True
+        coerce = True
+        ordered = False
+
+
+# Validation functions for easy integration
+def validate_odds_snapshots(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate odds snapshots DataFrame with comprehensive error reporting."""
+    try:
+        return OddsSnapshotSchema.validate(df, lazy=True)
+    except pa.errors.SchemaErrors as e:
+        print(f"Odds snapshots validation failed:")
+        for error in e.failure_cases:
+            print(f"  - {error}")
+        raise
+
+
+def validate_current_best_lines(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate current best lines DataFrame."""
+    try:
+        return CurrentBestLinesSchema.validate(df, lazy=True)
+    except pa.errors.SchemaErrors as e:
+        print(f"Best lines validation failed:")
+        for error in e.failure_cases:
+            print(f"  - {error}")
+        raise
+
+
+def validate_edges(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate betting edges DataFrame."""
+    try:
+        return EdgeSchema.validate(df, lazy=True)
+    except pa.errors.SchemaErrors as e:
+        print(f"Edges validation failed:")
+        for error in e.failure_cases:
+            print(f"  - {error}")
+        raise
+
+
+def validate_qb_props(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate QB props odds DataFrame."""
+    try:
+        return QBPropsOddsSchema.validate(df, lazy=True)
+    except pa.errors.SchemaErrors as e:
+        print(f"QB props validation failed:")
+        for error in e.failure_cases:
+            print(f"  - {error}")
+        raise
+
+
+def validate_defense_ratings(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate defense ratings DataFrame."""
+    try:
+        return DefenseRatingsSchema.validate(df, lazy=True)
+    except pa.errors.SchemaErrors as e:
+        print(f"Defense ratings validation failed:")
+        for error in e.failure_cases:
+            print(f"  - {error}")
+        raise
