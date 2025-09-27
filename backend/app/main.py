@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import redis.asyncio as redis
-from app.api.endpoints import odds
+from app.api.endpoints import odds, bets
 from app.core.config import settings
 
 @asynccontextmanager
@@ -31,6 +31,7 @@ app.add_middleware(
 )
 
 app.include_router(odds.router, prefix="/api/v1/odds", tags=["odds"])
+app.include_router(bets.router, prefix="/api/v1/bets", tags=["bets"])
 
 @app.get("/health")
 async def health_check():

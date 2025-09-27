@@ -88,3 +88,284 @@ INFO:     127.0.0.1:53602 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:53603 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:53603 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
 INFO:     127.0.0.1:53602 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+WARNING:  StatReload detected changes in 'app/main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35798]
+INFO:     Started server process [45810]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'scripts/simulate_customer_bets.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45810]
+INFO:     Started server process [46689]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'scripts/simulate_customer_bets.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [46689]
+INFO:     Started server process [46842]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53850 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53851 - "POST /api/v1/bets/place HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1082, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 308, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 219, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in place_bet
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in <genexpr>
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+AttributeError: 'str' object has no attribute 'get'
+INFO:     127.0.0.1:53852 - "POST /api/v1/bets/place HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1082, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 308, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 219, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in place_bet
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in <genexpr>
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+AttributeError: 'str' object has no attribute 'get'
+INFO:     127.0.0.1:53853 - "POST /api/v1/bets/place HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1082, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 308, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 219, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in place_bet
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in <genexpr>
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+AttributeError: 'str' object has no attribute 'get'
+INFO:     127.0.0.1:53854 - "POST /api/v1/bets/place HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/protocols/http/h11_impl.py", line 403, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/applications.py", line 1082, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 78, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/starlette/routing.py", line 75, in app
+    response = await f(request)
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 308, in app
+    raw_response = await run_endpoint_function(
+  File "/Users/vato/Library/Python/3.9/lib/python/site-packages/fastapi/routing.py", line 219, in run_endpoint_function
+    return await dependant.call(**values)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in place_bet
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+  File "/Users/vato/work/Bet-That/backend/app/api/endpoints/bets.py", line 70, in <genexpr>
+    game = next((g for g in games if g.get("id") == bet_data.game_id), None)
+AttributeError: 'str' object has no attribute 'get'
+INFO:     127.0.0.1:53855 - "GET /api/v1/bets/my-bets HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app/api/endpoints/bets.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [46842]
+INFO:     Started server process [47537]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53864 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53865 - "POST /api/v1/bets/place HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53866 - "POST /api/v1/bets/place HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53867 - "POST /api/v1/bets/place HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53868 - "POST /api/v1/bets/place HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:53869 - "GET /api/v1/bets/my-bets HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app/api/endpoints/odds.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [47537]
+INFO:     Started server process [47848]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53890 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53891 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53892 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53893 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53894 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53895 - "GET /api/v1/bets/my-bets HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'scripts/simulate_customer_bets.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [47848]
+INFO:     Started server process [48073]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:53900 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53901 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53902 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53903 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53904 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53905 - "GET /api/v1/bets/my-bets HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53909 - "GET /api/v1/odds/edges HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53910 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53911 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53912 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53913 - "POST /api/v1/bets/place HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53914 - "GET /api/v1/bets/my-bets HTTP/1.1" 200 OK
+WARNING:  StatReload detected changes in 'app/api/endpoints/odds.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [48073]
+INFO:     Started server process [49024]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Redis connected successfully
+INFO:     127.0.0.1:54235 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54237 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54237 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54235 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54324 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54325 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54775 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54777 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55764 - "GET /api/odds/nfl-week HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:55765 - "GET /api/odds/token-status HTTP/1.1" 404 Not Found

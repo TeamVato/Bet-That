@@ -25,6 +25,70 @@ const client: AxiosInstance = axios.create({
   },
 })
 
+export interface Edge {
+  id: string
+  game: string
+  type: string
+  line: number
+  edge_percentage: number
+  confidence: number
+  recommendation: string
+  bookmaker: string
+  timestamp: string
+}
+
+export interface BetPlacement {
+  game_id: string
+  market: string
+  selection: string
+  line: number
+  odds: number
+  stake: number
+  bookmaker: string
+}
+
+export interface PlacedBet {
+  id: string
+  game_name: string
+  market: string
+  selection: string
+  line: number
+  odds: number
+  stake: number
+  potential_win: number
+  potential_payout: number
+  bookmaker: string
+  status: string
+  placed_at: string
+  settled_at?: string | null
+}
+
+export interface PlaceBetResponse {
+  success: boolean
+  bet: PlacedBet
+  message: string
+}
+
+export interface BetsSummary {
+  total_bets: number
+  pending: number
+  won: number
+  lost: number
+  total_stake: number
+  net_profit: number
+  roi: number
+}
+
+export interface MyBetsResponse {
+  bets: PlacedBet[]
+  summary: BetsSummary
+}
+
+export interface CancelBetResponse {
+  success: boolean
+  message: string
+}
+
 function isCacheValid(record: CacheRecord<unknown>): boolean {
   return Boolean(record.value) && Date.now() - record.timestamp < CACHE_TTL_MS
 }
@@ -77,4 +141,52 @@ export async function getTokenStatus(forceRefresh = false): Promise<TokenStatus>
 export function invalidateCache(): void {
   cache.weeklyOdds = { value: null, timestamp: 0 }
   cache.tokenStatus = { value: null, timestamp: 0 }
+}
+
+export async function placeBet(betData: BetPlacement): Promise<PlaceBetResponse> {
+  try {
+    const response = await client.post('/api/v1/bets/place', betData)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message
+      throw new Error(`Failed to place bet: ${detail}`)
+    }
+    throw new Error('Failed to place bet: unexpected error')
+  }
+}
+
+export async function getMyBets(): Promise<MyBetsResponse> {
+  try {
+    const response = await client.get('/api/v1/bets/my-bets')
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message
+      throw new Error(`Failed to fetch bets: ${detail}`)
+    }
+    throw new Error('Failed to fetch bets: unexpected error')
+  }
+}
+
+export async function cancelBet(betId: string): Promise<CancelBetResponse> {
+  try {
+    const response = await client.delete(`/api/v1/bets/${betId}`)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message
+      throw new Error(`Failed to cancel bet: ${detail}`)
+    }
+    throw new Error('Failed to cancel bet: unexpected error')
+  }
+}
+
+export const api = {
+  getWeeklyOdds,
+  getTokenStatus,
+  invalidateCache,
+  placeBet,
+  getMyBets,
+  cancelBet,
 }
