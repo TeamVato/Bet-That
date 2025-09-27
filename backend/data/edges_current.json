@@ -1,0 +1,266 @@
+{
+  "generated": "2025-09-27T07:57:04.829785",
+  "edges": [
+    {
+      "strategy": "QB TD Over 0.5",
+      "type": "QB TD Over 0.5",
+      "player": "Aaron Rodgers",
+      "team": "Pittsburgh Steelers",
+      "confidence": 0.76,
+      "expected_value": 0.13,
+      "data_quality": 0.8,
+      "metrics": {
+        "red_zone_attempts": 94.0,
+        "recent_touchdowns": 31.0,
+        "thresholds": {
+          "red_zone": 48.900000000000006,
+          "touchdowns": 14.0
+        }
+      }
+    },
+    {
+      "strategy": "QB TD Over 0.5",
+      "type": "QB TD Over 0.5",
+      "player": "Alex Smith",
+      "team": "?",
+      "confidence": 0.76,
+      "expected_value": 0.13,
+      "data_quality": 0.8,
+      "metrics": {
+        "red_zone_attempts": 65.0,
+        "recent_touchdowns": 20.0,
+        "thresholds": {
+          "red_zone": 48.900000000000006,
+          "touchdowns": 14.0
+        }
+      }
+    },
+    {
+      "strategy": "QB TD Over 0.5",
+      "type": "QB TD Over 0.5",
+      "player": "Andy Dalton",
+      "team": "Carolina Panthers",
+      "confidence": 0.76,
+      "expected_value": 0.13,
+      "data_quality": 0.8,
+      "metrics": {
+        "red_zone_attempts": 61.0,
+        "recent_touchdowns": 25.0,
+        "thresholds": {
+          "red_zone": 48.900000000000006,
+          "touchdowns": 14.0
+        }
+      }
+    },
+    {
+      "strategy": "QB TD Over 0.5",
+      "type": "QB TD Over 0.5",
+      "player": "Ben Roethlisberger",
+      "team": "?",
+      "confidence": 0.76,
+      "expected_value": 0.13,
+      "data_quality": 0.8,
+      "metrics": {
+        "red_zone_attempts": 65.0,
+        "recent_touchdowns": 21.0,
+        "thresholds": {
+          "red_zone": 48.900000000000006,
+          "touchdowns": 14.0
+        }
+      }
+    },
+    {
+      "strategy": "QB TD Over 0.5",
+      "type": "QB TD Over 0.5",
+      "player": "Blake Bortles",
+      "team": "?",
+      "confidence": 0.76,
+      "expected_value": 0.13,
+      "data_quality": 0.8,
+      "metrics": {
+        "red_zone_attempts": 94.0,
+        "recent_touchdowns": 35.0,
+        "thresholds": {
+          "red_zone": 48.900000000000006,
+          "touchdowns": 14.0
+        }
+      }
+    },
+    {
+      "strategy": "WR Receiving Under",
+      "type": "WR Receiving Under",
+      "player": "A.J. Green",
+      "team": "?",
+      "confidence": 0.704,
+      "expected_value": 0.09,
+      "data_quality": 0.8,
+      "metrics": {
+        "targets": 132.0,
+        "catch_rate": 0.652,
+        "air_yards": null,
+        "thresholds": {
+          "targets": 72.0,
+          "catch_rate": 0.5429999999999999,
+          "air_yards": null
+        }
+      },
+      "notes": "Targets 132.0 vs 72.0; Catch% 0.65; Air yards data incomplete"
+    },
+    {
+      "strategy": "WR Receiving Under",
+      "type": "WR Receiving Under",
+      "player": "Allen Hurns",
+      "team": "?",
+      "confidence": 0.704,
+      "expected_value": 0.09,
+      "data_quality": 0.8,
+      "metrics": {
+        "targets": 105.0,
+        "catch_rate": 0.61,
+        "air_yards": null,
+        "thresholds": {
+          "targets": 72.0,
+          "catch_rate": 0.5429999999999999,
+          "air_yards": null
+        }
+      },
+      "notes": "Targets 105.0 vs 72.0; Catch% 0.61; Air yards data incomplete"
+    },
+    {
+      "strategy": "WR Receiving Under",
+      "type": "WR Receiving Under",
+      "player": "Allen Robinson",
+      "team": "?",
+      "confidence": 0.704,
+      "expected_value": 0.09,
+      "data_quality": 0.8,
+      "metrics": {
+        "targets": 151.0,
+        "catch_rate": 0.53,
+        "air_yards": null,
+        "thresholds": {
+          "targets": 72.0,
+          "catch_rate": 0.5429999999999999,
+          "air_yards": null
+        }
+      },
+      "notes": "Targets 151.0 vs 72.0; Catch% 0.53 <= 0.54; Air yards data incomplete"
+    },
+    {
+      "strategy": "WR Receiving Under",
+      "type": "WR Receiving Under",
+      "player": "Alshon Jeffery",
+      "team": "?",
+      "confidence": 0.704,
+      "expected_value": 0.09,
+      "data_quality": 0.8,
+      "metrics": {
+        "targets": 94.0,
+        "catch_rate": 0.574,
+        "air_yards": null,
+        "thresholds": {
+          "targets": 72.0,
+          "catch_rate": 0.5429999999999999,
+          "air_yards": null
+        }
+      },
+      "notes": "Targets 94.0 vs 72.0; Catch% 0.57; Air yards data incomplete"
+    },
+    {
+      "strategy": "RB Rushing Under",
+      "type": "RB Rushing Under",
+      "player": "KJ-1400",
+      "team": "SF",
+      "confidence": 0.542,
+      "expected_value": 0.071,
+      "data_quality": 0.8,
+      "metrics": {
+        "defenders_in_box": 7.9375,
+        "yards_created": 0.0,
+        "attempts": 16.0,
+        "thresholds": {
+          "box": 7.0,
+          "yards_created": 0.0
+        }
+      }
+    },
+    {
+      "strategy": "RB Rushing Under",
+      "type": "RB Rushing Under",
+      "player": "CC-2187",
+      "team": "PIT",
+      "confidence": 0.539,
+      "expected_value": 0.079,
+      "data_quality": 0.8,
+      "metrics": {
+        "defenders_in_box": 8.6,
+        "yards_created": 0.0,
+        "attempts": 10.0,
+        "thresholds": {
+          "box": 7.0,
+          "yards_created": 0.0
+        }
+      }
+    },
+    {
+      "strategy": "RB Rushing Under",
+      "type": "RB Rushing Under",
+      "player": "MM-0912",
+      "team": "LV",
+      "confidence": 0.502,
+      "expected_value": 0.067,
+      "data_quality": 0.8,
+      "metrics": {
+        "defenders_in_box": 7.555555555555555,
+        "yards_created": 0.0,
+        "attempts": 9.0,
+        "thresholds": {
+          "box": 7.0,
+          "yards_created": 0.0
+        }
+      }
+    },
+    {
+      "strategy": "RB Rushing Under",
+      "type": "RB Rushing Under",
+      "player": "BR-1100",
+      "team": "PIT",
+      "confidence": 0.501,
+      "expected_value": 0.063,
+      "data_quality": 0.8,
+      "metrics": {
+        "defenders_in_box": 7.2727272727272725,
+        "yards_created": 0.0,
+        "attempts": 11.0,
+        "thresholds": {
+          "box": 7.0,
+          "yards_created": 0.0
+        }
+      }
+    },
+    {
+      "strategy": "RB Rushing Under",
+      "type": "RB Rushing Under",
+      "player": "JB-5725",
+      "team": "IND",
+      "confidence": 0.5,
+      "expected_value": 0.068,
+      "data_quality": 0.8,
+      "metrics": {
+        "defenders_in_box": 7.625,
+        "yards_created": 0.0,
+        "attempts": 8.0,
+        "thresholds": {
+          "box": 7.0,
+          "yards_created": 0.0
+        }
+      }
+    }
+  ],
+  "edge_summary": {
+    "QB TD Over 0.5": 5,
+    "RB Rushing Under": 5,
+    "WR Receiving Under": 4
+  },
+  "data_quality": 0.8
+}
