@@ -1,0 +1,2245 @@
+{
+  "generated_at": "2025-09-27T07:44:27.539673+00:00",
+  "token_status": [
+    {
+      "index": 1,
+      "key_suffix": "144a3e",
+      "remaining": 496,
+      "used": 4,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "index": 2,
+      "key_suffix": "67d3e5",
+      "remaining": 0,
+      "used": 500,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "index": 3,
+      "key_suffix": "b5f709",
+      "remaining": 127,
+      "used": 373,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "index": 4,
+      "key_suffix": "f5cdb8",
+      "remaining": 500,
+      "used": 0,
+      "status": "ok",
+      "error": null
+    },
+    {
+      "index": 5,
+      "key_suffix": "cbd74b",
+      "remaining": 500,
+      "used": 0,
+      "status": "ok",
+      "error": null
+    }
+  ],
+  "total_tokens": 1623,
+  "games": [
+    {
+      "id": "4dd631102a977fd398f7ea594ed208f2",
+      "home_team": "Pittsburgh Steelers",
+      "away_team": "Minnesota Vikings",
+      "commence_time": "2025-09-28T13:31:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 41.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 41.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Minnesota Vikings",
+              "point": -2.5,
+              "price": -115
+            },
+            {
+              "name": "Pittsburgh Steelers",
+              "point": 2.5,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 40.5,
+              "price": -112
+            },
+            {
+              "name": "Under",
+              "point": 40.5,
+              "price": -108
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Minnesota Vikings",
+              "point": -2.5,
+              "price": -114
+            },
+            {
+              "name": "Pittsburgh Steelers",
+              "point": 2.5,
+              "price": -106
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 41.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 41.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Minnesota Vikings",
+              "point": -2.5,
+              "price": -115
+            },
+            {
+              "name": "Pittsburgh Steelers",
+              "point": 2.5,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 41.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 40.5,
+          "price": -112
+        },
+        {
+          "book": "BetMGM",
+          "point": 41.0,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": 2.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 2.5,
+          "price": -106
+        },
+        {
+          "book": "BetMGM",
+          "point": 2.5,
+          "price": -105
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 41.0,
+      "on_key_number": true,
+      "key_numbers": [
+        41
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534053+00:00"
+    },
+    {
+      "id": "bcb1f89cf378a586097c50585e53acce",
+      "home_team": "Detroit Lions",
+      "away_team": "Cleveland Browns",
+      "commence_time": "2025-09-28T17:00:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cleveland Browns",
+              "point": 10.0,
+              "price": -115
+            },
+            {
+              "name": "Detroit Lions",
+              "point": -10.0,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cleveland Browns",
+              "point": 9.5,
+              "price": -102
+            },
+            {
+              "name": "Detroit Lions",
+              "point": -9.5,
+              "price": -120
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cleveland Browns",
+              "point": 10.0,
+              "price": -115
+            },
+            {
+              "name": "Detroit Lions",
+              "point": -10.0,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 44.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 44.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": 44.5,
+          "price": -105
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -10.0,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": -9.5,
+          "price": -120
+        },
+        {
+          "book": "BetMGM",
+          "point": -10.0,
+          "price": -105
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 44.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534118+00:00"
+    },
+    {
+      "id": "d921b1e86b0a30ad91000ffc360d302d",
+      "home_team": "New York Giants",
+      "away_team": "Los Angeles Chargers",
+      "commence_time": "2025-09-28T17:00:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Los Angeles Chargers",
+              "point": -6.0,
+              "price": -110
+            },
+            {
+              "name": "New York Giants",
+              "point": 6.0,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Los Angeles Chargers",
+              "point": -6.5,
+              "price": -110
+            },
+            {
+              "name": "New York Giants",
+              "point": 6.5,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.0,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 44.0,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Los Angeles Chargers",
+              "point": -6.5,
+              "price": -110
+            },
+            {
+              "name": "New York Giants",
+              "point": 6.5,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 43.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 43.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": 44.0,
+          "price": -105
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": 6.0,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": 6.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": 6.5,
+          "price": -110
+        }
+      ],
+      "totals_movement": 0.5,
+      "average_total": 43.666666666666664,
+      "on_key_number": true,
+      "key_numbers": [
+        44
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534162+00:00"
+    },
+    {
+      "id": "b7934d72587b62de0f563ac9acbaa770",
+      "home_team": "Atlanta Falcons",
+      "away_team": "Washington Commanders",
+      "commence_time": "2025-09-28T17:01:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -108
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -112
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Atlanta Falcons",
+              "point": -2.5,
+              "price": -105
+            },
+            {
+              "name": "Washington Commanders",
+              "point": 2.5,
+              "price": -115
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Atlanta Falcons",
+              "point": -2.5,
+              "price": -102
+            },
+            {
+              "name": "Washington Commanders",
+              "point": 2.5,
+              "price": -120
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Atlanta Falcons",
+              "point": -2.5,
+              "price": -110
+            },
+            {
+              "name": "Washington Commanders",
+              "point": 2.5,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 43.5,
+          "price": -108
+        },
+        {
+          "book": "FanDuel",
+          "point": 43.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": 43.5,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -2.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": -2.5,
+          "price": -102
+        },
+        {
+          "book": "BetMGM",
+          "point": -2.5,
+          "price": -110
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 43.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534205+00:00"
+    },
+    {
+      "id": "d16a43752aaac66e9ff8768d8590b662",
+      "home_team": "Buffalo Bills",
+      "away_team": "New Orleans Saints",
+      "commence_time": "2025-09-28T17:01:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Buffalo Bills",
+              "point": -14.5,
+              "price": -112
+            },
+            {
+              "name": "New Orleans Saints",
+              "point": 14.5,
+              "price": -108
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -104
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": -118
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Buffalo Bills",
+              "point": -15.5,
+              "price": -110
+            },
+            {
+              "name": "New Orleans Saints",
+              "point": 15.5,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 48.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Buffalo Bills",
+              "point": -15.5,
+              "price": -110
+            },
+            {
+              "name": "New Orleans Saints",
+              "point": 15.5,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 48.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 48.5,
+          "price": -104
+        },
+        {
+          "book": "BetMGM",
+          "point": 48.0,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -14.5,
+          "price": -112
+        },
+        {
+          "book": "FanDuel",
+          "point": -15.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": -15.5,
+          "price": -110
+        }
+      ],
+      "totals_movement": 0.5,
+      "average_total": 48.333333333333336,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534240+00:00"
+    },
+    {
+      "id": "f8fe40924827231233dc10f6999d8ff7",
+      "home_team": "New England Patriots",
+      "away_team": "Carolina Panthers",
+      "commence_time": "2025-09-28T17:01:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 42.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 42.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Carolina Panthers",
+              "point": 5.5,
+              "price": -112
+            },
+            {
+              "name": "New England Patriots",
+              "point": -5.5,
+              "price": -108
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Carolina Panthers",
+              "point": 5.5,
+              "price": -110
+            },
+            {
+              "name": "New England Patriots",
+              "point": -5.5,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 43.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Carolina Panthers",
+              "point": 5.5,
+              "price": -110
+            },
+            {
+              "name": "New England Patriots",
+              "point": -5.5,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 42.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 43.5,
+          "price": -105
+        },
+        {
+          "book": "BetMGM",
+          "point": 43.0,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -5.5,
+          "price": -108
+        },
+        {
+          "book": "FanDuel",
+          "point": -5.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": -5.5,
+          "price": -110
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 43.0,
+      "on_key_number": true,
+      "key_numbers": [
+        43
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534277+00:00"
+    },
+    {
+      "id": "85c9b76cd6bd575b611cb4e8feb7a0b0",
+      "home_team": "Houston Texans",
+      "away_team": "Tennessee Titans",
+      "commence_time": "2025-09-28T17:01:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 39.5,
+              "price": -108
+            },
+            {
+              "name": "Under",
+              "point": 39.5,
+              "price": -112
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Houston Texans",
+              "point": -7.0,
+              "price": -118
+            },
+            {
+              "name": "Tennessee Titans",
+              "point": 7.0,
+              "price": -102
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 38.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 38.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Houston Texans",
+              "point": -7.0,
+              "price": -115
+            },
+            {
+              "name": "Tennessee Titans",
+              "point": 7.0,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 38.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 38.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Houston Texans",
+              "point": -7.5,
+              "price": 100
+            },
+            {
+              "name": "Tennessee Titans",
+              "point": 7.5,
+              "price": -122
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 39.5,
+          "price": -108
+        },
+        {
+          "book": "BetMGM",
+          "point": 38.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 38.5,
+          "price": -115
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -7.0,
+          "price": -118
+        },
+        {
+          "book": "BetMGM",
+          "point": -7.0,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": -7.5,
+          "price": 100
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 38.833333333333336,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534310+00:00"
+    },
+    {
+      "id": "894976986c24d52cf1d45f0e6bb0e90c",
+      "home_team": "Tampa Bay Buccaneers",
+      "away_team": "Philadelphia Eagles",
+      "commence_time": "2025-09-28T17:01:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Philadelphia Eagles",
+              "point": -3.5,
+              "price": -102
+            },
+            {
+              "name": "Tampa Bay Buccaneers",
+              "point": 3.5,
+              "price": -118
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -102
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -120
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Philadelphia Eagles",
+              "point": -3.5,
+              "price": -105
+            },
+            {
+              "name": "Tampa Bay Buccaneers",
+              "point": 3.5,
+              "price": -115
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 44.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Philadelphia Eagles",
+              "point": -3.5,
+              "price": -110
+            },
+            {
+              "name": "Tampa Bay Buccaneers",
+              "point": 3.5,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 44.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 44.5,
+          "price": -102
+        },
+        {
+          "book": "BetMGM",
+          "point": 44.0,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": 3.5,
+          "price": -118
+        },
+        {
+          "book": "FanDuel",
+          "point": 3.5,
+          "price": -115
+        },
+        {
+          "book": "BetMGM",
+          "point": 3.5,
+          "price": -110
+        }
+      ],
+      "totals_movement": 0.5,
+      "average_total": 44.333333333333336,
+      "on_key_number": true,
+      "key_numbers": [
+        44
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534343+00:00"
+    },
+    {
+      "id": "d90e0de2d5fa2d57e8812f31775ad0ba",
+      "home_team": "Los Angeles Rams",
+      "away_team": "Indianapolis Colts",
+      "commence_time": "2025-09-28T20:06:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 49.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 49.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Indianapolis Colts",
+              "point": 3.5,
+              "price": -105
+            },
+            {
+              "name": "Los Angeles Rams",
+              "point": -3.5,
+              "price": -115
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 49.5,
+              "price": -112
+            },
+            {
+              "name": "Under",
+              "point": 49.5,
+              "price": -108
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Indianapolis Colts",
+              "point": 3.5,
+              "price": -112
+            },
+            {
+              "name": "Los Angeles Rams",
+              "point": -3.5,
+              "price": -108
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 49.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 49.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Indianapolis Colts",
+              "point": 3.5,
+              "price": -115
+            },
+            {
+              "name": "Los Angeles Rams",
+              "point": -3.5,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 49.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 49.5,
+          "price": -112
+        },
+        {
+          "book": "BetMGM",
+          "point": 49.5,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -3.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": -3.5,
+          "price": -108
+        },
+        {
+          "book": "BetMGM",
+          "point": -3.5,
+          "price": -105
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 49.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534379+00:00"
+    },
+    {
+      "id": "09f55b4a19a83eb951a9400a11123477",
+      "home_team": "San Francisco 49ers",
+      "away_team": "Jacksonville Jaguars",
+      "commence_time": "2025-09-28T20:06:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Jacksonville Jaguars",
+              "point": 3.5,
+              "price": -110
+            },
+            {
+              "name": "San Francisco 49ers",
+              "point": -3.5,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Jacksonville Jaguars",
+              "point": 3.5,
+              "price": -120
+            },
+            {
+              "name": "San Francisco 49ers",
+              "point": -3.5,
+              "price": -102
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Jacksonville Jaguars",
+              "point": 3.5,
+              "price": -115
+            },
+            {
+              "name": "San Francisco 49ers",
+              "point": -3.5,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 46.5,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": 46.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": 46.5,
+          "price": -115
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -3.5,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": -3.5,
+          "price": -102
+        },
+        {
+          "book": "BetMGM",
+          "point": -3.5,
+          "price": -105
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 46.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534412+00:00"
+    },
+    {
+      "id": "051233db287b02fd3e7574955879ece2",
+      "home_team": "Kansas City Chiefs",
+      "away_team": "Baltimore Ravens",
+      "commence_time": "2025-09-28T20:25:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -120
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": 100
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Baltimore Ravens",
+              "point": -2.5,
+              "price": -120
+            },
+            {
+              "name": "Kansas City Chiefs",
+              "point": 2.5,
+              "price": 100
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Baltimore Ravens",
+              "point": -2.5,
+              "price": -115
+            },
+            {
+              "name": "Kansas City Chiefs",
+              "point": 2.5,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Baltimore Ravens",
+              "point": -2.5,
+              "price": -118
+            },
+            {
+              "name": "Kansas City Chiefs",
+              "point": 2.5,
+              "price": -104
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 48.5,
+          "price": -120
+        },
+        {
+          "book": "BetMGM",
+          "point": 48.5,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": 48.5,
+          "price": -115
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": 2.5,
+          "price": 100
+        },
+        {
+          "book": "BetMGM",
+          "point": 2.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 2.5,
+          "price": -104
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 48.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534446+00:00"
+    },
+    {
+      "id": "af6fbb0a2e996613bc393115276c60e2",
+      "home_team": "Las Vegas Raiders",
+      "away_team": "Chicago Bears",
+      "commence_time": "2025-09-28T20:26:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 48.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 48.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Chicago Bears",
+              "point": 1.5,
+              "price": -115
+            },
+            {
+              "name": "Las Vegas Raiders",
+              "point": -1.5,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 47.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 47.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Chicago Bears",
+              "point": 1.5,
+              "price": -115
+            },
+            {
+              "name": "Las Vegas Raiders",
+              "point": -1.5,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 47.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 47.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Chicago Bears",
+              "point": 1.0,
+              "price": -115
+            },
+            {
+              "name": "Las Vegas Raiders",
+              "point": -1.0,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 48.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 47.5,
+          "price": -115
+        },
+        {
+          "book": "BetMGM",
+          "point": 47.5,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -1.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": -1.5,
+          "price": -105
+        },
+        {
+          "book": "BetMGM",
+          "point": -1.0,
+          "price": -105
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 47.833333333333336,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534481+00:00"
+    },
+    {
+      "id": "de432abcc3bd8d42a582ae9f71388dcd",
+      "home_team": "Dallas Cowboys",
+      "away_team": "Green Bay Packers",
+      "commence_time": "2025-09-29T00:21:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 47.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 47.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Dallas Cowboys",
+              "point": 7.0,
+              "price": -115
+            },
+            {
+              "name": "Green Bay Packers",
+              "point": -7.0,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 47.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 47.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Dallas Cowboys",
+              "point": 7.0,
+              "price": -115
+            },
+            {
+              "name": "Green Bay Packers",
+              "point": -7.0,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Dallas Cowboys",
+              "point": 6.5,
+              "price": -102
+            },
+            {
+              "name": "Green Bay Packers",
+              "point": -6.5,
+              "price": -120
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 47.5,
+          "price": -105
+        },
+        {
+          "book": "BetMGM",
+          "point": 47.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 46.5,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": 7.0,
+          "price": -115
+        },
+        {
+          "book": "BetMGM",
+          "point": 7.0,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 6.5,
+          "price": -102
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 47.166666666666664,
+      "on_key_number": true,
+      "key_numbers": [
+        47
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534546+00:00"
+    },
+    {
+      "id": "bc76fb8d846588ed46297aaab4e83de9",
+      "home_team": "Miami Dolphins",
+      "away_team": "New York Jets",
+      "commence_time": "2025-09-29T23:15:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 45.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 45.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Miami Dolphins",
+              "point": -2.5,
+              "price": -118
+            },
+            {
+              "name": "New York Jets",
+              "point": 2.5,
+              "price": -102
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 45.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 45.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Miami Dolphins",
+              "point": -2.5,
+              "price": -120
+            },
+            {
+              "name": "New York Jets",
+              "point": 2.5,
+              "price": 100
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -108
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -112
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Miami Dolphins",
+              "point": -2.5,
+              "price": -120
+            },
+            {
+              "name": "New York Jets",
+              "point": 2.5,
+              "price": -102
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 45.5,
+          "price": -105
+        },
+        {
+          "book": "BetMGM",
+          "point": 45.0,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": 44.5,
+          "price": -108
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -2.5,
+          "price": -118
+        },
+        {
+          "book": "BetMGM",
+          "point": -2.5,
+          "price": -120
+        },
+        {
+          "book": "FanDuel",
+          "point": -2.5,
+          "price": -120
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 45.0,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534582+00:00"
+    },
+    {
+      "id": "8dcb2a6bf542ccb7e6bc58f83c8fc2ac",
+      "home_team": "Denver Broncos",
+      "away_team": "Cincinnati Bengals",
+      "commence_time": "2025-09-30T00:15:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.5,
+              "price": -105
+            },
+            {
+              "name": "Under",
+              "point": 44.5,
+              "price": -115
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cincinnati Bengals",
+              "point": 7.5,
+              "price": -115
+            },
+            {
+              "name": "Denver Broncos",
+              "point": -7.5,
+              "price": -105
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 43.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 43.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cincinnati Bengals",
+              "point": 7.5,
+              "price": -110
+            },
+            {
+              "name": "Denver Broncos",
+              "point": -7.5,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "betmgm",
+          "title": "BetMGM",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 44.0,
+              "price": -110
+            },
+            {
+              "name": "Under",
+              "point": 44.0,
+              "price": -110
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Cincinnati Bengals",
+              "point": 7.5,
+              "price": -115
+            },
+            {
+              "name": "Denver Broncos",
+              "point": -7.5,
+              "price": -105
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 44.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": 43.5,
+          "price": -115
+        },
+        {
+          "book": "BetMGM",
+          "point": 44.0,
+          "price": -110
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -7.5,
+          "price": -105
+        },
+        {
+          "book": "FanDuel",
+          "point": -7.5,
+          "price": -110
+        },
+        {
+          "book": "BetMGM",
+          "point": -7.5,
+          "price": -105
+        }
+      ],
+      "totals_movement": 1.0,
+      "average_total": 44.0,
+      "on_key_number": true,
+      "key_numbers": [
+        44
+      ],
+      "best_books": [
+        "BetMGM",
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534611+00:00"
+    },
+    {
+      "id": "c4b72eabb3d557e73022ec730d8e3944",
+      "home_team": "Los Angeles Rams",
+      "away_team": "San Francisco 49ers",
+      "commence_time": "2025-10-03T00:16:00+00:00",
+      "bookmakers": [
+        {
+          "key": "draftkings",
+          "title": "DraftKings",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Los Angeles Rams",
+              "point": -3.0,
+              "price": -110
+            },
+            {
+              "name": "San Francisco 49ers",
+              "point": 3.0,
+              "price": -110
+            }
+          ]
+        },
+        {
+          "key": "fanduel",
+          "title": "FanDuel",
+          "last_update": "2025-09-27T07:44:25Z",
+          "totals": [
+            {
+              "name": "Over",
+              "point": 46.5,
+              "price": -115
+            },
+            {
+              "name": "Under",
+              "point": 46.5,
+              "price": -105
+            }
+          ],
+          "spreads": [
+            {
+              "name": "Los Angeles Rams",
+              "point": -3.0,
+              "price": -110
+            },
+            {
+              "name": "San Francisco 49ers",
+              "point": 3.0,
+              "price": -110
+            }
+          ]
+        }
+      ],
+      "totals_points": [
+        {
+          "book": "DraftKings",
+          "point": 46.5,
+          "price": -115
+        },
+        {
+          "book": "FanDuel",
+          "point": 46.5,
+          "price": -115
+        }
+      ],
+      "spreads_points": [
+        {
+          "book": "DraftKings",
+          "point": -3.0,
+          "price": -110
+        },
+        {
+          "book": "FanDuel",
+          "point": -3.0,
+          "price": -110
+        }
+      ],
+      "totals_movement": 0.0,
+      "average_total": 46.5,
+      "on_key_number": false,
+      "key_numbers": [],
+      "best_books": [
+        "DraftKings",
+        "FanDuel"
+      ],
+      "last_updated": "2025-09-27T07:44:27.534641+00:00"
+    }
+  ],
+  "edges": []
+}
