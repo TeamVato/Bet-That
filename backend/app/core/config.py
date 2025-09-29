@@ -4,7 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import AnyHttpUrl, BaseSettings, Field
+from pydantic import AnyHttpUrl, Field
+from pydantic_settings import BaseSettings
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EDGES_SNAPSHOT = BACKEND_ROOT / "data" / "edges_current.json"
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
     @property
     def all_odds_keys(self) -> List[str]:

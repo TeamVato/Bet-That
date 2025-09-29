@@ -4,14 +4,12 @@ Provides secure JWT token generation, validation, and management with proper
 algorithms, expiration handling, and blacklisting capabilities.
 """
 
-import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
-from jose import JWTError, jwt
-from jose.constants import ALGORITHMS
+from jose import jwt
 from pydantic import BaseModel, Field
 
 from ..settings import settings

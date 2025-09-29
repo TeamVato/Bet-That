@@ -8,10 +8,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from ..database import get_db
 from ..models import AuthLog, JWTTokenBlacklist, User, UserSession
 from ..settings import settings
 

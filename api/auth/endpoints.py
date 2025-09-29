@@ -22,15 +22,21 @@ from .exceptions import (
     PasswordTooWeakError,
     RateLimitExceededError,
     RefreshTokenError,
+    TokenExpiredError,
     TokenInvalidError,
+    TokenRevokedError,
     UserInactiveError,
     UserNotFoundError,
 )
-from .jwt_auth import generate_password_reset_token, jwt_auth, verify_password_reset_token
+from .jwt_auth import (
+    generate_password_reset_token,
+    jwt_auth,
+    verify_password_reset_token,
+    verify_token,
+)
 from .password_manager import hash_password, password_manager, verify_password
 from .schemas import (
     EmailVerificationRequest,
-    LoginRequest,
     LoginResponse,
     LogoutResponse,
     PasswordChangeRequest,
@@ -46,7 +52,6 @@ from .security_utils import (
     generate_secure_token,
     sanitize_auth_input,
     security_manager,
-    verify_csrf_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -113,11 +118,8 @@ async def register_user(
         db.refresh(user)
 
         # Generate email verification token if needed
-        verification_token = None
         if settings.enable_email_verification:
-            verification_token = security_manager.generate_email_verification_token(
-                user.id, user.email
-            )
+            security_manager.generate_email_verification_token(user.id, user.email)
             # TODO: Send verification email in background task
             # background_tasks.add_task(send_verification_email, user.email, verification_token)
 
@@ -307,7 +309,6 @@ async def logout_user(
     try:
         # Extract token from the request (we need the raw token)
         # This is a simplified approach - in production, you'd extract from the request
-        access_token = token_payload.get("jti", "")  # Use JTI as token identifier
 
         # Revoke current session
         if request_data and request_data.get("logout_all_sessions"):
@@ -355,7 +356,7 @@ async def request_password_reset(
 
         if user and user.is_active:
             # Generate password reset token
-            reset_token = generate_password_reset_token(user.id, user.email)
+            generate_password_reset_token(user.id, user.email)
 
             # TODO: Send password reset email in background
             # background_tasks.add_task(send_password_reset_email, user.email, reset_token)
@@ -528,9 +529,7 @@ async def resend_email_verification(
             return {"message": "Email is already verified"}
 
         # Generate new verification token
-        verification_token = security_manager.generate_email_verification_token(
-            current_user.id, current_user.email
-        )
+        security_manager.generate_email_verification_token(current_user.id, current_user.email)
 
         # TODO: Send verification email in background
         # background_tasks.add_task(send_verification_email, current_user.email, verification_token)

@@ -11,6 +11,10 @@ __pycache__/
 
 # Node.js
 node_modules/
+*/node_modules/
+.env.local
+.env.development
+.env.production
 
 # Streamlit cache
 .streamlit/

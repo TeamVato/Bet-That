@@ -252,36 +252,3 @@ class CSRFTokenResponse(BaseModel):
 
     csrf_token: str = Field(..., description="CSRF protection token")
     expires_in: int = Field(..., description="Token expiration in seconds")
-
-
-class PasswordChangeRequest(BaseModel):
-    """Password change request (authenticated)"""
-
-    current_password: SecretStr = Field(..., description="Current password")
-    new_password: SecretStr = Field(..., min_length=8, description="New password")
-    logout_other_sessions: bool = Field(False, description="Logout from other sessions")
-
-    @validator("new_password")
-    def validate_passwords_different(cls, v, values):
-        current_password = values.get("current_password")
-        if current_password and isinstance(current_password, SecretStr):
-            current_pass = current_password.get_secret_value()
-            new_pass = v.get_secret_value() if isinstance(v, SecretStr) else v
-            if current_pass == new_pass:
-                raise ValueError("New password must be different from current password")
-        return v
-
-
-class EmailVerificationRequest(BaseModel):
-    """Email verification request"""
-
-    token: str = Field(..., description="Email verification token")
-    user_id: int = Field(..., description="User ID")
-    email: EmailStr = Field(..., description="Email address to verify")
-
-
-class LogoutResponse(BaseModel):
-    """Logout response"""
-
-    message: str = Field(..., description="Logout status message")
-    logged_out_at: datetime = Field(..., description="Logout timestamp")

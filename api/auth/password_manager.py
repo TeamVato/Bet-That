@@ -4,7 +4,6 @@ Provides secure password hashing, verification, and strength validation
 using industry-standard bcrypt with proper salt handling.
 """
 
-import hashlib
 import logging
 import re
 import secrets
@@ -16,14 +15,13 @@ from .exceptions import PasswordTooWeakError
 # Try to use bcrypt, fall back to PBKDF2 if there are compatibility issues
 try:
     from passlib.context import CryptContext
-    from passlib.hash import bcrypt
 
     BCRYPT_AVAILABLE = True
 except ImportError:
     BCRYPT_AVAILABLE = False
 
 # Import simple password functions as fallback
-from .simple_password import hash_password_pbkdf2, validate_password_simple, verify_password_pbkdf2
+from .simple_password import hash_password_pbkdf2, validate_password_simple
 
 logger = logging.getLogger(__name__)
 

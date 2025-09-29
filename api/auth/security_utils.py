@@ -11,7 +11,7 @@ import re
 import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional
 
 from ..settings import settings
 from .exceptions import RateLimitExceededError
