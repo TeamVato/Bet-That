@@ -12,11 +12,13 @@ def test_infer_season_august_maps_to_same_year():
 
 
 def test_infer_season_series_handles_mixed_values():
-    values = pd.Series([
-        "2024-09-10T00:00:00Z",
-        "2025-02-02T00:00:00Z",
-        None,
-    ])
+    values = pd.Series(
+        [
+            "2024-09-10T00:00:00Z",
+            "2025-02-02T00:00:00Z",
+            None,
+        ]
+    )
     seasons = infer_season_series(values)
     assert int(seasons.iloc[0]) == 2024
     assert int(seasons.iloc[1]) == 2024

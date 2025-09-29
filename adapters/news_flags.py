@@ -1,8 +1,9 @@
 """Manual YAML-based overrides for injuries, snap counts, etc."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 import yaml
 

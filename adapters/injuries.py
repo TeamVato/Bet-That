@@ -1,4 +1,5 @@
 """Fetch and normalize NFL injury reports."""
+
 from __future__ import annotations
 
 import datetime
@@ -54,18 +55,20 @@ def _schedule_team_map(schedule_df: pd.DataFrame) -> pd.DataFrame:
 
 def transform_injuries(raw: pd.DataFrame, schedule_df: pd.DataFrame) -> pd.DataFrame:
     if raw.empty:
-        return pd.DataFrame(columns=[
-            "event_id",
-            "season",
-            "week",
-            "team",
-            "player",
-            "position",
-            "report_status",
-            "report_primary_injury",
-            "practice_status",
-            "updated_at",
-        ])
+        return pd.DataFrame(
+            columns=[
+                "event_id",
+                "season",
+                "week",
+                "team",
+                "player",
+                "position",
+                "report_status",
+                "report_primary_injury",
+                "practice_status",
+                "updated_at",
+            ]
+        )
     mapping = _schedule_team_map(schedule_df)
     merged = raw.copy()
     merged.rename(

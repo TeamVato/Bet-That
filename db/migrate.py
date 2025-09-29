@@ -1,4 +1,5 @@
 """Utility script to create the SQLite schema defined in db/schema.sql."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,9 +17,7 @@ def parse_database_url(database_url: str) -> Path:
     if database_url.startswith("sqlite:///"):
         path_str = database_url.replace("sqlite:///", "", 1)
         return Path(path_str)
-    raise ValueError(
-        "Only sqlite:/// URLs are supported for this starter project."
-    )
+    raise ValueError("Only sqlite:/// URLs are supported for this starter project.")
 
 
 def migrate(database_url: str | None = None) -> Path:

@@ -1,4 +1,5 @@
 """Export tidy CSV/Parquet files for BI tools."""
+
 from __future__ import annotations
 
 import sys
@@ -39,9 +40,7 @@ def main() -> None:
     import sqlite3
 
     with sqlite3.connect(database_path) as conn:
-        edges = pd.read_sql_query(
-            "SELECT * FROM edges ORDER BY created_at DESC", conn
-        )
+        edges = pd.read_sql_query("SELECT * FROM edges ORDER BY created_at DESC", conn)
         best_lines = pd.read_sql_query("SELECT * FROM current_best_lines", conn)
         line_history = pd.read_sql_query(
             """

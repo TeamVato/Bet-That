@@ -135,8 +135,13 @@ def test_effective_file_written(tmp_path):
     effective_path = tmp_path / "effective.yaml"
 
     now = dt.datetime(2025, 9, 21, tzinfo=dt.timezone.utc)
-    _write_yaml(auto_path, {"overrides": {}, "meta": {"managed_by": "auto", "updated_at": now.isoformat()}})
-    _write_yaml(manual_path, {"overrides": {}, "meta": {"managed_by": "manual", "updated_at": now.isoformat()}})
+    _write_yaml(
+        auto_path, {"overrides": {}, "meta": {"managed_by": "auto", "updated_at": now.isoformat()}}
+    )
+    _write_yaml(
+        manual_path,
+        {"overrides": {}, "meta": {"managed_by": "manual", "updated_at": now.isoformat()}},
+    )
 
     flags = load_flags(
         now=now,

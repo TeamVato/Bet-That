@@ -6,7 +6,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).resolve().parent))
 
-from commands import run_command, list_commands
+from commands import list_commands, run_command
 
 
 def main():

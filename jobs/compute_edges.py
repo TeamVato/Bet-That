@@ -1,4 +1,5 @@
 """Build QB projections and compute edges from props odds."""
+
 from __future__ import annotations
 
 import datetime
@@ -18,10 +19,11 @@ from adapters.odds.csv_props_provider import CsvQBPropsAdapter
 from adapters.odds.db_props_provider import DbPropsAdapter
 from db.migrate import migrate, parse_database_url
 from engine.edge_engine import EdgeEngine, EdgeEngineConfig
+from engine.season import infer_season, infer_season_series
 from engine.team_map import normalize_team_code
 from models.qb_projection import ProjectionConfig, build_qb_projections
-from engine.season import infer_season, infer_season_series
-from utils.teams import parse_event_id, infer_offense_team, infer_is_home
+from utils.teams import infer_is_home, infer_offense_team, parse_event_id
+
 
 def _env_truthy(value: str | None) -> bool:
     if value is None:
@@ -132,7 +134,9 @@ def ensure_edges_season(
                 .to_dict()
             )
             if props_lookup:
-                edges_df.loc[missing_mask, "season"] = edges_df.loc[missing_mask, "event_id"].map(props_lookup)
+                edges_df.loc[missing_mask, "season"] = edges_df.loc[missing_mask, "event_id"].map(
+                    props_lookup
+                )
                 missing_mask = edges_df["season"].isna()
         if missing_mask.any():
             try:
@@ -157,7 +161,9 @@ def ensure_edges_season(
                     .to_dict()
                 )
                 if raw_lookup:
-                    edges_df.loc[missing_mask, "season"] = edges_df.loc[missing_mask, "event_id"].map(raw_lookup)
+                    edges_df.loc[missing_mask, "season"] = edges_df.loc[
+                        missing_mask, "event_id"
+                    ].map(raw_lookup)
                     missing_mask = edges_df["season"].isna()
     if edges_df["season"].isna().all():
         fallback = current_season()
@@ -246,7 +252,9 @@ def main() -> None:
     )
     persist_projections(projections, database_path)
 
-    engine = EdgeEngine(EdgeEngineConfig(database_path=database_path), schedule_lookup=schedule_lookup)
+    engine = EdgeEngine(
+        EdgeEngineConfig(database_path=database_path), schedule_lookup=schedule_lookup
+    )
     edges_df = engine.compute_edges(props_df, projections)
     # Optional market-aware shrinkage toward consensus
     try:
@@ -275,20 +283,26 @@ def main() -> None:
             dr["defteam"] = dr["defteam"].apply(normalize_team_code)
             qb_ratings = dr.loc[dr["pos"] == "QB_PASS"].copy()
             if "score_adj" in qb_ratings.columns:
-                qb_ratings["score_effective"] = qb_ratings["score_adj"].combine_first(qb_ratings["score"])
+                qb_ratings["score_effective"] = qb_ratings["score_adj"].combine_first(
+                    qb_ratings["score"]
+                )
             else:
                 qb_ratings["score_effective"] = qb_ratings["score"]
             if "tier_adj" in qb_ratings.columns:
-                qb_ratings["tier_effective"] = qb_ratings["tier_adj"].combine_first(qb_ratings["tier"])
+                qb_ratings["tier_effective"] = qb_ratings["tier_adj"].combine_first(
+                    qb_ratings["tier"]
+                )
             else:
                 qb_ratings["tier_effective"] = qb_ratings["tier"]
-            qb_ratings = qb_ratings[[
-                "defteam",
-                "season",
-                "week",
-                "tier_effective",
-                "score_effective",
-            ]]
+            qb_ratings = qb_ratings[
+                [
+                    "defteam",
+                    "season",
+                    "week",
+                    "tier_effective",
+                    "score_effective",
+                ]
+            ]
 
             # Enhanced join diagnostics with key coverage analysis
             debug_joins = _env_truthy(os.getenv("DEBUG_EDGE_JOINS"))
@@ -299,14 +313,18 @@ def main() -> None:
             week_coverage = (~edges_df["week"].isna()).sum()
             opponent_coverage = (~edges_df["opponent_def_code"].isna()).sum()
             complete_keys = (
-                (~edges_df["season"].isna()) &
-                (~edges_df["week"].isna()) &
-                (~edges_df["opponent_def_code"].isna())
+                (~edges_df["season"].isna())
+                & (~edges_df["week"].isna())
+                & (~edges_df["opponent_def_code"].isna())
             ).sum()
 
             print(f"INFO: Defense ratings join preparation - {total_edges} edges total")
-            print(f"INFO: Join key coverage: season={season_coverage}/{total_edges} ({season_coverage/total_edges*100:.1f}%), week={week_coverage}/{total_edges} ({week_coverage/total_edges*100:.1f}%), opponent_def_code={opponent_coverage}/{total_edges} ({opponent_coverage/total_edges*100:.1f}%)")
-            print(f"INFO: Complete join keys: {complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)")
+            print(
+                f"INFO: Join key coverage: season={season_coverage}/{total_edges} ({season_coverage/total_edges*100:.1f}%), week={week_coverage}/{total_edges} ({week_coverage/total_edges*100:.1f}%), opponent_def_code={opponent_coverage}/{total_edges} ({opponent_coverage/total_edges*100:.1f}%)"
+            )
+            print(
+                f"INFO: Complete join keys: {complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)"
+            )
 
             if debug_joins:
                 # Detailed diagnostics for missing keys
@@ -315,11 +333,17 @@ def main() -> None:
                 missing_opponent = edges_df[edges_df["opponent_def_code"].isna()]
 
                 if not missing_season.empty:
-                    print(f"DEBUG: {len(missing_season)} edges missing season - event_id samples: {missing_season['event_id'].head(5).tolist()}")
+                    print(
+                        f"DEBUG: {len(missing_season)} edges missing season - event_id samples: {missing_season['event_id'].head(5).tolist()}"
+                    )
                 if not missing_week.empty:
-                    print(f"DEBUG: {len(missing_week)} edges missing week - event_id samples: {missing_week['event_id'].head(5).tolist()}")
+                    print(
+                        f"DEBUG: {len(missing_week)} edges missing week - event_id samples: {missing_week['event_id'].head(5).tolist()}"
+                    )
                 if not missing_opponent.empty:
-                    print(f"DEBUG: {len(missing_opponent)} edges missing opponent_def_code - event_id samples: {missing_opponent['event_id'].head(5).tolist()}")
+                    print(
+                        f"DEBUG: {len(missing_opponent)} edges missing opponent_def_code - event_id samples: {missing_opponent['event_id'].head(5).tolist()}"
+                    )
 
             # Join diagnostics: log sample of codes being joined
             edges_sample = edges_df[["opponent_def_code", "season", "week"]].dropna()
@@ -349,14 +373,18 @@ def main() -> None:
             # Log join success/failure statistics
             after_join_count = len(edges_df)
             joined_successfully = (~edges_df["def_tier"].isna()).sum()
-            print(f"INFO: Join result: {before_join_count} -> {after_join_count} rows, {joined_successfully} successful joins")
+            print(
+                f"INFO: Join result: {before_join_count} -> {after_join_count} rows, {joined_successfully} successful joins"
+            )
 
             # Log unmatched opponent_def_codes (capped to prevent spam)
-            unmatched_mask = (edges_df["def_tier"].isna() & edges_df["opponent_def_code"].notna())
+            unmatched_mask = edges_df["def_tier"].isna() & edges_df["opponent_def_code"].notna()
             if unmatched_mask.any():
                 unmatched_codes = edges_df.loc[unmatched_mask, "opponent_def_code"].unique()
                 sample_size = min(20, len(unmatched_codes))
-                print(f"INFO: Unmatched opponent_def_codes ({len(unmatched_codes)} total, showing {sample_size}): {sorted(unmatched_codes)[:sample_size]}")
+                print(
+                    f"INFO: Unmatched opponent_def_codes ({len(unmatched_codes)} total, showing {sample_size}): {sorted(unmatched_codes)[:sample_size]}"
+                )
 
             missing_mask = (
                 edges_df["def_tier"].isna()
@@ -405,8 +433,8 @@ def main() -> None:
                             )
                         else:
                             qb_latest["tier_effective"] = qb_latest["tier"]
-                        qb_latest = (
-                            qb_latest.drop_duplicates(subset=["defteam", "season"], keep="last")
+                        qb_latest = qb_latest.drop_duplicates(
+                            subset=["defteam", "season"], keep="last"
                         )
                         tier_lookup.update(
                             {

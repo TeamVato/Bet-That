@@ -14,4 +14,3 @@ def consensus_prob(df: pd.DataFrame) -> pd.Series:
 def shrink_to_market(p_model: pd.Series, p_consensus: pd.Series, weight: float = 0.35) -> pd.Series:
     weight = float(max(0.0, min(1.0, weight)))
     return (1.0 - weight) * p_model.astype(float) + weight * p_consensus.astype(float)
-

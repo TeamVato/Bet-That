@@ -24,7 +24,9 @@ def load_environment(env_path: Path) -> None:
         load_dotenv(env_path)
         logger.info("Loaded environment variables from %s", env_path)
     else:
-        logger.warning("No .env file found at %s; running in demo mode if no keys are set.", env_path)
+        logger.warning(
+            "No .env file found at %s; running in demo mode if no keys are set.", env_path
+        )
 
 
 async def fetch_and_cache(limit_output: int) -> int:

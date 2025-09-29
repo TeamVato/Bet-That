@@ -1,4 +1,5 @@
 """Compute closing-line value (CLV) deltas between entries and closing lines."""
+
 from __future__ import annotations
 
 import argparse
@@ -42,11 +43,15 @@ def _prepare_edges(df: pd.DataFrame) -> pd.DataFrame:
     working["entry_odds"] = pd.to_numeric(working.get("odds"), errors="coerce")
     working["entry_prob_fair"] = pd.to_numeric(working.get("fair_prob"), errors="coerce")
     if "entry_prob_fair" in working:
-        working["entry_prob_fair"] = working["entry_prob_fair"].where(working["entry_prob_fair"].notna())
+        working["entry_prob_fair"] = working["entry_prob_fair"].where(
+            working["entry_prob_fair"].notna()
+        )
     fallback = pd.to_numeric(working.get("implied_prob"), errors="coerce")
     working["entry_prob_fair"] = working["entry_prob_fair"].fillna(fallback)
     working["book_entry"] = working.get("book")
-    working = working.drop(columns=["line", "odds", "fair_prob", "implied_prob", "book"], errors="ignore")
+    working = working.drop(
+        columns=["line", "odds", "fair_prob", "implied_prob", "book"], errors="ignore"
+    )
     return working
 
 
@@ -58,12 +63,17 @@ def _prepare_closings(df: pd.DataFrame) -> pd.DataFrame:
     working["line_close"] = pd.to_numeric(working.get("line"), errors="coerce")
     working["close_odds"] = pd.to_numeric(working.get("odds_american"), errors="coerce")
     working["close_prob_fair"] = pd.to_numeric(working.get("fair_prob_close"), errors="coerce")
-    working["close_prob_fair"] = working["close_prob_fair"].where(working["close_prob_fair"].notna())
+    working["close_prob_fair"] = working["close_prob_fair"].where(
+        working["close_prob_fair"].notna()
+    )
     fallback = pd.to_numeric(working.get("implied_prob"), errors="coerce")
     working["close_prob_fair"] = working["close_prob_fair"].fillna(fallback)
     working["ts_close"] = pd.to_datetime(working.get("ts_close"), errors="coerce", utc=True)
     working["book_close"] = working.get("book")
-    working = working.drop(columns=["line", "book", "odds_american", "fair_prob_close", "implied_prob"], errors="ignore")
+    working = working.drop(
+        columns=["line", "book", "odds_american", "fair_prob_close", "implied_prob"],
+        errors="ignore",
+    )
     return working
 
 
@@ -104,11 +114,7 @@ def _match_edges_with_closing(
         return merged
 
     merged = merged.sort_values(["edge_id", "line_diff", "ts_close"])
-    result = (
-        merged.groupby("edge_id", as_index=False, sort=False)
-        .first()
-        .reset_index(drop=True)
-    )
+    result = merged.groupby("edge_id", as_index=False, sort=False).first().reset_index(drop=True)
     if "book_close" not in result.columns and "book_y" in result.columns:
         result["book_close"] = result["book_y"]
     if "book_entry" not in result.columns and "book_x" in result.columns:
@@ -178,13 +184,25 @@ def run(database_path: Path, line_tolerance: float = DEFAULT_LINE_TOLERANCE) -> 
 
     if edges.empty or closings.empty:
         print("No edges or closing lines available; skipping CLV computation.")
-        return CLVSummary(matched=0, total_edges=len(edges), coverage=0.0, delta_prob_mean=float("nan"), beat_close_rate=float("nan"))
+        return CLVSummary(
+            matched=0,
+            total_edges=len(edges),
+            coverage=0.0,
+            delta_prob_mean=float("nan"),
+            beat_close_rate=float("nan"),
+        )
 
     matched = _match_edges_with_closing(edges, closings, line_tolerance)
     matched = _compute_clv_rows(matched)
     if matched.empty:
         print("No matching closing lines within tolerance; nothing to log.")
-        return CLVSummary(matched=0, total_edges=len(edges), coverage=0.0, delta_prob_mean=float("nan"), beat_close_rate=float("nan"))
+        return CLVSummary(
+            matched=0,
+            total_edges=len(edges),
+            coverage=0.0,
+            delta_prob_mean=float("nan"),
+            beat_close_rate=float("nan"),
+        )
 
     payload = []
     for _, row in matched.iterrows():
@@ -229,7 +247,11 @@ def run(database_path: Path, line_tolerance: float = DEFAULT_LINE_TOLERANCE) -> 
     matched_count = len(matched)
     total_edges = len(edges)
     coverage = matched_count / total_edges if total_edges else 0.0
-    delta_prob_mean = float(matched["delta_prob"].dropna().mean()) if not matched["delta_prob"].dropna().empty else float("nan")
+    delta_prob_mean = (
+        float(matched["delta_prob"].dropna().mean())
+        if not matched["delta_prob"].dropna().empty
+        else float("nan")
+    )
     beats = matched["beat_close"].dropna()
     beat_rate = float(beats.mean()) if not beats.empty else float("nan")
 

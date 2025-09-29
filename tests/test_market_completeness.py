@@ -83,7 +83,14 @@ def test_compute_edges_emits_complete_market(tmp_path):
         ]
     )
     edges = engine.compute_edges(props, projections)
-    assert len(edges) == 1
-    row = edges.iloc[0]
-    assert row["player"] == "Player"
-    assert row["team"] == "BUF"
+    assert len(edges) == 2, "Complete two-way market should generate over and under edges"
+
+    # Check that we have both sides
+    sides = set(edges["side"].tolist())
+    assert sides == {"over", "under"}, f"Expected over and under sides, got {sides}"
+
+    # Check that both edges have the expected data
+    for _, row in edges.iterrows():
+        assert row["player"] == "Player"
+        assert row["event_id"] == "E2"
+        assert row["book"] == "BookA"

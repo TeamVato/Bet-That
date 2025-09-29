@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import List, Optional
 
 from pydantic import AnyHttpUrl, BaseSettings, Field
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_EDGES_SNAPSHOT = BACKEND_ROOT / "data" / "edges_current.json"
 
 
 class Settings(BaseSettings):
@@ -22,6 +26,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     redis_cache_prefix: str = Field(default="bet_that_odds", env="REDIS_CACHE_PREFIX")
     environment: str = Field(default="development", env="ENVIRONMENT")
+    edges_snapshot_path: Path = Field(default=DEFAULT_EDGES_SNAPSHOT, env="EDGES_SNAPSHOT_PATH")
 
     class Config:
         env_file = ".env"

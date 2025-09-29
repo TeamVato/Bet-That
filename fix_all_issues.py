@@ -39,12 +39,15 @@ def fix_cors() -> Dict[str, str]:
             )
             updated = True
         else:
-            return {"status": "error", "detail": "Unable to locate FastAPI import for CORS injection"}
+            return {
+                "status": "error",
+                "detail": "Unable to locate FastAPI import for CORS injection",
+            }
 
     cors_snippet = (
         "    app.add_middleware(\n"
         "        CORSMiddleware,\n"
-        f"        allow_origins=[\"{FRONTEND_ORIGIN}\"],\n"
+        f'        allow_origins=["{FRONTEND_ORIGIN}"],\n'
         "        allow_credentials=True,\n"
         "        allow_methods=['*'],\n"
         "        allow_headers=['*'],\n"
@@ -77,7 +80,12 @@ def ensure_redis() -> Dict[str, str]:
     if not redis_server:
         return {"status": "error", "detail": "redis-server not installed"}
     try:
-        subprocess.run([redis_server, "--daemonize", "yes"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            [redis_server, "--daemonize", "yes"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     except subprocess.CalledProcessError as exc:
         return {"status": "error", "detail": f"redis-server failed: {exc.stderr.decode().strip()}"}
     return {"status": "started", "detail": "redis-server daemonized"}
@@ -85,7 +93,16 @@ def ensure_redis() -> Dict[str, str]:
 
 def launch_backend() -> Dict[str, str]:
     """Boot uvicorn backend server in the background."""
-    uvicorn_cmd = [sys.executable, "-m", "uvicorn", "app.main:app", "--host", UVICORN_HOST, "--port", str(UVICORN_PORT)]
+    uvicorn_cmd = [
+        sys.executable,
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        UVICORN_HOST,
+        "--port",
+        str(UVICORN_PORT),
+    ]
     try:
         proc = subprocess.Popen(
             uvicorn_cmd,

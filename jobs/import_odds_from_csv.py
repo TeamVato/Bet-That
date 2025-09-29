@@ -1,6 +1,7 @@
 # jobs/import_odds_from_csv.py
 # Robust CSV -> SQLite importer with progress logs and SQLite lock handling
 from __future__ import annotations
+
 import os
 import sqlite3
 import sys
@@ -93,9 +94,9 @@ SELECT * FROM wide;
 """
 
 
-
-
-def dedupe_latest(df: pd.DataFrame, subset: list[str], *, sort_col: str | None = None) -> pd.DataFrame:
+def dedupe_latest(
+    df: pd.DataFrame, subset: list[str], *, sort_col: str | None = None
+) -> pd.DataFrame:
     """Return the latest rows per subset columns, keeping the most recent updated_at."""
     if df.empty or not subset:
         return df
@@ -103,8 +104,6 @@ def dedupe_latest(df: pd.DataFrame, subset: list[str], *, sort_col: str | None =
     if sort_col and sort_col in working.columns:
         working = working.sort_values(sort_col)
     return working.drop_duplicates(subset, keep="last")
-
-
 
 
 def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
@@ -116,11 +115,13 @@ def _insert_with_retry(con: sqlite3.Connection, sql: str, rows: List[Tuple]):
         except sqlite3.OperationalError as e:
             msg = str(e).lower()
             if "locked" in msg or "busy" in msg:
-                if attempt >= LOCK_RETRIES: raise
+                if attempt >= LOCK_RETRIES:
+                    raise
                 attempt += 1
                 time.sleep(LOCK_SLEEP * attempt)
             else:
                 raise
+
 
 INSERT_SQL = (
     "INSERT INTO odds_csv_raw ("
@@ -141,15 +142,17 @@ def _resolve_stale_minutes() -> int:
 
 def _populate_join_keys(con: sqlite3.Connection) -> None:
     """Populate week, team_code, and opponent_def_code in current_best_lines."""
-    from utils.teams import parse_event_id, normalize_team_code
     from engine.season import infer_season
+    from utils.teams import normalize_team_code, parse_event_id
 
     # Get rows that need join key population
-    cur = con.execute("""
+    cur = con.execute(
+        """
         SELECT rowid, event_id, home_team, away_team, season
         FROM current_best_lines
         WHERE event_id IS NOT NULL
-    """)
+    """
+    )
     rows = cur.fetchall()
 
     updates = []
@@ -168,6 +171,7 @@ def _populate_join_keys(con: sqlite3.Connection) -> None:
                 try:
                     # Simple week estimation - NFL season typically starts in September
                     import datetime
+
                     date_obj = datetime.datetime.strptime(game_date, "%Y-%m-%d")
                     # Week 1 typically starts around Sept 5-12
                     # This is a rough approximation - real schedule data would be better
@@ -194,11 +198,14 @@ def _populate_join_keys(con: sqlite3.Connection) -> None:
 
     # Batch update the join keys
     if updates:
-        con.executemany("""
+        con.executemany(
+            """
             UPDATE current_best_lines
             SET week = ?, team_code = ?, opponent_def_code = ?
             WHERE rowid = ?
-        """, updates)
+        """,
+            updates,
+        )
 
         populated_weeks = sum(1 for week, _, _, _ in updates if week is not None)
         print(f"     Populated week for {populated_weeks}/{len(updates)} rows")
@@ -232,25 +239,30 @@ def _populate_week_from_schedule(con: sqlite3.Connection) -> None:
         lines_df = populate_week_from_schedule(lines_df, schedule_df)
 
         # Extract detailed match statistics
-        stats = getattr(lines_df, '_week_population_stats', {
-            'stage1_count': 0, 'stage2_count': 0, 'total_filled': 0, 'total_rows': len(lines_df)
-        })
+        stats = getattr(
+            lines_df,
+            "_week_population_stats",
+            {"stage1_count": 0, "stage2_count": 0, "total_filled": 0, "total_rows": len(lines_df)},
+        )
 
-        stage1_count = stats['stage1_count']
-        stage2_count = stats['stage2_count']
-        total_filled = stats['total_filled']
-        total_rows = stats['total_rows']
+        stage1_count = stats["stage1_count"]
+        stage2_count = stats["stage2_count"]
+        total_filled = stats["total_filled"]
+        total_rows = stats["total_rows"]
 
         if total_filled > 0:
             # Update the database with new week data
             con.execute("DELETE FROM current_best_lines")  # Clear and rebuild
             lines_df.to_sql("current_best_lines", con, if_exists="append", index=False)
-            print(f"     Populated week for {total_filled}/{total_rows} rows (stage1 {stage1_count}, stage2 {stage2_count})")
+            print(
+                f"     Populated week for {total_filled}/{total_rows} rows (stage1 {stage1_count}, stage2 {stage2_count})"
+            )
         else:
             print(f"     No week data populated from schedule (0/{total_rows} rows matched)")
 
     except Exception as e:
         import traceback
+
         print(f"     Warning: Schedule week population failed ({e})")
         print(f"     Debug traceback: {traceback.format_exc()}")
 
@@ -295,6 +307,7 @@ def _wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
     if not records:
         return df
     return pd.DataFrame.from_records(records)
+
 
 def main():
     t0 = time.perf_counter()
@@ -412,7 +425,7 @@ def main():
                 df[col] = pd.NA
         df = df[expected_cols]
 
-        con.execute("BEGIN IMMEDIATE;")   # take write lock
+        con.execute("BEGIN IMMEDIATE;")  # take write lock
         con.execute("DELETE FROM odds_csv_raw;")
 
         rows: List[Tuple] = []
@@ -446,8 +459,10 @@ def main():
         con.close()
     print(f"Total time: {time.perf_counter() - t0:.2f}s")
 
+
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("Interrupted."); sys.exit(130)
+        print("Interrupted.")
+        sys.exit(130)

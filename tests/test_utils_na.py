@@ -3,7 +3,7 @@ import math
 import pandas as pd
 from pandas import NA
 
-from app.streamlit_app import _coalesce, _str_eq, _coalesce_na
+from app.streamlit_app import _coalesce, _coalesce_na, _str_eq
 
 
 def test_coalesce_skips_na_like_values():
@@ -28,35 +28,23 @@ def test_injury_drawer_pandas_na_bugfix():
     status = inj.get("status") or inj.get("designation")
     """
     # Simulate the exact scenario that caused the crash
-    injury_row = {
-        "status": pd.NA,
-        "designation": pd.NA,
-        "player": "Patrick Mahomes"
-    }
+    injury_row = {"status": pd.NA, "designation": pd.NA, "player": "Patrick Mahomes"}
 
     # The original problematic code would have been:
     # status = injury_row.get("status") or injury_row.get("designation")  # CRASHES!
 
     # The fixed code uses _coalesce_na:
     status = _coalesce_na(
-        injury_row.get("status"),
-        injury_row.get("designation"),
-        default="(status unknown)"
+        injury_row.get("status"), injury_row.get("designation"), default="(status unknown)"
     )
 
     assert status == "(status unknown)"
 
     # Test with mixed NA and valid data
-    injury_row2 = {
-        "status": pd.NA,
-        "designation": "Questionable",
-        "player": "Travis Kelce"
-    }
+    injury_row2 = {"status": pd.NA, "designation": "Questionable", "player": "Travis Kelce"}
 
     status2 = _coalesce_na(
-        injury_row2.get("status"),
-        injury_row2.get("designation"),
-        default="(status unknown)"
+        injury_row2.get("status"), injury_row2.get("designation"), default="(status unknown)"
     )
 
     assert status2 == "Questionable"

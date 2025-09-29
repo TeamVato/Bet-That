@@ -1,4 +1,5 @@
 """Odds-related helpers used across Bet-That jobs."""
+
 from __future__ import annotations
 
 import math

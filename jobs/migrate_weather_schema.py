@@ -1,4 +1,5 @@
 """Ensure the weather table exists with required columns without repo imports."""
+
 import os
 import sqlite3
 from typing import Iterable
@@ -21,14 +22,14 @@ def _sqlite_path() -> str:
     url = os.getenv("DATABASE_URL", "sqlite:///storage/odds.db")
 
     if url.startswith("sqlite:////"):
-        return "/" + url[len("sqlite:////"):]
+        return "/" + url[len("sqlite:////") :]
 
     if url.startswith("sqlite:///"):
-        return url[len("sqlite:///"):]
+        return url[len("sqlite:///") :]
 
     if url.startswith("sqlite://"):
         # Handles forms like sqlite://relative/path.db
-        return url[len("sqlite://"):]
+        return url[len("sqlite://") :]
 
     return "storage/odds.db"
 

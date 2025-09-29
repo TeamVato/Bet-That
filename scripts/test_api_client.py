@@ -9,11 +9,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from adapters.odds.the_odds_api import (
-    TheOddsAPIClient,
-    TheOddsAPIConfig,
-    create_production_client,
-)
+from adapters.odds.the_odds_api import TheOddsAPIClient, TheOddsAPIConfig, create_production_client
+
 
 def test_api_client():
     """Test the API client with comprehensive logging."""
@@ -28,7 +25,9 @@ def test_api_client():
 
         # Log key pool status
         status = client.get_key_pool_status()
-        logger.info(f"Key pool status: {status['available_keys']}/{status['total_keys']} keys available")
+        logger.info(
+            f"Key pool status: {status['available_keys']}/{status['total_keys']} keys available"
+        )
 
         # Test fetch (dry run - small request)
         logger.info("Testing odds fetch...")
@@ -50,6 +49,7 @@ def test_api_client():
     except Exception as e:
         logger.error(f"❌ Test failed: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = test_api_client()

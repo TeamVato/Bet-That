@@ -1,4 +1,5 @@
 """Enhance empty state UX for Bet-That Streamlit application."""
+
 from __future__ import annotations
 
 import os
@@ -210,7 +211,9 @@ def format_empty_explanation(tips: list[str], max_items: int = 3) -> str:
                     return False
 
             # Insert the new functions
-            content = content[:insertion_point] + reset_function + "\n\n" + content[insertion_point:]
+            content = (
+                content[:insertion_point] + reset_function + "\n\n" + content[insertion_point:]
+            )
 
             # Write the updated content
             with open(streamlit_app_path, "w") as f:

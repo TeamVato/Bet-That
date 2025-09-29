@@ -1,4 +1,5 @@
 """Database-based odds provider that reads from current_best_lines table."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -9,8 +10,8 @@ from typing import Optional
 import pandas as pd
 
 from adapters.odds.base import OddsAdapter
-from utils.teams import infer_offense_team, normalize_team_code, parse_event_id
 from engine.week_populator import populate_week_from_schedule
+from utils.teams import infer_offense_team, normalize_team_code, parse_event_id
 
 
 class DbPropsAdapter(OddsAdapter):
@@ -54,10 +55,22 @@ class DbPropsAdapter(OddsAdapter):
             df = pd.read_sql(query, conn)
 
         if df.empty:
-            return pd.DataFrame(columns=[
-                "event_id", "book", "market", "player", "line", "over_odds",
-                "under_odds", "season", "def_team", "team", "week", "pos"
-            ])
+            return pd.DataFrame(
+                columns=[
+                    "event_id",
+                    "book",
+                    "market",
+                    "player",
+                    "line",
+                    "over_odds",
+                    "under_odds",
+                    "season",
+                    "def_team",
+                    "team",
+                    "week",
+                    "pos",
+                ]
+            )
 
         # Add fetched_at timestamp
         df["fetched_at"] = datetime.now(timezone.utc).isoformat()
@@ -83,26 +96,42 @@ class DbPropsAdapter(OddsAdapter):
 
         # Clean up column names to match expected interface
         expected_cols = [
-            "event_id", "book", "market", "player", "line", "over_odds",
-            "under_odds", "season", "def_team", "team", "week", "pos",
-            "fetched_at", "is_stale"
+            "event_id",
+            "book",
+            "market",
+            "player",
+            "line",
+            "over_odds",
+            "under_odds",
+            "season",
+            "def_team",
+            "team",
+            "week",
+            "pos",
+            "fetched_at",
+            "is_stale",
         ]
 
         # Populate week using schedule data if available
         import os
+
         sched_csv = os.getenv("SCHEDULE_CSV", "tests/fixtures/schedule_2025_mini.csv")
         try:
             schedule_df = pd.read_csv(sched_csv)
             df = populate_week_from_schedule(df, schedule_df)
 
             # Extract detailed match statistics
-            stats = getattr(df, '_week_population_stats', {
-                'stage1_count': 0, 'stage2_count': 0, 'total_filled': 0, 'total_rows': len(df)
-            })
+            stats = getattr(
+                df,
+                "_week_population_stats",
+                {"stage1_count": 0, "stage2_count": 0, "total_filled": 0, "total_rows": len(df)},
+            )
 
-            if stats['total_filled'] > 0:
-                print(f"DbPropsAdapter: Populated week for {stats['total_filled']}/{stats['total_rows']} rows "
-                      f"(stage1 {stats['stage1_count']}, stage2 {stats['stage2_count']})")
+            if stats["total_filled"] > 0:
+                print(
+                    f"DbPropsAdapter: Populated week for {stats['total_filled']}/{stats['total_rows']} rows "
+                    f"(stage1 {stats['stage1_count']}, stage2 {stats['stage2_count']})"
+                )
         except Exception as e:
             print(f"DbPropsAdapter: Week population skipped ({e})")
 

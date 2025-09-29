@@ -27,18 +27,20 @@ AWAY = "LV"
 EVENT_ID = "2025-09-07-kc-lv"  # format your EdgeEngine/event parser recognizes
 PLAYER = "Isiah Pacheco"
 POS = "RB"
-MARKET = "player_rush_yds"       # map to one of your supported/normalized markets
+MARKET = "player_rush_yds"  # map to one of your supported/normalized markets
 LINE = 65.5
 OVER = -110
 UNDER = -110
 BOOK = "draftkings"
 UPDATED_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
-TEAM_CODE = HOME                # smoke row from KC side; opponent should be inferred as LV
-OPP_DEF_CODE = AWAY             # used in defense_ratings row
+TEAM_CODE = HOME  # smoke row from KC side; opponent should be inferred as LV
+OPP_DEF_CODE = AWAY  # used in defense_ratings row
+
 
 def col_exists(conn, table, col):
     cur = conn.execute(f"PRAGMA table_info({table})")
     return any(row[1] == col for row in cur.fetchall())
+
 
 def table_exists(conn, table):
     cur = conn.execute(
@@ -46,14 +48,17 @@ def table_exists(conn, table):
     )
     return cur.fetchone() is not None
 
+
 def ensure_table(conn, create_sql):
     # create_sql must be a full CREATE TABLE IF NOT EXISTS ...
     conn.execute(create_sql)
+
 
 def ensure_column(conn, table, col, decl):
     # add missing column safely
     if not col_exists(conn, table, col):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+
 
 def upsert_defense_ratings(conn):
     # Ensure minimal defense_ratings schema with keys needed for join
@@ -97,9 +102,23 @@ def upsert_defense_ratings(conn):
             WHERE season=? AND week=? AND defteam=? AND pos=?
         )
         """,
-        (SEASON, WEEK, OPP_DEF_CODE, "QB_PASS", 0.6, "neutral", 0.65, "neutral", UPDATED_AT,
-         SEASON, WEEK, OPP_DEF_CODE, "QB_PASS"),
+        (
+            SEASON,
+            WEEK,
+            OPP_DEF_CODE,
+            "QB_PASS",
+            0.6,
+            "neutral",
+            0.65,
+            "neutral",
+            UPDATED_AT,
+            SEASON,
+            WEEK,
+            OPP_DEF_CODE,
+            "QB_PASS",
+        ),
     )
+
 
 def upsert_current_best_lines(conn):
     if not table_exists(conn, "current_best_lines"):
@@ -154,11 +173,30 @@ def upsert_current_best_lines(conn):
         )
         """,
         (
-            EVENT_ID, PLAYER, MARKET, LINE, OVER, UNDER, BOOK, UPDATED_AT,
-            SEASON, WEEK, TEAM_CODE, OPP_DEF_CODE, POS, HOME, AWAY,
-            SEASON, WEEK, EVENT_ID, PLAYER, MARKET, BOOK,
+            EVENT_ID,
+            PLAYER,
+            MARKET,
+            LINE,
+            OVER,
+            UNDER,
+            BOOK,
+            UPDATED_AT,
+            SEASON,
+            WEEK,
+            TEAM_CODE,
+            OPP_DEF_CODE,
+            POS,
+            HOME,
+            AWAY,
+            SEASON,
+            WEEK,
+            EVENT_ID,
+            PLAYER,
+            MARKET,
+            BOOK,
         ),
     )
+
 
 def main():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -194,6 +232,7 @@ def main():
         )
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()

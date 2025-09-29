@@ -1,4 +1,5 @@
 """Load public WR/CB matchup notes from a local CSV."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,7 +16,16 @@ def load_wr_cb_context(csv_path: Path | None = None) -> pd.DataFrame:
     path = csv_path or DEFAULT_CSV_PATH
     if not path.exists():
         return pd.DataFrame(
-            columns=["season", "week", "team", "player", "note", "source_url", "event_id", "updated_at"]
+            columns=[
+                "season",
+                "week",
+                "team",
+                "player",
+                "note",
+                "source_url",
+                "event_id",
+                "updated_at",
+            ]
         )
     df = pd.read_csv(path)
     expected = {"season", "week", "team", "player", "note", "source_url"}
@@ -65,6 +75,7 @@ def persist_wr_cb_context(df: pd.DataFrame, database_path: Path) -> None:
     if df.empty:
         return
     import sqlite3
+
     df = df.copy()
     df["updated_at"] = pd.Timestamp.utcnow().isoformat()
     database_path.parent.mkdir(parents=True, exist_ok=True)

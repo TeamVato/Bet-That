@@ -1,4 +1,5 @@
 """CSV-based odds provider for QB passing props."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -50,7 +51,9 @@ class CsvQBPropsAdapter(OddsAdapter):
             return normalize_team_code(infer_offense_team(row.get("event_id"), row.get("def_team")))
 
         df["team"] = df.apply(_derive_team, axis=1)
-        df["game_date"] = df["event_id"].apply(lambda eid: parse_event_id(eid)[0] if isinstance(eid, str) else None)
+        df["game_date"] = df["event_id"].apply(
+            lambda eid: parse_event_id(eid)[0] if isinstance(eid, str) else None
+        )
         return df
 
     def persist(self, df: pd.DataFrame, database_path: Path) -> None:

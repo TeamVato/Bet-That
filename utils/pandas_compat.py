@@ -1,4 +1,5 @@
 """Utilities to keep pandas usage compatible and FutureWarning-free."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -64,7 +65,9 @@ def safe_rolling(
 
     if min_periods is None:
         min_periods = 1
-    return obj.rolling(window=window, min_periods=min_periods, center=center, closed=closed, **kwargs)
+    return obj.rolling(
+        window=window, min_periods=min_periods, center=center, closed=closed, **kwargs
+    )
 
 
 @contextmanager

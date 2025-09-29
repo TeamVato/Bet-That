@@ -1,4 +1,5 @@
 """Base classes and utilities for odds provider adapters."""
+
 from __future__ import annotations
 
 import abc

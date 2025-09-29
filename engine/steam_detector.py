@@ -1,4 +1,5 @@
 """Detect notable line movement (steam) from the odds history."""
+
 from __future__ import annotations
 
 import sqlite3
@@ -10,9 +11,7 @@ import pandas as pd
 
 def load_recent_history(database_path: Path) -> pd.DataFrame:
     with sqlite3.connect(database_path) as conn:
-        return pd.read_sql_query(
-            "SELECT * FROM odds_snapshots ORDER BY fetched_at DESC", conn
-        )
+        return pd.read_sql_query("SELECT * FROM odds_snapshots ORDER BY fetched_at DESC", conn)
 
 
 def detect_steam(df: pd.DataFrame) -> pd.DataFrame:

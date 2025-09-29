@@ -53,7 +53,7 @@ def test_basic_counts(tmp_path):
         assert table_exists(con, "weather") is True
         assert count_rows(con, "odds_csv_raw") == 2
         assert count_rows(con, "edges") == 1
-        assert max_updated(con, "edges") == '2025-09-25T02:30:00Z'
+        assert max_updated(con, "edges") == "2025-09-25T02:30:00Z"
         df = counts_by(con, "odds_csv_raw", "book")
         assert not df.empty
         assert set(df["key"].tolist()) == {"draftkings", "fanduel"}

@@ -1,23 +1,19 @@
 """Edge computation by combining model projections with sportsbook odds."""
+
 from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
 from engine import odds_math
-from utils.teams import (
-    infer_is_home,
-    infer_offense_team,
-    normalize_team_code,
-    parse_event_id,
-)
-from typing import Dict, Optional
+from utils.teams import infer_is_home, infer_offense_team, normalize_team_code, parse_event_id
 
 SUPPORTED_MARKETS = {
     "player_pass_yds",
@@ -58,12 +54,18 @@ class EdgeEngineConfig:
 class EdgeEngine:
     """Compute edges for QB prop markets."""
 
-    def __init__(self, config: EdgeEngineConfig, schedule_lookup: Optional[Dict[str, Dict[str, Optional[str]]]] = None) -> None:
+    def __init__(
+        self,
+        config: EdgeEngineConfig,
+        schedule_lookup: Optional[Dict[str, Dict[str, Optional[str]]]] = None,
+    ) -> None:
         self.config = config
         self.schedule_lookup = schedule_lookup or {}
         self.config.export_dir.mkdir(parents=True, exist_ok=True)
 
-    def _prepare_dataframe(self, props_df: pd.DataFrame, projections_df: pd.DataFrame) -> pd.DataFrame:
+    def _prepare_dataframe(
+        self, props_df: pd.DataFrame, projections_df: pd.DataFrame
+    ) -> pd.DataFrame:
         merged = props_df.merge(
             projections_df,
             on=["event_id", "player"],
@@ -89,7 +91,9 @@ class EdgeEngine:
                 row.get("pos_props"),
                 row.get("pos_proj"),
             ]
-            explicit_pos = next((val for val in pos_sources if isinstance(val, str) and val.strip()), None)
+            explicit_pos = next(
+                (val for val in pos_sources if isinstance(val, str) and val.strip()), None
+            )
             pos = _infer_pos(market, explicit_pos)
             event_id = row.get("event_id")
             mu = float(row.get("mu"))
@@ -108,7 +112,11 @@ class EdgeEngine:
                 opponent_def_code = row.get("def_team_props")
 
             # Schedule-based fallbacks for missing week/opponent data
-            if (pd.isna(week_val) or pd.isna(opponent_def_code)) and event_id and self.schedule_lookup:
+            if (
+                (pd.isna(week_val) or pd.isna(opponent_def_code))
+                and event_id
+                and self.schedule_lookup
+            ):
                 # Try direct game_id lookup first
                 game_date, away_team_raw, home_team_raw = parse_event_id(event_id)
                 schedule_info = self.schedule_lookup.get(event_id)
@@ -153,7 +161,9 @@ class EdgeEngine:
             if pd.isna(inferred_team):
                 inferred_team = row.get("team_props")
             offense_team = normalize_team_code(
-                inferred_team if pd.notna(inferred_team) else infer_offense_team(event_id, opponent_def_code)
+                inferred_team
+                if pd.notna(inferred_team)
+                else infer_offense_team(event_id, opponent_def_code)
             )
             is_home_flag = infer_is_home(event_id, offense_team)
             if sigma <= 0:
@@ -319,8 +329,10 @@ class EdgeEngine:
                 alter_statements.append("ALTER TABLE edges ADD COLUMN fair_decimal_under REAL")
             for statement in alter_statements:
                 cursor.execute(statement)
+
             def _coerce(value):
                 return None if pd.isna(value) else value
+
             insert_columns = [
                 "created_at",
                 "event_id",

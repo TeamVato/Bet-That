@@ -32,8 +32,8 @@ def main() -> None:
         try:
             response = input("\nProceed anyway? (y/n): ").strip().lower()
         except EOFError:
-            print('\n[INFO] No input detected; defaulting to proceed.')
-            response = 'y'
+            print("\n[INFO] No input detected; defaulting to proceed.")
+            response = "y"
         if response != "y":
             print("Execution cancelled")
             return

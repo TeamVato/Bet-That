@@ -1,0 +1,66 @@
+[flake8]
+# Match Black's line length
+max-line-length = 100
+
+# Error codes to ignore
+ignore =
+    # E203: whitespace before ':' (conflicts with Black)
+    E203,
+    # E501: line too long (handled by Black)
+    E501,
+    # W503: line break before binary operator (conflicts with Black)
+    W503,
+    # W504: line break after binary operator (conflicts with Black)
+    W504,
+    # E231: missing whitespace after ',' (conflicts with Black)
+    E231
+
+# Directories to exclude
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .venv,
+    venv,
+    env,
+    ENV,
+    .env,
+    node_modules,
+    dist,
+    build,
+    *.egg-info,
+    migrations,
+    frontend
+
+# Enable specific error codes
+select =
+    E,  # pycodestyle errors
+    W,  # pycodestyle warnings
+    F,  # pyflakes
+    C,  # complexity
+    N,  # naming conventions
+
+# Complexity settings
+max-complexity = 12
+
+# Import order settings
+import-order-style = google
+application-import-names = api,adapters,backend,engine,jobs,models,schemas,utils
+
+# Docstring requirements (start lenient)
+docstring-convention = google
+require-return-section-when-returning-nothing = false
+
+# Per-file ignores for legacy code
+per-file-ignores =
+    # Tests can have longer lines and less strict requirements
+    tests/*:E501,D100,D101,D102,D103,D104
+    */tests/*:E501,D100,D101,D102,D103,D104
+    # Scripts can be less strict
+    scripts/*:E501,D100,D103
+    # Allow unused imports in __init__.py files
+    __init__.py:F401,F403
+    # Legacy files - gradually remove these exceptions
+    adapters/*:D100,D101,D102,D103
+    jobs/*:D100,D101,D102,D103

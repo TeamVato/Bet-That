@@ -1,8 +1,9 @@
 """Build simple weather context from schedule metadata."""
+
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -31,7 +32,9 @@ def build_weather(schedule_df: pd.DataFrame) -> pd.DataFrame:
 
     df["event_id"] = df["game_id"].apply(lambda val: str(val) if pd.notna(val) else None)
     df["temp_f"] = pd.to_numeric(df.get("temp"), errors="coerce") if "temp" in df.columns else None
-    df["wind_mph"] = pd.to_numeric(df.get("wind"), errors="coerce") if "wind" in df.columns else None
+    df["wind_mph"] = (
+        pd.to_numeric(df.get("wind"), errors="coerce") if "wind" in df.columns else None
+    )
     df["roof"] = df.get("roof") if "roof" in df.columns else None
     if "roof" in df.columns:
         df["roof"] = df["roof"].astype(str).str.lower()

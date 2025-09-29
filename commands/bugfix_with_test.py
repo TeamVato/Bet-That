@@ -1,4 +1,5 @@
 """Interactive bugfix workflow with test-first approach for Bet-That."""
+
 from __future__ import annotations
 
 import re
@@ -101,52 +102,68 @@ class BugfixWithTestCommand(BaseCommand):
         if not stack_trace:
             # Try to provide an example for testing
             print("No stack trace provided. Using example for testing...")
-            stack_trace = '''Traceback (most recent call last):
+            stack_trace = """Traceback (most recent call last):
   File "app/streamlit_app.py", line 1234, in render_table
     df["confidence"] = df.apply(compute_confidence, axis=1)
   File "pandas/core/frame.py", line 9876, in apply
     return op.apply().__finalize__(result, method="apply")
 AttributeError: 'NoneType' object has no attribute 'get'
-'''
+"""
 
         return stack_trace
 
     def _analyze_stack_trace(self, stack_trace: str) -> dict | None:
         """Parse the stack trace to extract key information."""
         try:
-            lines = stack_trace.strip().split('\n')
+            lines = stack_trace.strip().split("\n")
 
             # Find the main error line
             error_line = None
             for line in reversed(lines):
-                if any(error_type in line for error_type in ['Error:', 'Exception:', 'AttributeError', 'KeyError', 'ValueError']):
+                if any(
+                    error_type in line
+                    for error_type in [
+                        "Error:",
+                        "Exception:",
+                        "AttributeError",
+                        "KeyError",
+                        "ValueError",
+                    ]
+                ):
                     error_line = line.strip()
                     break
 
             # Find file/line references
             file_references = []
             for line in lines:
-                if 'File "' in line and ', line ' in line:
+                if 'File "' in line and ", line " in line:
                     match = re.search(r'File "([^"]+)", line (\d+), in (\w+)', line)
                     if match:
-                        file_references.append({
-                            'file': match.group(1),
-                            'line': int(match.group(2)),
-                            'function': match.group(3)
-                        })
+                        file_references.append(
+                            {
+                                "file": match.group(1),
+                                "line": int(match.group(2)),
+                                "function": match.group(3),
+                            }
+                        )
 
             # Filter to project files (not library code)
-            project_files = [ref for ref in file_references if not any(
-                lib in ref['file'] for lib in ['pandas/', 'numpy/', 'streamlit/', 'site-packages/']
-            )]
+            project_files = [
+                ref
+                for ref in file_references
+                if not any(
+                    lib in ref["file"]
+                    for lib in ["pandas/", "numpy/", "streamlit/", "site-packages/"]
+                )
+            ]
 
             if not project_files:
                 return None
 
             return {
-                'error_message': error_line,
-                'project_files': project_files,
-                'all_files': file_references
+                "error_message": error_line,
+                "project_files": project_files,
+                "all_files": file_references,
             }
 
         except Exception as e:
@@ -155,14 +172,14 @@ AttributeError: 'NoneType' object has no attribute 'get'
 
     def _identify_target_location(self, analysis: dict) -> dict | None:
         """Identify the minimal code region that needs to be changed."""
-        if not analysis['project_files']:
+        if not analysis["project_files"]:
             return None
 
         # Take the first project file in the stack (usually where the issue originates)
-        target_ref = analysis['project_files'][0]
+        target_ref = analysis["project_files"][0]
 
         # Determine the issue type from error message
-        error_msg = analysis['error_message'] or ""
+        error_msg = analysis["error_message"] or ""
 
         issue_type = "unknown"
         if "'NoneType' object has no attribute" in error_msg:
@@ -175,53 +192,56 @@ AttributeError: 'NoneType' object has no attribute 'get'
             issue_type = "value_error"
 
         # Generate test name based on file
-        file_path = Path(target_ref['file'])
-        if file_path.name == 'streamlit_app.py':
-            test_name = 'streamlit_bugfix'
+        file_path = Path(target_ref["file"])
+        if file_path.name == "streamlit_app.py":
+            test_name = "streamlit_bugfix"
         else:
             test_name = f"{file_path.stem}_bugfix"
 
         return {
-            'file': target_ref['file'],
-            'line': target_ref['line'],
-            'function': target_ref['function'],
-            'issue': issue_type,
-            'error_message': error_msg,
-            'test_name': test_name
+            "file": target_ref["file"],
+            "line": target_ref["line"],
+            "function": target_ref["function"],
+            "issue": issue_type,
+            "error_message": error_msg,
+            "test_name": test_name,
         }
 
     def _propose_fix_approach(self, target_location: dict, stack_trace: str) -> dict | None:
         """Propose a minimal fix approach based on the issue type."""
-        issue_type = target_location['issue']
+        issue_type = target_location["issue"]
 
         approaches = {
-            'null_attribute_access': {
-                'strategy': 'add_null_check',
-                'description': 'Add null/None safety check before attribute access',
-                'pattern': 'Add if obj and obj.get(...) or getattr(obj, attr, default)'
+            "null_attribute_access": {
+                "strategy": "add_null_check",
+                "description": "Add null/None safety check before attribute access",
+                "pattern": "Add if obj and obj.get(...) or getattr(obj, attr, default)",
             },
-            'missing_key': {
-                'strategy': 'safe_key_access',
-                'description': 'Use .get() method with default value instead of direct key access',
-                'pattern': 'Replace dict[key] with dict.get(key, default)'
+            "missing_key": {
+                "strategy": "safe_key_access",
+                "description": "Use .get() method with default value instead of direct key access",
+                "pattern": "Replace dict[key] with dict.get(key, default)",
             },
-            'attribute_error': {
-                'strategy': 'add_hasattr_check',
-                'description': 'Add hasattr() check before accessing attribute',
-                'pattern': 'Add if hasattr(obj, attr) check'
+            "attribute_error": {
+                "strategy": "add_hasattr_check",
+                "description": "Add hasattr() check before accessing attribute",
+                "pattern": "Add if hasattr(obj, attr) check",
             },
-            'value_error': {
-                'strategy': 'add_validation',
-                'description': 'Add input validation with try/except or type checking',
-                'pattern': 'Add validation before problematic operation'
-            }
+            "value_error": {
+                "strategy": "add_validation",
+                "description": "Add input validation with try/except or type checking",
+                "pattern": "Add validation before problematic operation",
+            },
         }
 
-        approach = approaches.get(issue_type, {
-            'strategy': 'defensive_coding',
-            'description': 'Add defensive coding practices',
-            'pattern': 'Add appropriate error handling'
-        })
+        approach = approaches.get(
+            issue_type,
+            {
+                "strategy": "defensive_coding",
+                "description": "Add defensive coding practices",
+                "pattern": "Add appropriate error handling",
+            },
+        )
 
         print(f"\n🔧 **Proposed Fix Approach:**")
         print(f"Strategy: {approach['strategy']}")
@@ -240,7 +260,7 @@ AttributeError: 'NoneType' object has no attribute 'get'
 
             if test_file_path.exists():
                 # Extend existing test file
-                with open(test_file_path, 'a') as f:
+                with open(test_file_path, "a") as f:
                     f.write(f"\n\n{test_content}")
                 self.log(f"✓ Extended existing test file: {test_file_path}")
             else:
@@ -255,7 +275,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 {test_content}
 '''
-                with open(test_file_path, 'w') as f:
+                with open(test_file_path, "w") as f:
                     f.write(full_content)
                 self.log(f"✓ Created new test file: {test_file_path}")
 
@@ -267,10 +287,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
     def _generate_test_content(self, target_location: dict, fix_approach: dict) -> str:
         """Generate appropriate test content based on the issue type."""
-        function_name = target_location['function']
-        issue_type = target_location['issue']
+        function_name = target_location["function"]
+        issue_type = target_location["issue"]
 
-        if issue_type == 'null_attribute_access':
+        if issue_type == "null_attribute_access":
             return f'''
 def test_{function_name}_handles_none_input():
     """Test that {function_name} handles None input gracefully."""
@@ -287,7 +307,7 @@ def test_{function_name}_handles_none_input():
     assert result is not None, "Function should handle objects without required attributes"
 '''
 
-        elif issue_type == 'missing_key':
+        elif issue_type == "missing_key":
             return f'''
 def test_{function_name}_handles_missing_keys():
     """Test that {function_name} handles missing dictionary keys."""
@@ -321,18 +341,18 @@ def test_{function_name}_error_handling():
     def _apply_minimal_fix(self, target_location: dict, fix_approach: dict) -> int:
         """Apply the minimal fix to the identified location."""
         try:
-            file_path = Path(target_location['file'])
+            file_path = Path(target_location["file"])
 
             if not file_path.exists():
                 self.error(f"Target file does not exist: {file_path}")
                 return 1
 
             # Read the current file
-            with open(file_path, 'r') as f:
+            with open(file_path, "r") as f:
                 lines = f.readlines()
 
             # Find the target line (line numbers are 1-indexed)
-            target_line_idx = target_location['line'] - 1
+            target_line_idx = target_location["line"] - 1
 
             if target_line_idx >= len(lines):
                 self.error(f"Target line {target_location['line']} beyond file length")
@@ -348,10 +368,10 @@ def test_{function_name}_error_handling():
                 return 1
 
             # Replace the line
-            lines[target_line_idx] = fixed_line + '\n'
+            lines[target_line_idx] = fixed_line + "\n"
 
             # Write back to file
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 f.writelines(lines)
 
             self.log(f"✓ Applied fix to {file_path}:{target_location['line']}")
@@ -366,28 +386,28 @@ def test_{function_name}_error_handling():
 
     def _apply_fix_strategy(self, line: str, fix_approach: dict, target_location: dict) -> str:
         """Apply the specific fix strategy to the line."""
-        strategy = fix_approach['strategy']
+        strategy = fix_approach["strategy"]
         stripped = line.strip()
-        indent = line[:len(line) - len(stripped)]
+        indent = line[: len(line) - len(stripped)]
 
-        if strategy == 'add_null_check':
+        if strategy == "add_null_check":
             # Look for attribute access patterns like obj.get() or obj.attribute
-            if '.get(' in stripped:
+            if ".get(" in stripped:
                 # Already using .get(), add None check
-                if 'if ' not in stripped:
+                if "if " not in stripped:
                     return f"{indent}if {stripped.split('.')[0]} and {stripped.split('.')[0]}.get("
                 return line
-            elif re.search(r'(\w+)\.(\w+)', stripped):
+            elif re.search(r"(\w+)\.(\w+)", stripped):
                 # Direct attribute access, make it safe
-                match = re.search(r'(\w+)\.(\w+)', stripped)
+                match = re.search(r"(\w+)\.(\w+)", stripped)
                 if match:
                     obj, attr = match.groups()
                     safe_access = f"getattr({obj}, '{attr}', None)"
                     return indent + stripped.replace(f"{obj}.{attr}", safe_access)
 
-        elif strategy == 'safe_key_access':
+        elif strategy == "safe_key_access":
             # Replace dict[key] with dict.get(key, default)
-            if '[' in stripped and ']' in stripped:
+            if "[" in stripped and "]" in stripped:
                 # Simple replacement for common dict access patterns
                 if '"' in stripped or "'" in stripped:
                     # Handle string keys
@@ -395,19 +415,21 @@ def test_{function_name}_error_handling():
                     match = re.search(pattern, stripped)
                     if match:
                         dict_name, key = match.groups()
-                        return indent + stripped.replace(f"{dict_name}[{key}]", f"{dict_name}.get({key}, None)")
+                        return indent + stripped.replace(
+                            f"{dict_name}[{key}]", f"{dict_name}.get({key}, None)"
+                        )
 
-        elif strategy == 'add_hasattr_check':
+        elif strategy == "add_hasattr_check":
             # Add hasattr check for attribute access
-            if re.search(r'(\w+)\.(\w+)', stripped):
-                match = re.search(r'(\w+)\.(\w+)', stripped)
+            if re.search(r"(\w+)\.(\w+)", stripped):
+                match = re.search(r"(\w+)\.(\w+)", stripped)
                 if match:
                     obj, attr = match.groups()
                     return f"{indent}if hasattr({obj}, '{attr}') and {obj}.{attr}:"
 
         # Fallback: add basic None check
-        if '=' in stripped and not stripped.startswith('if'):
-            var_part = stripped.split('=')[0].strip()
+        if "=" in stripped and not stripped.startswith("if"):
+            var_part = stripped.split("=")[0].strip()
             return f"{indent}if {var_part} is not None:\n{line}"
 
         return line

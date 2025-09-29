@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from jobs.compute_clv import price_is_better, run as run_clv
+from jobs.compute_clv import price_is_better
+from jobs.compute_clv import run as run_clv
 from utils import odds
 
 
@@ -29,7 +30,7 @@ def test_logit_bounds():
 
 def test_price_is_better_identifies_favorable_line():
     assert price_is_better(-110, -120) == 1  # less negative is better
-    assert price_is_better(150, 140) == 1    # larger positive is better
+    assert price_is_better(150, 140) == 1  # larger positive is better
     assert price_is_better(-120, -110) == 0
     assert price_is_better(None, -110) is None
     assert price_is_better(-110, None) is None

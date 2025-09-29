@@ -67,7 +67,9 @@ class OddsAPIManager:
         raw_events = await self._fetch_with_key_rotation()
         processed = self._process_events(raw_events)
 
-        await self.redis.set(self.cache_key_odds, json.dumps(processed, default=str), ex=self.cache_ttl)
+        await self.redis.set(
+            self.cache_key_odds, json.dumps(processed, default=str), ex=self.cache_ttl
+        )
         return processed
 
     async def get_usage_stats(self) -> Dict[str, Any]:
@@ -86,7 +88,9 @@ class OddsAPIManager:
                 except ValueError:
                     continue
                 if timestamp > time.time():
-                    blocked_status[key[-6:]] = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+                    blocked_status[key[-6:]] = datetime.fromtimestamp(
+                        timestamp, tz=timezone.utc
+                    ).isoformat()
 
         return {
             "daily_limit": self.daily_limit,
@@ -228,9 +232,7 @@ class OddsAPIManager:
                 continue
 
             bookmakers = event.get("bookmakers", [])
-            filtered_bookmakers = [
-                b for b in bookmakers if b.get("key") in self.TARGET_BOOKMAKERS
-            ]
+            filtered_bookmakers = [b for b in bookmakers if b.get("key") in self.TARGET_BOOKMAKERS]
             if not filtered_bookmakers:
                 continue
 
@@ -251,7 +253,9 @@ class OddsAPIManager:
 
         return processed
 
-    def _best_lines(self, bookmakers: List[Dict[str, Any]], market_key: str) -> Dict[str, Dict[str, Any]]:
+    def _best_lines(
+        self, bookmakers: List[Dict[str, Any]], market_key: str
+    ) -> Dict[str, Dict[str, Any]]:
         outcomes_by_type: Dict[str, MarketLine] = {}
 
         for bookmaker in bookmakers:

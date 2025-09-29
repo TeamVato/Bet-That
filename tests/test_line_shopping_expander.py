@@ -56,7 +56,9 @@ def test_line_shopping_table_includes_all_books_and_best_flags():
             },
         ]
     )
-    row = pd.Series({"event_id": "E1", "player": "Player", "market": "Passing Yards", "line": 250.5})
+    row = pd.Series(
+        {"event_id": "E1", "player": "Player", "market": "Passing Yards", "line": 250.5}
+    )
     view, consensus = build_line_shopping_table(odds_raw, row)
 
     assert len(view) == 4

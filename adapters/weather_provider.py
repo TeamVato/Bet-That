@@ -1,4 +1,5 @@
 """Stub weather provider with extension hooks for future integrations."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

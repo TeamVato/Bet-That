@@ -1,4 +1,5 @@
 """Check ingestion contract end-to-end for Bet-That odds processing."""
+
 from __future__ import annotations
 
 import os
@@ -15,7 +16,9 @@ class CheckIngestionContractCommand(BaseCommand):
     """Verify odds ingestion contract end-to-end."""
 
     name = "check-ingestion-contract"
-    description = "Verify odds ingestion contract: normalize book names, infer pos, guarantee season"
+    description = (
+        "Verify odds ingestion contract: normalize book names, infer pos, guarantee season"
+    )
 
     def run(self, *args, **kwargs) -> int:
         """Run the ingestion contract verification."""
@@ -70,10 +73,12 @@ class CheckIngestionContractCommand(BaseCommand):
                 self.log(f"Found {row_count} rows in odds_csv_raw")
 
                 # Verify book name normalization
-                cursor = con.execute("""
+                cursor = con.execute(
+                    """
                     SELECT DISTINCT book FROM odds_csv_raw
                     WHERE book IN ('draftkings', 'dk', 'fanduel', 'fd', 'CAESARS', 'betmgm')
-                """)
+                """
+                )
                 unnormalized_books = [row[0] for row in cursor.fetchall()]
 
                 if unnormalized_books:
@@ -83,16 +88,20 @@ class CheckIngestionContractCommand(BaseCommand):
                 self.log("✓ Book names are properly normalized")
 
                 # Verify position inference
-                cursor = con.execute("""
+                cursor = con.execute(
+                    """
                     SELECT COUNT(*) FROM odds_csv_raw
                     WHERE market LIKE '%pass%' AND pos != 'QB'
-                """)
+                """
+                )
                 bad_qb_pos = cursor.fetchone()[0]
 
-                cursor = con.execute("""
+                cursor = con.execute(
+                    """
                     SELECT COUNT(*) FROM odds_csv_raw
                     WHERE market LIKE '%rush%' AND pos != 'RB'
-                """)
+                """
+                )
                 bad_rb_pos = cursor.fetchone()[0]
 
                 if bad_qb_pos > 0:
@@ -116,10 +125,12 @@ class CheckIngestionContractCommand(BaseCommand):
                 self.log("✓ Season information is present in all rows")
 
                 # Check for proper season values (should be reasonable NFL seasons)
-                cursor = con.execute("""
+                cursor = con.execute(
+                    """
                     SELECT DISTINCT season FROM odds_csv_raw
                     WHERE season < 2020 OR season > 2030
-                """)
+                """
+                )
                 invalid_seasons = [row[0] for row in cursor.fetchall()]
 
                 if invalid_seasons:

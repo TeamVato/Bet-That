@@ -173,14 +173,18 @@ class PlayerProfilerValidator:
             column_name = mapping["column"]
 
             try:
-                series = pd.read_csv(file_path, usecols=[column_name], squeeze=True, low_memory=False)
+                series = pd.read_csv(
+                    file_path, usecols=[column_name], squeeze=True, low_memory=False
+                )
             except Exception:
                 # Fall back to reading entire file if pandas struggles with usecols
                 try:
                     df = pd.read_csv(file_path, low_memory=False)
                     series = df[column_name]
                 except Exception as exc:
-                    warning = f"Failed to evaluate coverage for {canonical} ({mapping['file']}): {exc}"
+                    warning = (
+                        f"Failed to evaluate coverage for {canonical} ({mapping['file']}): {exc}"
+                    )
                     self.validation_results.setdefault("warnings", []).append(warning)
                     continue
 
@@ -246,7 +250,9 @@ class PlayerProfilerValidator:
             )
 
         freshness_score = self.validation_results.get("freshness_score", 1.0)
-        freshness_flag = "fresh" if freshness_score >= 0.8 else "stale" if freshness_score < 0.5 else "mixed"
+        freshness_flag = (
+            "fresh" if freshness_score >= 0.8 else "stale" if freshness_score < 0.5 else "mixed"
+        )
 
         plan["strategies"] = [
             {
@@ -257,7 +263,11 @@ class PlayerProfilerValidator:
             {
                 "name": "RB Rushing Under",
                 "status": "ready" if self._strategy_ready("rb") else "blocked",
-                "notes": "Check stacked box coverage" if not self._strategy_ready("rb") else "Coverage acceptable",
+                "notes": (
+                    "Check stacked box coverage"
+                    if not self._strategy_ready("rb")
+                    else "Coverage acceptable"
+                ),
             },
             {
                 "name": "WR Receiving Under",

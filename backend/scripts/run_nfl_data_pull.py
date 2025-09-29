@@ -76,7 +76,11 @@ async def check_token_status(keys: List[str]) -> List[TokenStatus]:
             if response.status_code == 200:
                 remaining_header = response.headers.get("x-requests-remaining")
                 used_header = response.headers.get("x-requests-used")
-                remaining = int(remaining_header) if remaining_header and remaining_header.isdigit() else None
+                remaining = (
+                    int(remaining_header)
+                    if remaining_header and remaining_header.isdigit()
+                    else None
+                )
                 used = int(used_header) if used_header and used_header.isdigit() else None
                 statuses.append(
                     TokenStatus(
@@ -323,9 +327,7 @@ def _format_game_block(index: int, game: Dict[str, Any]) -> str:
     spreads_points = game.get("spreads_points") or []
     if spreads_points:
         avg_spread = sum(item["point"] for item in spreads_points) / len(spreads_points)
-        lines.append(
-            f"   Spread: {game.get('home_team')} {avg_spread:+.1f}"
-        )
+        lines.append(f"   Spread: {game.get('home_team')} {avg_spread:+.1f}")
 
     if totals_points:
         best_books = ", ".join(game.get("best_books", []))
@@ -341,24 +343,22 @@ def _format_edges(edges: List[Dict[str, Any]]) -> str:
 
     blocks: List[str] = []
     for edge in sorted(edges, key=lambda item: item.get("movement", 0), reverse=True):
-        block = [f"{edge['game']}:", f"   - Strategy: {edge['strategy']} ({edge['movement']:.1f} points)"]
+        block = [
+            f"{edge['game']}:",
+            f"   - Strategy: {edge['strategy']} ({edge['movement']:.1f} points)",
+        ]
         block.append(f"   - Action: {edge['action']}")
         block.append(f"   - Confidence: {edge['confidence']}")
         block.append(
-            "   - Key Number: "
-            + ("YES - Protect it" if edge.get("on_key_number") else "No")
+            "   - Key Number: " + ("YES - Protect it" if edge.get("on_key_number") else "No")
         )
         block.append("   - Lines available:")
         low = edge.get("lowest_total")
         high = edge.get("highest_total")
         if low:
-            block.append(
-                f"      {low['book']}: {low['point']:.1f} ({low.get('price', 0):+d})"
-            )
+            block.append(f"      {low['book']}: {low['point']:.1f} ({low.get('price', 0):+d})")
         if high and high != low:
-            block.append(
-                f"      {high['book']}: {high['point']:.1f} ({high.get('price', 0):+d})"
-            )
+            block.append(f"      {high['book']}: {high['point']:.1f} ({high.get('price', 0):+d})")
         blocks.append("\n".join(block))
     return "\n\n".join(blocks)
 
@@ -394,9 +394,7 @@ def format_output(result: Dict[str, Any]) -> str:
     lines.append("\n" + "=" * 37)
     lines.append("✅ Data cached for 30 minutes")
     next_refresh = datetime.now(timezone.utc) + timedelta(minutes=30)
-    lines.append(
-        f"📝 Next refresh recommended: {next_refresh.strftime('%A %I:%M %p %Z')}"
-    )
+    lines.append(f"📝 Next refresh recommended: {next_refresh.strftime('%A %I:%M %p %Z')}")
 
     return "\n".join(lines)
 
@@ -416,7 +414,9 @@ async def run(force_refresh: bool = False) -> Dict[str, Any]:
         raise RuntimeError("No Odds API keys configured")
 
     token_statuses = await check_token_status(keys)
-    total_tokens = sum(status.remaining for status in token_statuses if status.remaining is not None)
+    total_tokens = sum(
+        status.remaining for status in token_statuses if status.remaining is not None
+    )
 
     use_cache = _should_use_cache() and not force_refresh
     games_payload: List[Dict[str, Any]]

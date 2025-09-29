@@ -1,4 +1,5 @@
 """Generate weekly CLV/calibration report, alerts, and gating flags."""
+
 from __future__ import annotations
 
 import argparse
@@ -215,12 +216,25 @@ def _severity_max(metric: float, warn: float) -> str:
 def _classify(metrics: Dict[str, float], cfg: Dict[str, Any]) -> Dict[str, str]:
     thresholds = cfg.get("thresholds", {})
     sevs: Dict[str, str] = {}
-    sevs["clv_beat_close_rate"] = _severity_clv(metrics.get("clv_beat_close_rate", np.nan), thresholds.get("clv_beat_close", {}))
-    sevs["brier_over_baseline"] = _severity_brier(metrics.get("brier_over_baseline", np.nan), thresholds.get("brier_over_baseline", {}))
-    sevs["close_match_coverage"] = _severity_min(metrics.get("close_match_coverage", np.nan), thresholds.get("close_match_coverage_min", 0.0))
-    sevs["overround_violation_rate"] = _severity_max(metrics.get("overround_violation_rate", np.nan), thresholds.get("overround_violation_rate_warn", 1.0))
-    sevs["missing_side_rate"] = _severity_max(metrics.get("missing_side_rate", np.nan), thresholds.get("missing_side_rate_warn", 1.0))
-    sevs["stale_flag_rate"] = _severity_max(metrics.get("stale_flag_rate", np.nan), thresholds.get("stale_flag_rate_warn", 1.0))
+    sevs["clv_beat_close_rate"] = _severity_clv(
+        metrics.get("clv_beat_close_rate", np.nan), thresholds.get("clv_beat_close", {})
+    )
+    sevs["brier_over_baseline"] = _severity_brier(
+        metrics.get("brier_over_baseline", np.nan), thresholds.get("brier_over_baseline", {})
+    )
+    sevs["close_match_coverage"] = _severity_min(
+        metrics.get("close_match_coverage", np.nan), thresholds.get("close_match_coverage_min", 0.0)
+    )
+    sevs["overround_violation_rate"] = _severity_max(
+        metrics.get("overround_violation_rate", np.nan),
+        thresholds.get("overround_violation_rate_warn", 1.0),
+    )
+    sevs["missing_side_rate"] = _severity_max(
+        metrics.get("missing_side_rate", np.nan), thresholds.get("missing_side_rate_warn", 1.0)
+    )
+    sevs["stale_flag_rate"] = _severity_max(
+        metrics.get("stale_flag_rate", np.nan), thresholds.get("stale_flag_rate_warn", 1.0)
+    )
     return sevs
 
 
@@ -233,7 +247,12 @@ def _overall(severities: Dict[str, str]) -> str:
 
 
 def _format_markdown(as_of: dt.date, metrics: Dict[str, float], severities: Dict[str, str]) -> str:
-    lines = [f"# Weekly CLV & Calibration Report — {as_of.isoformat()}", "", "| Metric | Value | Severity |", "| --- | --- | --- |"]
+    lines = [
+        f"# Weekly CLV & Calibration Report — {as_of.isoformat()}",
+        "",
+        "| Metric | Value | Severity |",
+        "| --- | --- | --- |",
+    ]
     for key, value in metrics.items():
         severity = severities.get(key, "OK")
         display_val = "n/a" if np.isnan(value) else f"{value:.4f}"

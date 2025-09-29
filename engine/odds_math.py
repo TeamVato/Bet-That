@@ -1,4 +1,5 @@
 """Core odds math utilities used across the project."""
+
 from __future__ import annotations
 
 from typing import Dict, Iterable, List, Tuple

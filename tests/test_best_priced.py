@@ -12,10 +12,34 @@ def apply_best_priced_filter(df: pd.DataFrame) -> pd.DataFrame:
 def test_best_priced_filter_keeps_highest_ev_per_market():
     data = pd.DataFrame(
         [
-            {"event_id": "E1", "player": "Player", "market": "Passing Yards", "book": "BookA", "ev_per_dollar": 0.05},
-            {"event_id": "E1", "player": "Player", "market": "Passing Yards", "book": "BookB", "ev_per_dollar": 0.12},
-            {"event_id": "E2", "player": "Player", "market": "Touchdowns", "book": "BookC", "ev_per_dollar": -0.01},
-            {"event_id": "E2", "player": "Player", "market": "Touchdowns", "book": "BookD", "ev_per_dollar": 0.02},
+            {
+                "event_id": "E1",
+                "player": "Player",
+                "market": "Passing Yards",
+                "book": "BookA",
+                "ev_per_dollar": 0.05,
+            },
+            {
+                "event_id": "E1",
+                "player": "Player",
+                "market": "Passing Yards",
+                "book": "BookB",
+                "ev_per_dollar": 0.12,
+            },
+            {
+                "event_id": "E2",
+                "player": "Player",
+                "market": "Touchdowns",
+                "book": "BookC",
+                "ev_per_dollar": -0.01,
+            },
+            {
+                "event_id": "E2",
+                "player": "Player",
+                "market": "Touchdowns",
+                "book": "BookD",
+                "ev_per_dollar": 0.02,
+            },
         ]
     )
     filtered = apply_best_priced_filter(data)
@@ -29,10 +53,34 @@ def test_best_priced_filter_keeps_highest_ev_per_market():
 def test_best_priced_filter_handles_negative_and_positive_edges():
     data = pd.DataFrame(
         [
-            {"event_id": "E3", "player": "Q", "market": "Completions", "book": "BookA", "ev_per_dollar": -0.02},
-            {"event_id": "E3", "player": "Q", "market": "Completions", "book": "BookB", "ev_per_dollar": -0.10},
-            {"event_id": "E4", "player": "Q", "market": "Attempts", "book": "BookC", "ev_per_dollar": 0.08},
-            {"event_id": "E4", "player": "Q", "market": "Attempts", "book": "BookD", "ev_per_dollar": 0.07},
+            {
+                "event_id": "E3",
+                "player": "Q",
+                "market": "Completions",
+                "book": "BookA",
+                "ev_per_dollar": -0.02,
+            },
+            {
+                "event_id": "E3",
+                "player": "Q",
+                "market": "Completions",
+                "book": "BookB",
+                "ev_per_dollar": -0.10,
+            },
+            {
+                "event_id": "E4",
+                "player": "Q",
+                "market": "Attempts",
+                "book": "BookC",
+                "ev_per_dollar": 0.08,
+            },
+            {
+                "event_id": "E4",
+                "player": "Q",
+                "market": "Attempts",
+                "book": "BookD",
+                "ev_per_dollar": 0.07,
+            },
         ]
     )
     filtered = apply_best_priced_filter(data)

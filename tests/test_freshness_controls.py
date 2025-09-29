@@ -1,10 +1,11 @@
 # tests/test_freshness_controls.py
 """Unit tests for the freshness controls functionality."""
 
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
+
 import pandas as pd
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch
 
 
 class TestFreshnessControls:
@@ -19,7 +20,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -41,7 +42,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -70,7 +71,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -96,15 +97,17 @@ class TestFreshnessControls:
         """Test that custom stale threshold correctly filters data."""
         # Create test data with various ages
         current_time = datetime.now(timezone.utc)
-        df = pd.DataFrame({
-            'updated_at': [
-                current_time.isoformat(),  # Fresh
-                (current_time - timedelta(minutes=45)).isoformat(),  # Medium
-                (current_time - timedelta(minutes=150)).isoformat(),  # Stale
-                None  # Missing
-            ],
-            'player': ['A', 'B', 'C', 'D']
-        })
+        df = pd.DataFrame(
+            {
+                "updated_at": [
+                    current_time.isoformat(),  # Fresh
+                    (current_time - timedelta(minutes=45)).isoformat(),  # Medium
+                    (current_time - timedelta(minutes=150)).isoformat(),  # Stale
+                    None,  # Missing
+                ],
+                "player": ["A", "B", "C", "D"],
+            }
+        )
 
         # Compute minutes since update
         def compute_minutes_since_update(updated_at):
@@ -112,7 +115,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -120,33 +123,35 @@ class TestFreshnessControls:
             except Exception:
                 return 9999
 
-        df['minutes_since_update'] = df['updated_at'].apply(compute_minutes_since_update)
+        df["minutes_since_update"] = df["updated_at"].apply(compute_minutes_since_update)
 
         # Test 60-minute threshold
         threshold_60 = 60
-        df['is_stale_60'] = (df['minutes_since_update'] > threshold_60).astype(int)
-        fresh_60 = df[df['is_stale_60'] == 0]
+        df["is_stale_60"] = (df["minutes_since_update"] > threshold_60).astype(int)
+        fresh_60 = df[df["is_stale_60"] == 0]
         assert len(fresh_60) == 2  # A and B should be fresh
 
         # Test 180-minute threshold (C at 150 min should be fresh)
         threshold_180 = 180
-        df['is_stale_180'] = (df['minutes_since_update'] > threshold_180).astype(int)
-        fresh_180 = df[df['is_stale_180'] == 0]
+        df["is_stale_180"] = (df["minutes_since_update"] > threshold_180).astype(int)
+        fresh_180 = df[df["is_stale_180"] == 0]
         assert len(fresh_180) == 3  # A, B, and C should be fresh
 
     def test_nullable_integer_handling(self):
         """Test that nullable integers are handled properly in freshness logic."""
-        df = pd.DataFrame({
-            'minutes_since_update': [30.5, 90.0, 180.5, 9999.0],
-            'original_is_stale': [0, pd.NA, 1, 0]
-        })
+        df = pd.DataFrame(
+            {
+                "minutes_since_update": [30.5, 90.0, 180.5, 9999.0],
+                "original_is_stale": [0, pd.NA, 1, 0],
+            }
+        )
 
         # Custom threshold logic
         custom_threshold = 120
-        df['is_stale_custom'] = (df['minutes_since_update'] > custom_threshold).astype(int)
+        df["is_stale_custom"] = (df["minutes_since_update"] > custom_threshold).astype(int)
 
         expected = [0, 0, 1, 1]  # 30, 90 are fresh; 180, 9999 are stale
-        assert df['is_stale_custom'].tolist() == expected
+        assert df["is_stale_custom"].tolist() == expected
 
     def test_freshness_column_display_logic(self):
         """Test that freshness columns are added to display when requested."""
@@ -180,7 +185,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -211,7 +216,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time
@@ -233,7 +238,7 @@ class TestFreshnessControls:
                 return 9999
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta = current_time - update_time

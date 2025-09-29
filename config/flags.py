@@ -1,4 +1,5 @@
 """Helpers for loading and merging signal flags with TTL support."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -56,7 +57,9 @@ def _coerce_bool(value: Any) -> bool | None:
     return None
 
 
-def _compute_expiry(raw: Any, meta: Dict[str, Any], now: datetime) -> Tuple[bool | None, datetime | None]:
+def _compute_expiry(
+    raw: Any, meta: Dict[str, Any], now: datetime
+) -> Tuple[bool | None, datetime | None]:
     expires_at: datetime | None = None
     ttl_minutes = None
     updated_at = meta.get("updated_at")

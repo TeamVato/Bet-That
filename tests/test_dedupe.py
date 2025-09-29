@@ -36,7 +36,9 @@ def test_dedupe_latest_keeps_max_updated_at():
         ]
     )
 
-    deduped = dedupe_latest(df, ["event_id", "market", "book", "side", "line"], sort_col="updated_at")
+    deduped = dedupe_latest(
+        df, ["event_id", "market", "book", "side", "line"], sort_col="updated_at"
+    )
 
     assert len(deduped) == 2
     over_row = deduped[deduped["side"] == "Over"].iloc[0]
@@ -46,6 +48,6 @@ def test_dedupe_latest_keeps_max_updated_at():
 
 
 def test_dedupe_latest_handles_missing_subset():
-    df = pd.DataFrame([{ "event_id": "E2", "updated_at": "2024-09-01T00:00:00Z" }])
+    df = pd.DataFrame([{"event_id": "E2", "updated_at": "2024-09-01T00:00:00Z"}])
     result = dedupe_latest(df, [], sort_col="updated_at")
     assert result.equals(df)

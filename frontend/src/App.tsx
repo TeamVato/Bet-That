@@ -1,10 +1,10 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
-import MyBets from './pages/MyBets'
-import Digest from './pages/Digest'
-import Account from './pages/Account'
-import Footer from './components/Footer'
-import { DISCLAIMER } from './utils/constants'
+import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
+import MyBets from "./pages/MyBets";
+import Digest from "./pages/Digest";
+import Account from "./pages/Account";
+import Footer from "./components/Footer";
+import { DISCLAIMER } from "./utils/constants";
 
 function Header() {
   return (
@@ -15,29 +15,49 @@ function Header() {
           <span className="badge border-gray-300">LOCAL</span>
         </div>
         <nav className="flex gap-3 text-sm">
-          <NavLink to="/" className={({isActive}) => isActive ? 'underline' : ''}>Dashboard</NavLink>
-          <NavLink to="/bets" className={({isActive}) => isActive ? 'underline' : ''}>My Bets</NavLink>
-          <NavLink to="/digest" className={({isActive}) => isActive ? 'underline' : ''}>Digest</NavLink>
-          <NavLink to="/account" className={({isActive}) => isActive ? 'underline' : ''}>Account</NavLink>
+          <NavLink
+            to="/"
+            className={({ isActive }) => (isActive ? "underline" : "")}
+          >
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/bets"
+            className={({ isActive }) => (isActive ? "underline" : "")}
+          >
+            My Bets
+          </NavLink>
+          <NavLink
+            to="/digest"
+            className={({ isActive }) => (isActive ? "underline" : "")}
+          >
+            Digest
+          </NavLink>
+          <NavLink
+            to="/account"
+            className={({ isActive }) => (isActive ? "underline" : "")}
+          >
+            Account
+          </NavLink>
         </nav>
       </div>
     </header>
-  )
+  );
 }
 
-export default function App(){
+export default function App() {
   return (
     <BrowserRouter>
-      <Header/>
+      <Header />
       <main className="container py-6">
         <Routes>
-          <Route path="/" element={<Dashboard/>}/>
-          <Route path="/bets" element={<MyBets/>}/>
-          <Route path="/digest" element={<Digest/>}/>
-          <Route path="/account" element={<Account/>}/>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/bets" element={<MyBets />} />
+          <Route path="/digest" element={<Digest />} />
+          <Route path="/account" element={<Account />} />
         </Routes>
       </main>
-      <Footer disclaimer={DISCLAIMER}/>
+      <Footer disclaimer={DISCLAIMER} />
     </BrowserRouter>
-  )
+  );
 }

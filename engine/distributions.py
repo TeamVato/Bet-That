@@ -17,4 +17,3 @@ class NormalModel:
 
     def over_prob(self, line: float) -> float:
         return 1.0 - self.cdf(line)
-

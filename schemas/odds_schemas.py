@@ -1,4 +1,5 @@
 """Pandera schemas for odds data validation and quality assurance."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -6,7 +7,7 @@ from typing import Optional
 
 import pandas as pd
 import pandera as pa
-from pandera import Field, Check
+from pandera import Check, Field
 from pandera.typing import DataFrame, Series
 
 

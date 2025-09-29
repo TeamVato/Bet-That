@@ -109,7 +109,9 @@ def main() -> None:
         high = rec["highest_total"]
         print(f"- Shopping window: {low['book']} {low['point']:.1f} ({low.get('price', 0):+d})")
         if high != low:
-            print(f"                 {high['book']} {high['point']:.1f} ({high.get('price', 0):+d})")
+            print(
+                f"                 {high['book']} {high['point']:.1f} ({high.get('price', 0):+d})"
+            )
 
     if edges_found == 0:
         print("\nNo qualifying edges in the cached data. Re-run after market moves.")

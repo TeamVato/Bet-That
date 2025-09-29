@@ -2,11 +2,10 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, List
 
+import nfl_data_py as nfl
 import numpy as np
 import pandas as pd
-import nfl_data_py as nfl
 from sklearn.linear_model import RidgeCV
-
 
 SEASONS = [2023, 2024, 2025]  # adjust as needed
 DATA_DIR = Path("storage/imports/PlayerProfiler")
@@ -185,7 +184,9 @@ def _compute_qb_pass_adjusted_scores(pbp: pd.DataFrame) -> pd.DataFrame:
             group["tier_adj"] = tiers.astype(str)
         except ValueError:
             ranks = values.rank(pct=True)
-            group["tier_adj"] = np.where(ranks >= 0.8, "generous", np.where(ranks <= 0.2, "stingy", "neutral"))
+            group["tier_adj"] = np.where(
+                ranks >= 0.8, "generous", np.where(ranks <= 0.2, "stingy", "neutral")
+            )
         return group
 
     weekly_df = (
@@ -218,11 +219,8 @@ def _prepare_local_pbp(path: Path, season: int) -> pd.DataFrame:
     df["distance"] = df.get("distance", np.nan)
     df["first_down_gained"] = df.get("first_down_gained", 0).fillna(0)
     df["epa"] = np.nan  # placeholder when advanced dataset lacks EPA
-    df["successful"] = (
-        (df.get("first_down_gained", 0) == 1)
-        | (
-            df["yards_gained"] >= df.get("distance", np.nan)
-        )
+    df["successful"] = (df.get("first_down_gained", 0) == 1) | (
+        df["yards_gained"] >= df.get("distance", np.nan)
     )
     df["explosive_pass"] = (df["pass"] == 1) & (df["yards_gained"] >= 20)
     df["explosive_rush"] = (df["rush"] == 1) & (df["yards_gained"] >= 10)
@@ -319,28 +317,35 @@ pbp["explosive_pass"] = pbp["is_pass"] & (pbp["yards_gained"] >= 20)
 pbp["explosive_rush"] = pbp["is_rush"] & (pbp["yards_gained"] >= 10)
 
 # Join positions for targeted receiver / rusher (may be NaN early in season)
-pbp = pbp.merge(rosters.add_prefix("rec_"), left_on="receiver_player_id",
-                right_on="rec_player_id", how="left")
-pbp = pbp.merge(rosters.add_prefix("rush_"), left_on="rusher_player_id",
-                right_on="rush_player_id", how="left")
+pbp = pbp.merge(
+    rosters.add_prefix("rec_"), left_on="receiver_player_id", right_on="rec_player_id", how="left"
+)
+pbp = pbp.merge(
+    rosters.add_prefix("rush_"), left_on="rusher_player_id", right_on="rush_player_id", how="left"
+)
+
 
 def agg(df: pd.DataFrame) -> pd.Series:
-    return pd.Series({
-        "plays": len(df),
-        "epa_per_play": df["epa"].mean(),
-        "success_rate": df["successful"].mean(),
-        "yards_per_play": df["yards_gained"].mean(),
-        "explosive_rate": (df["explosive_pass"].mean() if df["is_pass"].any()
-                           else df["explosive_rush"].mean())
-    })
+    return pd.Series(
+        {
+            "plays": len(df),
+            "epa_per_play": df["epa"].mean(),
+            "success_rate": df["successful"].mean(),
+            "yards_per_play": df["yards_gained"].mean(),
+            "explosive_rate": (
+                df["explosive_pass"].mean() if df["is_pass"].any() else df["explosive_rush"].mean()
+            ),
+        }
+    )
+
 
 print("[3/5] Aggregating by defense & position buckets...")
 buckets = {
-  "QB_PASS":  pbp.loc[pbp["is_pass"]],
-  "RB_RUSH":  pbp.loc[pbp["is_rush"] & (pbp["rush_position"] == "RB")],
-  "RB_REC":   pbp.loc[pbp["is_pass"] & (pbp["rec_position"]  == "RB")],
-  "WR":       pbp.loc[pbp["is_pass"] & (pbp["rec_position"]  == "WR")],
-  "TE":       pbp.loc[pbp["is_pass"] & (pbp["rec_position"]  == "TE")],
+    "QB_PASS": pbp.loc[pbp["is_pass"]],
+    "RB_RUSH": pbp.loc[pbp["is_rush"] & (pbp["rush_position"] == "RB")],
+    "RB_REC": pbp.loc[pbp["is_pass"] & (pbp["rec_position"] == "RB")],
+    "WR": pbp.loc[pbp["is_pass"] & (pbp["rec_position"] == "WR")],
+    "TE": pbp.loc[pbp["is_pass"] & (pbp["rec_position"] == "TE")],
 }
 
 parts = []
@@ -370,16 +375,22 @@ ratings = ratings.sort_values(["defteam", "pos", "season", "week"])
 MIN_ROLL_GAMES = 4
 for col in ["plays", "epa_per_play", "yards_per_play", "explosive_rate", "success_rate"]:
     if col == "plays":
-        ratings["roll_plays8"] = ratings.groupby(["defteam","pos"])[col].transform(
+        ratings["roll_plays8"] = ratings.groupby(["defteam", "pos"])[col].transform(
             lambda s: s.rolling(8, min_periods=MIN_ROLL_GAMES).sum()
         )
     else:
-        ratings[f"roll_{col}8"] = ratings.groupby(["defteam","pos"])[col].transform(
+        ratings[f"roll_{col}8"] = ratings.groupby(["defteam", "pos"])[col].transform(
             lambda s: s.rolling(8, min_periods=MIN_ROLL_GAMES).mean()
         )
-for col in ["roll_epa_per_play8", "roll_yards_per_play8", "roll_explosive_rate8", "roll_success_rate8"]:
+for col in [
+    "roll_epa_per_play8",
+    "roll_yards_per_play8",
+    "roll_explosive_rate8",
+    "roll_success_rate8",
+]:
     if col not in ratings.columns:
         ratings[col] = np.nan
+
 
 def safe_z(x: pd.Series) -> pd.Series:
     mu = x.mean()
@@ -388,7 +399,10 @@ def safe_z(x: pd.Series) -> pd.Series:
         return pd.Series(np.zeros(len(x)), index=x.index)
     return (x - mu) / sd
 
+
 print("[4/5] Computing league z-scores and tiers...")
+
+
 def league_scores(df: pd.DataFrame) -> pd.DataFrame:
     # higher score => more generous defense to that position
     components: List[pd.Series] = []
@@ -410,17 +424,21 @@ def league_scores(df: pd.DataFrame) -> pd.DataFrame:
     else:
         total_weight = sum(weights)
         score = sum(w * comp.fillna(0) for w, comp in zip(weights, components)) / total_weight
-    out = df[["defteam","season","week","pos"]].copy()
+    out = df[["defteam", "season", "week", "pos"]].copy()
     out["score"] = score
     # tiers: bottom 20% stingy, mid neutral, top 20% generous
     # If too few teams for qcut, fall back to labels by rank
     try:
-        out["tier"] = pd.qcut(out["score"], q=[0, .2, .8, 1], labels=["stingy","neutral","generous"])
+        out["tier"] = pd.qcut(
+            out["score"], q=[0, 0.2, 0.8, 1], labels=["stingy", "neutral", "generous"]
+        )
     except ValueError:
         ranks = out["score"].rank(pct=True)
-        out["tier"] = np.where(ranks >= 0.8, "generous",
-                        np.where(ranks <= 0.2, "stingy", "neutral"))
+        out["tier"] = np.where(
+            ranks >= 0.8, "generous", np.where(ranks <= 0.2, "stingy", "neutral")
+        )
     return out
+
 
 metric_cols = [
     "roll_epa_per_play8",
@@ -429,10 +447,12 @@ metric_cols = [
     "roll_success_rate8",
 ]
 valid_mask = ratings[metric_cols].notna().any(axis=1)
-league = (ratings.loc[valid_mask]
-          .groupby(["season","week","pos"], as_index=False)
-          .apply(league_scores)
-          .reset_index(drop=True))
+league = (
+    ratings.loc[valid_mask]
+    .groupby(["season", "week", "pos"], as_index=False)
+    .apply(league_scores)
+    .reset_index(drop=True)
+)
 
 qb_pass_adj = _compute_qb_pass_adjusted_scores(pbp)
 if qb_pass_adj.empty:
@@ -465,14 +485,16 @@ league = league[["defteam", "season", "week", "pos", "score", "tier", "score_adj
 
 print("[5/5] Writing to SQLite...")
 with sqlite3.connect("storage/odds.db") as con:
-    con.execute("""
+    con.execute(
+        """
       CREATE TABLE IF NOT EXISTS defense_ratings (
         defteam TEXT, season INT, week INT, pos TEXT,
         score REAL, tier TEXT,
         score_adj REAL, tier_adj TEXT,
         PRIMARY KEY(defteam, season, week, pos)
       )
-    """)
+    """
+    )
     existing_cols = {row[1] for row in con.execute("PRAGMA table_info(defense_ratings)")}
     if "score_adj" not in existing_cols:
         con.execute("ALTER TABLE defense_ratings ADD COLUMN score_adj REAL")

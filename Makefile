@@ -16,7 +16,7 @@ define run
 	fi
 endef
 
-.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit custom-commands check-ingestion-contract enhance-empty-state bugfix-with-test
+.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit custom-commands check-ingestion-contract enhance-empty-state bugfix-with-test install-dev quality-check format test-all
 
 help: ## Show available make targets
 	@printf "Available targets (set DRY=1 to preview):\n"
@@ -84,3 +84,42 @@ enhance-empty-state: ## Add empty-state callout with reset filters button
 
 bugfix-with-test: ## Interactive bugfix workflow with focused tests
 	$(call run,. .venv/bin/activate && python run_command.py bugfix-with-test)
+
+# Quality and Development Targets
+
+install-dev: ## Install development dependencies
+	$(call run,. .venv/bin/activate && python -m pip install -r requirements-dev.txt)
+
+quality-check: ## Run all quality checks (Black, Flake8, mypy)
+	@printf "Running Python quality checks...\n"
+	$(call run,. .venv/bin/activate && python -m black --check --diff .)
+	$(call run,. .venv/bin/activate && python -m flake8 .)
+	$(call run,. .venv/bin/activate && python -m mypy .)
+	@printf "Running frontend quality checks...\n"
+	$(call run,cd frontend && pnpm run lint)
+
+format: ## Format all code (Black + Prettier)
+	@printf "Formatting Python code with Black...\n"
+	$(call run,. .venv/bin/activate && python -m black .)
+	@printf "Formatting frontend code with Prettier...\n"
+	$(call run,cd frontend && pnpm run format)
+
+test-all: ## Run all tests with coverage
+	@printf "Running Python tests...\n"
+	$(call run,. .venv/bin/activate && python -m pytest --cov --cov-report=term-missing)
+	@printf "Running frontend tests...\n"
+	$(call run,cd frontend && pnpm run test)
+
+test-unit: ## Run only unit tests
+	$(call run,. .venv/bin/activate && python -m pytest tests/ -m "not integration" -v)
+
+test-integration: ## Run only integration tests
+	$(call run,. .venv/bin/activate && python -m pytest tests/ -m "integration" -v)
+
+test-backend: ## Run backend tests only
+	$(call run,. .venv/bin/activate && python -m pytest backend/tests/ -v)
+
+dev-setup: repo-fresh install-dev ## Complete development environment setup
+	@printf "Installing pre-commit hooks...\n"
+	$(call run,. .venv/bin/activate && pre-commit install)
+	@printf "Development environment ready! Run 'make quality-check' to verify.\n"

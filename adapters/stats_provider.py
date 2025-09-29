@@ -1,4 +1,5 @@
 """Robust adapter for weekly player stats across nfl_data_py versions."""
+
 from __future__ import annotations
 
 import pandas as pd

@@ -21,11 +21,11 @@ EXPECTED_DRY_LINE = "DRY ?= 0"
 RUN_BLOCK = [
     "define run",
     "\t@cmd='$(1)'; \\",
-    "\tif [ \"$(DRY)\" = \"1\" ]; then \\",
+    '\tif [ "$(DRY)" = "1" ]; then \\',
     "\t\tprintf '[DRY] %s\\n' \"$$cmd\"; \\",
     "\telse \\",
     "\t\tprintf '+ %s\\n' \"$$cmd\"; \\",
-    "\t\teval \"$$cmd\"; \\",
+    '\t\teval "$$cmd"; \\',
     "\tfi",
     "endef",
 ]

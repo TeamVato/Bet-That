@@ -1,11 +1,13 @@
 """Utility functions for odds conversion"""
+
+
 def american_to_decimal(american_odds: int) -> float:
     """
     Convert American odds to decimal odds
-    
+
     Args:
         american_odds: American format odds (e.g., -110, +150)
-        
+
     Returns:
         Decimal odds (e.g., 1.91, 2.50)
     """
@@ -13,18 +15,19 @@ def american_to_decimal(american_odds: int) -> float:
         # Positive American odds
         decimal_odds = (american_odds / 100) + 1
     else:
-        # Negative American odds  
+        # Negative American odds
         decimal_odds = (100 / abs(american_odds)) + 1
-    
+
     return round(decimal_odds, 3)
+
 
 def decimal_to_american(decimal_odds: float) -> int:
     """
     Convert decimal odds to American odds
-    
+
     Args:
         decimal_odds: Decimal format odds (e.g., 1.91, 2.50)
-        
+
     Returns:
         American odds (e.g., -110, +150)
     """
@@ -34,5 +37,5 @@ def decimal_to_american(decimal_odds: float) -> int:
     else:
         # Convert to negative American odds
         american_odds = int(-100 / (decimal_odds - 1))
-    
+
     return american_odds

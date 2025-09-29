@@ -70,14 +70,16 @@ def test_position_and_book_context_reporting():
 def test_season_filter_missing_column_safe():
     """Test that season filter handles missing season column without crashing."""
     # Create DataFrame without season column
-    edges_no_season = pd.DataFrame({
-        "pos": ["QB", "RB"],
-        "book": ["draftkings", "fanduel"],
-        "odds": [-120, -110],
-        "ev_per_dollar": [0.03, 0.02],
-        "stale": [0, 1],
-        "best_priced": [0, 0],
-    })
+    edges_no_season = pd.DataFrame(
+        {
+            "pos": ["QB", "RB"],
+            "book": ["draftkings", "fanduel"],
+            "odds": [-120, -110],
+            "ev_per_dollar": [0.03, 0.02],
+            "stale": [0, 1],
+            "best_priced": [0, 0],
+        }
+    )
 
     filters = Filters(
         seasons=[2023, 2024],  # Request specific seasons
@@ -99,15 +101,17 @@ def test_season_filter_missing_column_safe():
 def test_season_filter_with_nullable_int64():
     """Test season filter works correctly with nullable Int64 dtype."""
     # Create DataFrame with nullable Int64 season column
-    edges_nullable = pd.DataFrame({
-        "season": pd.Series([2023, 2024, pd.NA, 2025], dtype="Int64"),
-        "pos": ["QB", "RB", "WR", "TE"],
-        "book": ["draftkings", "fanduel", "caesars", "draftkings"],
-        "odds": [-120, -110, 140, 115],
-        "ev_per_dollar": [0.03, 0.02, 0.08, 0.01],
-        "stale": [0, 1, 0, 0],
-        "best_priced": [0, 0, 1, 0],
-    })
+    edges_nullable = pd.DataFrame(
+        {
+            "season": pd.Series([2023, 2024, pd.NA, 2025], dtype="Int64"),
+            "pos": ["QB", "RB", "WR", "TE"],
+            "book": ["draftkings", "fanduel", "caesars", "draftkings"],
+            "odds": [-120, -110, 140, 115],
+            "ev_per_dollar": [0.03, 0.02, 0.08, 0.01],
+            "stale": [0, 1, 0, 0],
+            "best_priced": [0, 0, 1, 0],
+        }
+    )
 
     filters = Filters(
         seasons=[2024, 2025],

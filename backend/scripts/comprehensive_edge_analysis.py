@@ -57,7 +57,9 @@ def build_totals_index(game: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return totals
 
 
-def detect_movement_edges(game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+def detect_movement_edges(
+    game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     edges: List[Dict[str, Any]] = []
     if len(totals_index) < 2:
         return edges
@@ -80,37 +82,47 @@ def detect_movement_edges(game: Dict[str, Any], totals_index: Dict[str, Dict[str
         key=lambda e: e["under_price"],
         default=None,
     )
-    edges.append({
-        "game": f"{game['away_team']} @ {game['home_team']}",
-        "movement": round(movement, 2),
-        "min_total": min_point,
-        "max_total": max_point,
-        "max_book": next((b for b, v in totals_index.items() if v["point"] == max_point), None),
-        "min_book": next((b for b, v in totals_index.items() if v["point"] == min_point), None),
-        "best_over": (
-            f"Over {best_over['point']} @ {best_over['book']} ({best_over['over_price']})"
-            if best_over
-            else None
-        ),
-        "best_under": (
-            f"Under {best_under['point']} @ {best_under['book']} ({best_under['under_price']})"
-            if best_under
-            else None
-        ),
-        "edge_percentage": round(max(0.0, movement - MOVEMENT_MEDIUM) * 2.5, 2),
-        "confidence": "high" if high_conf else "medium",
-    })
+    edges.append(
+        {
+            "game": f"{game['away_team']} @ {game['home_team']}",
+            "movement": round(movement, 2),
+            "min_total": min_point,
+            "max_total": max_point,
+            "max_book": next((b for b, v in totals_index.items() if v["point"] == max_point), None),
+            "min_book": next((b for b, v in totals_index.items() if v["point"] == min_point), None),
+            "best_over": (
+                f"Over {best_over['point']} @ {best_over['book']} ({best_over['over_price']})"
+                if best_over
+                else None
+            ),
+            "best_under": (
+                f"Under {best_under['point']} @ {best_under['book']} ({best_under['under_price']})"
+                if best_under
+                else None
+            ),
+            "edge_percentage": round(max(0.0, movement - MOVEMENT_MEDIUM) * 2.5, 2),
+            "confidence": "high" if high_conf else "medium",
+        }
+    )
     return edges
 
 
-def detect_line_shopping(game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+def detect_line_shopping(
+    game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     opportunities: List[Dict[str, Any]] = []
     prices_by_point: Dict[float, List[Dict[str, Any]]] = defaultdict(list)
     for book, entry in totals_index.items():
         point = entry.get("point")
         if point is None:
             continue
-        prices_by_point[point].append({"book": entry["book"], "over": entry.get("over_price"), "under": entry.get("under_price")})
+        prices_by_point[point].append(
+            {
+                "book": entry["book"],
+                "over": entry.get("over_price"),
+                "under": entry.get("under_price"),
+            }
+        )
 
     for point, offers in prices_by_point.items():
         if len(offers) < 2:
@@ -122,54 +134,66 @@ def detect_line_shopping(game: Dict[str, Any], totals_index: Dict[str, Dict[str,
             worst_over = min(over_prices)
             if best_over - worst_over >= 15:  # 15 cents improvement threshold
                 best_book = next(offer for offer in offers if offer.get("over") == best_over)
-                opportunities.append({
-                    "game": f"{game['away_team']} @ {game['home_team']}",
-                    "point": point,
-                    "bet": "Over",
-                    "best_price": best_over,
-                    "worst_price": worst_over,
-                    "best_book": best_book["book"],
-                    "improvement_cents": best_over - worst_over,
-                    "edge_percentage": american_odds_edge(best_over),
-                })
+                opportunities.append(
+                    {
+                        "game": f"{game['away_team']} @ {game['home_team']}",
+                        "point": point,
+                        "bet": "Over",
+                        "best_price": best_over,
+                        "worst_price": worst_over,
+                        "best_book": best_book["book"],
+                        "improvement_cents": best_over - worst_over,
+                        "edge_percentage": american_odds_edge(best_over),
+                    }
+                )
         if under_prices:
             best_under = max(under_prices)
             worst_under = min(under_prices)
             if best_under - worst_under >= 15:
                 best_book = next(offer for offer in offers if offer.get("under") == best_under)
-                opportunities.append({
-                    "game": f"{game['away_team']} @ {game['home_team']}",
-                    "point": point,
-                    "bet": "Under",
-                    "best_price": best_under,
-                    "worst_price": worst_under,
-                    "best_book": best_book["book"],
-                    "improvement_cents": best_under - worst_under,
-                    "edge_percentage": american_odds_edge(best_under),
-                })
+                opportunities.append(
+                    {
+                        "game": f"{game['away_team']} @ {game['home_team']}",
+                        "point": point,
+                        "bet": "Under",
+                        "best_price": best_under,
+                        "worst_price": worst_under,
+                        "best_book": best_book["book"],
+                        "improvement_cents": best_under - worst_under,
+                        "edge_percentage": american_odds_edge(best_under),
+                    }
+                )
     return opportunities
 
 
-def detect_key_crossings(game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+def detect_key_crossings(
+    game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     crossings: List[Dict[str, Any]] = []
-    points = sorted({entry["point"] for entry in totals_index.values() if entry.get("point") is not None})
+    points = sorted(
+        {entry["point"] for entry in totals_index.values() if entry.get("point") is not None}
+    )
     if len(points) < 2:
         return crossings
     for key_num in KEY_NUMBERS:
         below = any(point < key_num for point in points)
         above = any(point > key_num for point in points)
         if below and above:
-            crossings.append({
-                "game": f"{game['away_team']} @ {game['home_team']}",
-                "key_number": key_num,
-                "lowest_total": points[0],
-                "highest_total": points[-1],
-                "spread": round(points[-1] - points[0], 2),
-            })
+            crossings.append(
+                {
+                    "game": f"{game['away_team']} @ {game['home_team']}",
+                    "key_number": key_num,
+                    "lowest_total": points[0],
+                    "highest_total": points[-1],
+                    "spread": round(points[-1] - points[0], 2),
+                }
+            )
     return crossings
 
 
-def check_freshness(game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+def check_freshness(
+    game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
     stale_entries: List[Dict[str, Any]] = []
     now = datetime.now(timezone.utc)
     for book, entry in totals_index.items():
@@ -179,20 +203,24 @@ def check_freshness(game: Dict[str, Any], totals_index: Dict[str, Dict[str, Any]
         try:
             updated_at = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         except ValueError:
-            stale_entries.append({
-                "game": f"{game['away_team']} @ {game['home_team']}",
-                "book": book,
-                "issue": f"Invalid timestamp: {ts}",
-            })
+            stale_entries.append(
+                {
+                    "game": f"{game['away_team']} @ {game['home_team']}",
+                    "book": book,
+                    "issue": f"Invalid timestamp: {ts}",
+                }
+            )
             continue
         age_hours = (now - updated_at).total_seconds() / 3600
         if age_hours > FRESHNESS_THRESHOLD_HOURS:
-            stale_entries.append({
-                "game": f"{game['away_team']} @ {game['home_team']}",
-                "book": book,
-                "last_update": ts,
-                "age_hours": round(age_hours, 2),
-            })
+            stale_entries.append(
+                {
+                    "game": f"{game['away_team']} @ {game['home_team']}",
+                    "book": book,
+                    "last_update": ts,
+                    "age_hours": round(age_hours, 2),
+                }
+            )
     return stale_entries
 
 
@@ -226,7 +254,9 @@ def main() -> int:
     if generated_at_raw:
         try:
             generated_at = datetime.fromisoformat(generated_at_raw.replace("Z", "+00:00"))
-            data_age_hours = round((datetime.now(timezone.utc) - generated_at).total_seconds() / 3600, 2)
+            data_age_hours = round(
+                (datetime.now(timezone.utc) - generated_at).total_seconds() / 3600, 2
+            )
         except ValueError:
             data_age_hours = None
 

@@ -32,7 +32,7 @@ def normalize_book(book: str) -> str:
         "betmgm": "BetMGM",
         "espnbet": "ESPN BET",
         "pointsbet": "PointsBet",
-        "bet365": "Bet365"
+        "bet365": "Bet365",
     }
 
     # Return canonical mapping or title-case default
@@ -139,18 +139,22 @@ def normalize_long_odds(
     if "market" in data.columns:
         market_series = data["market"].apply(_canon_market)
         fallback_market = (
-            data["market"].astype(str).str.strip().str.lower().where(
-                data["market"].notna(), other=None
-            )
+            data["market"]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            .where(data["market"].notna(), other=None)
         )
         data["market"] = market_series.where(market_series.notna(), fallback_market)
 
     if "pos" not in data.columns:
         data["pos"] = pd.NA
     inferred_pos = data.apply(
-        lambda row: row.get("pos")
-        if pd.notna(row.get("pos")) and str(row.get("pos")).strip()
-        else _infer_pos_from_market(row.get("market")),
+        lambda row: (
+            row.get("pos")
+            if pd.notna(row.get("pos")) and str(row.get("pos")).strip()
+            else _infer_pos_from_market(row.get("market"))
+        ),
         axis=1,
     )
     data["pos"] = inferred_pos.where(inferred_pos.notna(), None)
@@ -221,19 +225,13 @@ _CANON_MAP: dict[str, tuple[str, ...]] = {
         r"pass(?:ing)?[\s_-]*yds?",
         r"qb[\s_-]*yds?",
     ),
-    "player_pass_att": (
-        r"pass(?:ing)?[\s_-]*att(?:empts)?",
-    ),
-    "player_rush_yds": (
-        r"rush(?:ing)?[\s_-]*yds?",
-    ),
+    "player_pass_att": (r"pass(?:ing)?[\s_-]*att(?:empts)?",),
+    "player_rush_yds": (r"rush(?:ing)?[\s_-]*yds?",),
     "player_rush_att": (
         r"rush(?:ing)?[\s_-]*att(?:empts)?",
         r"carr(?:ies)?",
     ),
-    "player_rec_yds": (
-        r"rec(?:eiv(?:ing)?)?[\s_-]*yds?",
-    ),
+    "player_rec_yds": (r"rec(?:eiv(?:ing)?)?[\s_-]*yds?",),
     "player_receptions": (
         r"rec(?:ept(?:ions)?)?",
         r"receptions",

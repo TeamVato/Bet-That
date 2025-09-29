@@ -1,4 +1,5 @@
 """Integration test for 2025 data pipeline end-to-end."""
+
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -23,13 +24,16 @@ def test_2025_pipeline_with_smoke_data():
         if cbl_count == 0:
             print("ℹ️  No 2025 data found - running smoke seeder first")
             from scripts.smoke_seed_2025 import main as seed_main
+
             seed_main()
 
             # Re-check after seeding
             cur = conn.execute("SELECT COUNT(*) FROM current_best_lines WHERE season=2025")
             cbl_count = cur.fetchone()[0]
 
-        assert cbl_count >= 1, f"Expected at least 1 current_best_lines row for 2025, got {cbl_count}"
+        assert (
+            cbl_count >= 1
+        ), f"Expected at least 1 current_best_lines row for 2025, got {cbl_count}"
 
         # Check defense_ratings
         cur = conn.execute("SELECT COUNT(*) FROM defense_ratings WHERE season=2025")
@@ -37,11 +41,13 @@ def test_2025_pipeline_with_smoke_data():
         assert dr_count >= 1, f"Expected at least 1 defense_ratings row for 2025, got {dr_count}"
 
         # Check that our smoke row has the expected structure
-        cur = conn.execute("""
+        cur = conn.execute(
+            """
             SELECT event_id, player, market, pos, season, week, team_code, opponent_def_code
             FROM current_best_lines
             WHERE season=2025 AND player='Isiah Pacheco'
-        """)
+        """
+        )
         row = cur.fetchone()
 
         if row:  # If we have the specific smoke test row
@@ -63,11 +69,15 @@ def test_2025_season_dtype_consistency():
     """Test that season dtypes are consistent across tables."""
     with sqlite3.connect("storage/odds.db") as conn:
         # Check current_best_lines season dtype
-        cur = conn.execute("SELECT typeof(season) as season_type, COUNT(*) FROM current_best_lines WHERE season=2025 GROUP BY season_type")
+        cur = conn.execute(
+            "SELECT typeof(season) as season_type, COUNT(*) FROM current_best_lines WHERE season=2025 GROUP BY season_type"
+        )
         cbl_types = cur.fetchall()
 
         # Check defense_ratings season dtype
-        cur = conn.execute("SELECT typeof(season) as season_type, COUNT(*) FROM defense_ratings WHERE season=2025 GROUP BY season_type")
+        cur = conn.execute(
+            "SELECT typeof(season) as season_type, COUNT(*) FROM defense_ratings WHERE season=2025 GROUP BY season_type"
+        )
         dr_types = cur.fetchall()
 
         print(f"current_best_lines season dtypes for 2025: {cbl_types}")
@@ -76,18 +86,23 @@ def test_2025_season_dtype_consistency():
         # Both should be INTEGER type
         for type_info in cbl_types:
             season_type, count = type_info
-            assert season_type == "integer", f"current_best_lines season should be integer, got {season_type}"
+            assert (
+                season_type == "integer"
+            ), f"current_best_lines season should be integer, got {season_type}"
 
         for type_info in dr_types:
             season_type, count = type_info
-            assert season_type == "integer", f"defense_ratings season should be integer, got {season_type}"
+            assert (
+                season_type == "integer"
+            ), f"defense_ratings season should be integer, got {season_type}"
 
 
 def test_2025_join_key_coverage():
     """Test that 2025 data has adequate join key coverage."""
     with sqlite3.connect("storage/odds.db") as conn:
         # Get current_best_lines rows for 2025
-        cur = conn.execute("""
+        cur = conn.execute(
+            """
             SELECT
                 COUNT(*) as total_rows,
                 SUM(CASE WHEN season IS NOT NULL THEN 1 ELSE 0 END) as has_season,
@@ -96,7 +111,8 @@ def test_2025_join_key_coverage():
                 SUM(CASE WHEN pos IS NOT NULL AND pos != '' THEN 1 ELSE 0 END) as has_pos
             FROM current_best_lines
             WHERE season=2025
-        """)
+        """
+        )
 
         stats = cur.fetchone()
         if stats and stats[0] > 0:  # If we have 2025 data
@@ -110,8 +126,12 @@ def test_2025_join_key_coverage():
             print(f"  Has pos: {has_pos}/{total} ({has_pos/total*100:.1f}%)")
 
             # Should have high coverage for basic keys
-            assert has_season == total, f"All 2025 rows should have season, got {has_season}/{total}"
-            assert has_event_id >= total * 0.8, f"Expected >=80% event_id coverage, got {has_event_id}/{total}"
+            assert (
+                has_season == total
+            ), f"All 2025 rows should have season, got {has_season}/{total}"
+            assert (
+                has_event_id >= total * 0.8
+            ), f"Expected >=80% event_id coverage, got {has_event_id}/{total}"
             assert has_pos >= total * 0.8, f"Expected >=80% pos coverage, got {has_pos}/{total}"
 
             print("✅ 2025 join key coverage verification passed")
@@ -123,7 +143,8 @@ def test_2025_defense_ratings_join_potential():
     """Test that 2025 defense ratings are compatible for joining."""
     with sqlite3.connect("storage/odds.db") as conn:
         # Check defense ratings structure for 2025
-        cur = conn.execute("""
+        cur = conn.execute(
+            """
             SELECT
                 COUNT(*) as total_rows,
                 COUNT(DISTINCT defteam) as unique_teams,
@@ -132,7 +153,8 @@ def test_2025_defense_ratings_join_potential():
                 COUNT(DISTINCT pos) as unique_positions
             FROM defense_ratings
             WHERE season=2025
-        """)
+        """
+        )
 
         stats = cur.fetchone()
         if stats and stats[0] > 0:
@@ -149,7 +171,9 @@ def test_2025_defense_ratings_join_potential():
             assert min_week >= 1, f"Expected min week >= 1, got {min_week}"
 
             # Check for QB_PASS position (needed for QB props)
-            cur = conn.execute("SELECT COUNT(*) FROM defense_ratings WHERE season=2025 AND pos='QB_PASS'")
+            cur = conn.execute(
+                "SELECT COUNT(*) FROM defense_ratings WHERE season=2025 AND pos='QB_PASS'"
+            )
             qb_pass_count = cur.fetchone()[0]
             assert qb_pass_count > 0, "Should have QB_PASS defense ratings for 2025"
 

@@ -1,4 +1,5 @@
 """Custom commands for Bet-That project."""
+
 from __future__ import annotations
 
 import importlib
@@ -18,19 +19,17 @@ def discover_commands() -> Dict[str, Type[BaseCommand]]:
 
     # Import all modules in the commands package
     for module_info in pkgutil.iter_modules([str(commands_dir)]):
-        if module_info.name.startswith('_') or module_info.name == 'base':
+        if module_info.name.startswith("_") or module_info.name == "base":
             continue
 
         try:
-            module = importlib.import_module(f'commands.{module_info.name}')
+            module = importlib.import_module(f"commands.{module_info.name}")
 
             # Look for command classes
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if (isinstance(attr, type) and
-                    issubclass(attr, BaseCommand) and
-                    attr != BaseCommand):
-                    command_name = getattr(attr, 'name', attr_name.lower())
+                if isinstance(attr, type) and issubclass(attr, BaseCommand) and attr != BaseCommand:
+                    command_name = getattr(attr, "name", attr_name.lower())
                     commands[command_name] = attr
         except ImportError as e:
             print(f"Warning: Could not import command module {module_info.name}: {e}")
@@ -66,4 +65,4 @@ def run_command(name: str, *args, **kwargs) -> int:
         return 1
 
 
-__all__ = ['BaseCommand', 'discover_commands', 'list_commands', 'get_command', 'run_command']
+__all__ = ["BaseCommand", "discover_commands", "list_commands", "get_command", "run_command"]

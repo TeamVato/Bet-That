@@ -5,6 +5,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
+
 def run_migration(db_path: Path, migration_file: Path) -> None:
     """Run a single migration file against the database."""
     if not migration_file.exists():
@@ -23,10 +24,10 @@ def run_migration(db_path: Path, migration_file: Path) -> None:
         migration_sql = migration_file.read_text()
 
         # Execute each statement separately (SQLite doesn't handle multi-statement well)
-        statements = [stmt.strip() for stmt in migration_sql.split(';') if stmt.strip()]
+        statements = [stmt.strip() for stmt in migration_sql.split(";") if stmt.strip()]
 
         for stmt in statements:
-            if stmt.startswith('--') or not stmt:
+            if stmt.startswith("--") or not stmt:
                 continue
             print(f"  Executing: {stmt[:50]}...")
             conn.execute(stmt)
@@ -34,6 +35,7 @@ def run_migration(db_path: Path, migration_file: Path) -> None:
         conn.commit()
 
     print(f"Migration completed: {migration_file.name}")
+
 
 def main():
     """Run migration specified in command line args."""
@@ -51,6 +53,7 @@ def main():
     except Exception as e:
         print(f"❌ Migration failed: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

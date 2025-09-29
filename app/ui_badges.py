@@ -1,10 +1,12 @@
 """Reusable UI helpers for section count badges and inline explainer triggers."""
+
 from __future__ import annotations
 
 import hashlib
+import time
+
 import pandas as pd
 import streamlit as st
-import time
 
 
 def context_key(*parts) -> str:

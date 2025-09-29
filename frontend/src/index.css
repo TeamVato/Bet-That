@@ -2,11 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light dark; }
-body { @apply bg-gray-50 text-gray-900 antialiased dark:bg-slate-950 dark:text-slate-100; }
-.container { @apply max-w-6xl mx-auto px-4; }
-.card { @apply bg-white shadow-sm rounded-2xl border border-gray-200/80 dark:bg-slate-900 dark:border-slate-700; }
-.btn { @apply inline-flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-gray-100; }
-.input { @apply border rounded-lg px-3 py-2 w-full dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100; }
-.select { @apply border rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100; }
-.badge { @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium dark:border-slate-700; }
+:root {
+  color-scheme: light dark;
+}
+body {
+  @apply bg-gray-50 text-gray-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+}
+.container {
+  @apply max-w-6xl mx-auto px-4;
+}
+.card {
+  @apply bg-white shadow-sm rounded-2xl border border-gray-200/80 dark:bg-slate-900 dark:border-slate-700;
+}
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-gray-100;
+}
+.input {
+  @apply border rounded-lg px-3 py-2 w-full dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100;
+}
+.select {
+  @apply border rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100;
+}
+.badge {
+  @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium dark:border-slate-700;
+}

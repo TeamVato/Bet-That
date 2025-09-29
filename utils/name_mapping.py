@@ -1,4 +1,5 @@
 """Helper mappings for aligning team/player names across datasets."""
+
 from __future__ import annotations
 
 from typing import Dict

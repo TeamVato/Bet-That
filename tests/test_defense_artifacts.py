@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))
 
-from jobs.compute_edges import ensure_defense_ratings_latest_view
 from jobs.build_defense_ratings import _compute_qb_pass_adjusted_scores
+from jobs.compute_edges import ensure_defense_ratings_latest_view
 from models.qb_projection import ProjectionConfig, QBProjectionModel
 
 
@@ -56,14 +56,78 @@ def test_ensure_defense_ratings_latest_view(tmp_path):
 def test_qb_pass_adjusted_scores_smoothed_output():
     pbp = pd.DataFrame(
         [
-            {"is_pass": 1, "defteam": "NYJ", "posteam": "BUF", "season": 2024, "week": 1, "epa": -0.3, "successful": 0},
-            {"is_pass": 1, "defteam": "NYJ", "posteam": "BUF", "season": 2024, "week": 1, "epa": -0.2, "successful": 1},
-            {"is_pass": 1, "defteam": "NYJ", "posteam": "KC", "season": 2024, "week": 2, "epa": -0.15, "successful": 1},
-            {"is_pass": 1, "defteam": "NYJ", "posteam": "KC", "season": 2024, "week": 3, "epa": -0.1, "successful": 1},
-            {"is_pass": 1, "defteam": "BUF", "posteam": "KC", "season": 2024, "week": 1, "epa": 0.25, "successful": 1},
-            {"is_pass": 1, "defteam": "BUF", "posteam": "KC", "season": 2024, "week": 2, "epa": 0.30, "successful": 1},
-            {"is_pass": 1, "defteam": "BUF", "posteam": "NYJ", "season": 2024, "week": 3, "epa": 0.35, "successful": 1},
-            {"is_pass": 1, "defteam": "BUF", "posteam": "NYJ", "season": 2024, "week": 4, "epa": 0.40, "successful": 1},
+            {
+                "is_pass": 1,
+                "defteam": "NYJ",
+                "posteam": "BUF",
+                "season": 2024,
+                "week": 1,
+                "epa": -0.3,
+                "successful": 0,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "NYJ",
+                "posteam": "BUF",
+                "season": 2024,
+                "week": 1,
+                "epa": -0.2,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "NYJ",
+                "posteam": "KC",
+                "season": 2024,
+                "week": 2,
+                "epa": -0.15,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "NYJ",
+                "posteam": "KC",
+                "season": 2024,
+                "week": 3,
+                "epa": -0.1,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "BUF",
+                "posteam": "KC",
+                "season": 2024,
+                "week": 1,
+                "epa": 0.25,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "BUF",
+                "posteam": "KC",
+                "season": 2024,
+                "week": 2,
+                "epa": 0.30,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "BUF",
+                "posteam": "NYJ",
+                "season": 2024,
+                "week": 3,
+                "epa": 0.35,
+                "successful": 1,
+            },
+            {
+                "is_pass": 1,
+                "defteam": "BUF",
+                "posteam": "NYJ",
+                "season": 2024,
+                "week": 4,
+                "epa": 0.40,
+                "successful": 1,
+            },
         ]
     )
     adjusted = _compute_qb_pass_adjusted_scores(pbp)
@@ -76,10 +140,34 @@ def test_qb_pass_adjusted_scores_smoothed_output():
 def test_projection_fallback_uses_internal_metrics(monkeypatch):
     game_logs = pd.DataFrame(
         [
-            {"player_name": "A", "season": 2024, "week": 1, "passing_yards": 210, "opponent_team": "NYJ"},
-            {"player_name": "B", "season": 2024, "week": 2, "passing_yards": 205, "opponent_team": "NYJ"},
-            {"player_name": "C", "season": 2024, "week": 1, "passing_yards": 320, "opponent_team": "NE"},
-            {"player_name": "D", "season": 2024, "week": 2, "passing_yards": 330, "opponent_team": "NE"},
+            {
+                "player_name": "A",
+                "season": 2024,
+                "week": 1,
+                "passing_yards": 210,
+                "opponent_team": "NYJ",
+            },
+            {
+                "player_name": "B",
+                "season": 2024,
+                "week": 2,
+                "passing_yards": 205,
+                "opponent_team": "NYJ",
+            },
+            {
+                "player_name": "C",
+                "season": 2024,
+                "week": 1,
+                "passing_yards": 320,
+                "opponent_team": "NE",
+            },
+            {
+                "player_name": "D",
+                "season": 2024,
+                "week": 2,
+                "passing_yards": 330,
+                "opponent_team": "NE",
+            },
         ]
     )
     schedule_lookup = {"EVT1": {"season": 2024, "week": 3}}

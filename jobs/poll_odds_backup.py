@@ -217,9 +217,13 @@ def upsert_rows(
     ]
     available_cols = [c for c in dedupe_cols if c in normalized.columns]
     if available_cols:
-        normalized = normalized.sort_values("updated_at").drop_duplicates(available_cols, keep="last")
+        normalized = normalized.sort_values("updated_at").drop_duplicates(
+            available_cols, keep="last"
+        )
     deduped_rows = len(normalized)
-    stale_rows = int(normalized.get("is_stale", pd.Series(dtype="float64")).fillna(0).astype(int).sum())
+    stale_rows = int(
+        normalized.get("is_stale", pd.Series(dtype="float64")).fillna(0).astype(int).sum()
+    )
     source_counts = normalized["ingest_source"].value_counts(dropna=False).to_dict()
     print(
         "Upsert rows → raw: {raw} | deduped: {deduped} | stale flagged: {stale} | by source: {sources}".format(
@@ -427,7 +431,9 @@ def write_closing_snapshot(
             over_prob = closing_df.loc[over_idx[0], "implied_prob"]
             under_prob = closing_df.loc[under_idx[0], "implied_prob"]
             if pd.notna(over_prob) and pd.notna(under_prob) and over_prob >= 0 and under_prob >= 0:
-                fair_over, fair_under = proportional_devig_two_way(float(over_prob), float(under_prob))
+                fair_over, fair_under = proportional_devig_two_way(
+                    float(over_prob), float(under_prob)
+                )
                 overround = float(over_prob + under_prob)
                 closing_df.loc[over_idx[0], "fair_prob_close"] = fair_over
                 closing_df.loc[under_idx[0], "fair_prob_close"] = fair_under
@@ -440,11 +446,8 @@ def write_closing_snapshot(
 
     ensure_closing_tables(con)
 
-    delete_sql = (
-        "DELETE FROM closing_lines WHERE event_id=? AND market=? AND side=? AND ((line IS NULL AND ? IS NULL) OR line=?) AND book=?"
-    )
-    insert_sql = (
-        """
+    delete_sql = "DELETE FROM closing_lines WHERE event_id=? AND market=? AND side=? AND ((line IS NULL AND ? IS NULL) OR line=?) AND book=?"
+    insert_sql = """
         INSERT INTO closing_lines (
             event_id, market, side, line, book,
             odds_decimal, odds_american, implied_prob, overround,
@@ -452,7 +455,6 @@ def write_closing_snapshot(
             ingest_source, source_run_id, raw_payload_hash
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-    )
 
     run_identifier = run_id or f"poll/{ts_run.isoformat()}"
     primary_book_normalized = (primary_book or "").strip().lower()
@@ -478,8 +480,15 @@ def write_closing_snapshot(
         overround_val = _coerce_optional(row.get("overround"))
         fair_prob_close = _coerce_optional(row.get("fair_prob_close"))
 
-        is_primary = 1 if primary_book_normalized and str(row.get("book", "")).strip().lower() == primary_book_normalized else 0
-        payload_hash = hashlib.sha256(json.dumps(row, default=str, sort_keys=True).encode()).hexdigest()
+        is_primary = (
+            1
+            if primary_book_normalized
+            and str(row.get("book", "")).strip().lower() == primary_book_normalized
+            else 0
+        )
+        payload_hash = hashlib.sha256(
+            json.dumps(row, default=str, sort_keys=True).encode()
+        ).hexdigest()
 
         delete_params = (
             row.get("event_id"),
@@ -573,9 +582,7 @@ def main():
         if not key:
             raise SystemExit("No enabled key available")
         if args.dry_run:
-            print(
-                f"Would poll with key: {key} markets={args.markets} books={args.bookmakers}"
-            )
+            print(f"Would poll with key: {key} markets={args.markets} books={args.bookmakers}")
             return 0, 0, 0.0
         tries = 0
         while True:

@@ -1,36 +1,37 @@
 """Enhanced primary line marking logic for poll_odds.py"""
 
-import pandas as pd
+import datetime as dt
 import sqlite3
 from typing import Tuple
-import datetime as dt
+
+import pandas as pd
 
 
 def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = None) -> pd.DataFrame:
     """Mark primary lines with fallback logic when no primary book specified."""
-    
+
     if closing_df.empty:
         return closing_df
-        
+
     closing_df = closing_df.copy()
     closing_df["is_primary"] = 0  # Reset all to non-primary
-    
+
     primary_book_normalized = (primary_book or "").strip().lower()
-    
+
     # Group by market and event to select best line for each
     grouping_cols = ["event_id", "market", "line"]
     if "player" in closing_df.columns:
         grouping_cols.append("player")
-    
+
     total_groups = 0
     primary_marked = 0
-    
+
     for group_key, group_df in closing_df.groupby(grouping_cols, dropna=False):
         total_groups += 1
-        
+
         if len(group_df) == 0:
             continue
-        
+
         # Strategy 1: Use specified primary book if available
         if primary_book_normalized:
             book_matches = group_df[
@@ -42,11 +43,11 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
                 closing_df.loc[primary_idx, "is_primary"] = 1
                 primary_marked += 1
                 continue
-        
+
         # Strategy 2: Fallback selection criteria
         group_df_copy = group_df.copy()
         scores = pd.Series(0.0, index=group_df_copy.index)
-        
+
         # Recency score (most recent gets higher score)
         if "updated_at" in group_df_copy.columns:
             timestamps = pd.to_datetime(group_df_copy["updated_at"], errors="coerce")
@@ -56,15 +57,15 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
                 if time_range.total_seconds() > 0:
                     time_scores = (timestamps - valid_timestamps.min()) / time_range
                     scores += time_scores.fillna(0) * 1.0
-        
+
         # Data quality score
         data_quality = (
-            group_df_copy.get("implied_prob", pd.Series()).notna().astype(float) * 0.4 +
-            group_df_copy.get("fair_prob_close", pd.Series()).notna().astype(float) * 0.4 +
-            group_df_copy.get("overround", pd.Series()).notna().astype(float) * 0.2
+            group_df_copy.get("implied_prob", pd.Series()).notna().astype(float) * 0.4
+            + group_df_copy.get("fair_prob_close", pd.Series()).notna().astype(float) * 0.4
+            + group_df_copy.get("overround", pd.Series()).notna().astype(float) * 0.2
         )
         scores += data_quality * 0.8
-        
+
         # Overround score (lower overround is better)
         if "overround" in group_df_copy.columns:
             overround_vals = pd.to_numeric(group_df_copy["overround"], errors="coerce")
@@ -73,21 +74,25 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
                 max_overround = valid_overround.max()
                 min_overround = valid_overround.min()
                 if max_overround > min_overround:
-                    overround_scores = 1 - (overround_vals - min_overround) / (max_overround - min_overround)
+                    overround_scores = 1 - (overround_vals - min_overround) / (
+                        max_overround - min_overround
+                    )
                     scores += overround_scores.fillna(0.5) * 0.6
-        
+
         # Deterministic tiebreaker: book name (alphabetical)
         book_scores = group_df_copy["book"].fillna("zzz").rank(method="min") / len(group_df_copy)
         scores += book_scores * 0.1
-        
+
         # Select highest scoring line as primary
         if len(scores) > 0:
             best_idx = scores.idxmax()
             closing_df.loc[best_idx, "is_primary"] = 1
             primary_marked += 1
-    
-    print(f"DEBUG: Primary line marking - {primary_marked}/{total_groups} groups marked with primary lines")
-    
+
+    print(
+        f"DEBUG: Primary line marking - {primary_marked}/{total_groups} groups marked with primary lines"
+    )
+
     # Emergency fallback if no primary lines marked
     if primary_marked == 0 and len(closing_df) > 0:
         print("WARNING: No primary lines marked - applying emergency fallback")
@@ -97,7 +102,7 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
                 closing_df.loc[first_idx, "is_primary"] = 1
                 primary_marked += 1
         print(f"DEBUG: Emergency fallback marked {primary_marked} primary lines")
-    
+
     return closing_df
 
 
@@ -110,16 +115,16 @@ def write_closing_snapshot_enhanced(
     source_label: str = "poll_odds",
 ) -> Tuple[int, float]:
     """Enhanced closing snapshot writer with robust primary line marking."""
-    
+
     if ts_run is None:
         ts_run = dt.datetime.now(dt.timezone.utc)
-    
+
     required_cols = {"event_id", "market", "book", "side", "line", "odds"}
     missing_cols = required_cols - set(normalized.columns)
     if missing_cols:
         print(f"ERROR: Missing required columns: {missing_cols}")
         return 0, 0.0
-    
+
     working = normalized.copy()
     working = working.dropna(subset=list(required_cols))
     if working.empty:
@@ -140,12 +145,12 @@ def write_closing_snapshot_enhanced(
     # Select closing lines (most recent per market/event/book combination)
     key_cols = ["event_id", "market", "side", "line", "book"]
     selections = []
-    
+
     for _, group in working.groupby(key_cols, dropna=False):
         group = group.sort_values("updated_at")
         commence = group["commence_ts"].dropna().max()
         choice = None
-        
+
         if pd.notna(commence):
             before = group[group["updated_at"] <= commence]
             if not before.empty:
@@ -155,7 +160,7 @@ def write_closing_snapshot_enhanced(
                 fallback = group[group["updated_at"] <= fallback_cutoff]
                 if not fallback.empty:
                     choice = fallback.iloc[-1]
-        
+
         if choice is None:
             choice = group.iloc[-1]
         selections.append(choice)
@@ -165,10 +170,10 @@ def write_closing_snapshot_enhanced(
         return 0, 0.0
 
     closing_df = pd.DataFrame(selections).reset_index(drop=True)
-    
+
     # Apply enhanced primary line marking
     closing_df = mark_primary_lines_enhanced(closing_df, primary_book)
-    
+
     # Validate primary lines were marked
     primary_count = (closing_df["is_primary"] == 1).sum()
     if primary_count == 0:
@@ -176,11 +181,11 @@ def write_closing_snapshot_enhanced(
         return 0, 0.0
     else:
         print(f"SUCCESS: {primary_count} primary lines marked for database insertion")
-    
+
     # Calculate devigged probabilities and other metrics
     closing_df["line"] = pd.to_numeric(closing_df.get("line"), errors="coerce")
     closing_df["odds"] = pd.to_numeric(closing_df.get("odds"), errors="coerce")
-    
+
     def _safe_decimal(odds):
         try:
             if pd.isna(odds):
@@ -188,7 +193,7 @@ def write_closing_snapshot_enhanced(
             return abs(odds) / 100.0 + 1.0 if odds >= 0 else 100.0 / abs(odds) + 1.0
         except:
             return None
-    
+
     def _safe_implied(decimal):
         try:
             if pd.isna(decimal) or decimal <= 0:
@@ -196,7 +201,7 @@ def write_closing_snapshot_enhanced(
             return 1.0 / decimal
         except:
             return None
-    
+
     def _normalize_side(side):
         if pd.isna(side):
             return "unknown"
@@ -206,14 +211,14 @@ def write_closing_snapshot_enhanced(
         elif s in ("under", "u"):
             return "under"
         return s
-    
+
     def proportional_devig_two_way(p1, p2):
         """Simple proportional devig for two-way markets."""
         total = p1 + p2
         if total <= 0:
             return p1, p2
         return p1 / total, p2 / total
-    
+
     closing_df["odds_decimal"] = closing_df["odds"].apply(_safe_decimal)
     closing_df["implied_prob"] = closing_df["odds_decimal"].apply(_safe_implied)
     closing_df["side_norm"] = closing_df["side"].apply(_normalize_side)
@@ -225,15 +230,17 @@ def write_closing_snapshot_enhanced(
     for _, group in grouped:
         over_idx = group[group["side_norm"] == "over"].index
         under_idx = group[group["side_norm"] == "under"].index
-        
+
         if len(over_idx) == 1 and len(under_idx) == 1:
             over_prob = closing_df.loc[over_idx[0], "implied_prob"]
             under_prob = closing_df.loc[under_idx[0], "implied_prob"]
-            
+
             if pd.notna(over_prob) and pd.notna(under_prob) and over_prob >= 0 and under_prob >= 0:
-                fair_over, fair_under = proportional_devig_two_way(float(over_prob), float(under_prob))
+                fair_over, fair_under = proportional_devig_two_way(
+                    float(over_prob), float(under_prob)
+                )
                 overround = float(over_prob + under_prob)
-                
+
                 closing_df.loc[over_idx[0], "fair_prob_close"] = fair_over
                 closing_df.loc[under_idx[0], "fair_prob_close"] = fair_under
                 closing_df.loc[[over_idx[0], under_idx[0]], "overround"] = overround
@@ -263,8 +270,7 @@ def write_closing_snapshot_enhanced(
         "DELETE FROM closing_lines WHERE event_id=? AND market=? AND side=? AND "
         "((line IS NULL AND ? IS NULL) OR line=?) AND book=?"
     )
-    insert_sql = (
-        """
+    insert_sql = """
         INSERT INTO closing_lines (
             event_id, market, side, line, book,
             odds_decimal, odds_american, implied_prob, overround,
@@ -272,7 +278,6 @@ def write_closing_snapshot_enhanced(
             ingest_source, source_run_id, raw_payload_hash
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-    )
 
     run_identifier = run_id or f"poll/{ts_run.isoformat()}"
     inserted = 0
@@ -300,6 +305,7 @@ def write_closing_snapshot_enhanced(
 
         import hashlib
         import json
+
         payload_hash = hashlib.sha256(
             json.dumps(row, default=str, sort_keys=True).encode()
         ).hexdigest()
@@ -312,7 +318,7 @@ def write_closing_snapshot_enhanced(
             line_value,
             row.get("book"),
         )
-        
+
         params = (
             row.get("event_id"),
             row.get("market"),
@@ -330,7 +336,7 @@ def write_closing_snapshot_enhanced(
             run_identifier,
             payload_hash,
         )
-        
+
         con.execute(delete_sql, delete_params)
         con.execute(insert_sql, params)
         inserted += 1

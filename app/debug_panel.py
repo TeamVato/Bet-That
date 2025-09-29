@@ -1,4 +1,5 @@
 """Utilities for gathering lightweight debug metrics from the SQLite datastore."""
+
 from __future__ import annotations
 
 import os
@@ -76,10 +77,7 @@ def counts_by(con: sqlite3.Connection, table: str, col: str) -> pd.DataFrame:
     col = _sanitize_ident(col)
     if not table_exists(con, table):
         return pd.DataFrame(columns=["key", "count"])
-    query = (
-        f"SELECT {col} AS key, COUNT(*) AS count "
-        f"FROM {table} GROUP BY 1 ORDER BY 2 DESC;"
-    )
+    query = f"SELECT {col} AS key, COUNT(*) AS count " f"FROM {table} GROUP BY 1 ORDER BY 2 DESC;"
     try:
         return pd.read_sql_query(query, con)
     except Exception:
@@ -106,8 +104,7 @@ def edges_quality(con: sqlite3.Connection) -> Dict[str, Any]:
         "WHERE opponent_def_code IS NULL OR TRIM(opponent_def_code) = '';"
     )
     missing_def_tier = _q(
-        "SELECT COUNT(*) FROM edges "
-        "WHERE def_tier IS NULL OR TRIM(def_tier) = '';"
+        "SELECT COUNT(*) FROM edges " "WHERE def_tier IS NULL OR TRIM(def_tier) = '';"
     )
     missing_def_score = _q("SELECT COUNT(*) FROM edges WHERE def_score IS NULL;")
     return {
@@ -145,12 +142,8 @@ def odds_staleness(con: sqlite3.Connection) -> Dict[str, Any]:
     """Return counts of fresh vs stale rows in current_best_lines."""
     if not table_exists(con, "current_best_lines"):
         return {"fresh": 0, "stale": 0}
-    fresh_sql = (
-        "SELECT COUNT(*) FROM current_best_lines WHERE COALESCE(stale, 0) = 0;"
-    )
-    stale_sql = (
-        "SELECT COUNT(*) FROM current_best_lines WHERE COALESCE(stale, 0) = 1;"
-    )
+    fresh_sql = "SELECT COUNT(*) FROM current_best_lines WHERE COALESCE(stale, 0) = 0;"
+    stale_sql = "SELECT COUNT(*) FROM current_best_lines WHERE COALESCE(stale, 0) = 1;"
     fresh = scalar(con, fresh_sql)
     stale = scalar(con, stale_sql)
     return {"fresh": int(fresh or 0), "stale": int(stale or 0)}

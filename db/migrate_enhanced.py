@@ -1,4 +1,5 @@
 """Enhanced migration system with schema versioning and validation."""
+
 from __future__ import annotations
 
 import argparse
@@ -17,11 +18,12 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 try:
     from schemas.odds_schemas import (
-        validate_odds_snapshots,
         validate_current_best_lines,
-        validate_edges,
         validate_defense_ratings,
+        validate_edges,
+        validate_odds_snapshots,
     )
+
     VALIDATION_AVAILABLE = True
 except ImportError:
     VALIDATION_AVAILABLE = False
@@ -53,10 +55,12 @@ class DatabaseMigrator:
                 cursor = conn.cursor()
 
                 # Check if version table exists
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT name FROM sqlite_master
                     WHERE type='table' AND name='schema_version'
-                """)
+                """
+                )
 
                 if not cursor.fetchone():
                     # No version table - check if any tables exist
@@ -65,7 +69,9 @@ class DatabaseMigrator:
                     return 1 if tables else 0
 
                 # Get current version
-                cursor.execute("SELECT version FROM schema_version ORDER BY applied_at DESC LIMIT 1")
+                cursor.execute(
+                    "SELECT version FROM schema_version ORDER BY applied_at DESC LIMIT 1"
+                )
                 result = cursor.fetchone()
                 return result[0] if result else 0
 
@@ -76,23 +82,28 @@ class DatabaseMigrator:
     def create_version_table(self, conn: sqlite3.Connection) -> None:
         """Create schema version tracking table."""
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS schema_version (
                 version INTEGER NOT NULL,
                 applied_at TEXT NOT NULL,
                 script_name TEXT,
                 checksum TEXT
             )
-        """)
+        """
+        )
         conn.commit()
 
     def record_migration(self, conn: sqlite3.Connection, version: int, script_name: str) -> None:
         """Record successful migration in version table."""
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO schema_version (version, applied_at, script_name, checksum)
             VALUES (?, ?, ?, ?)
-        """, (version, time.strftime("%Y-%m-%d %H:%M:%S UTC"), script_name, ""))
+        """,
+            (version, time.strftime("%Y-%m-%d %H:%M:%S UTC"), script_name, ""),
+        )
         conn.commit()
 
     def apply_migration(self, version: int) -> bool:
@@ -123,7 +134,7 @@ class DatabaseMigrator:
                 self.create_version_table(conn)
 
                 # Read and execute migration script
-                with open(script_path, 'r', encoding='utf-8') as f:
+                with open(script_path, "r", encoding="utf-8") as f:
                     script_content = f.read()
 
                 # Execute script in transaction
@@ -230,7 +241,9 @@ class DatabaseMigrator:
 
                 if not df.empty:
                     validator(df)
-                    self.logger.info(f"✅ Table {table_name} validation passed ({len(df)} rows checked)")
+                    self.logger.info(
+                        f"✅ Table {table_name} validation passed ({len(df)} rows checked)"
+                    )
 
             except Exception as e:
                 issues_found += 1
@@ -268,10 +281,12 @@ class DatabaseMigrator:
                 cursor = conn.cursor()
 
                 # Get table row counts
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT name FROM sqlite_master
                     WHERE type='table' AND name NOT LIKE 'sqlite_%'
-                """)
+                """
+                )
 
                 for (table_name,) in cursor.fetchall():
                     try:
@@ -297,10 +312,13 @@ class DatabaseMigrator:
 
         if backup_path is None:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
-            backup_path = self.database_path.parent / f"{self.database_path.stem}_backup_{timestamp}.db"
+            backup_path = (
+                self.database_path.parent / f"{self.database_path.stem}_backup_{timestamp}.db"
+            )
 
         try:
             import shutil
+
             shutil.copy2(self.database_path, backup_path)
 
             self.logger.info(f"Database backed up to {backup_path}")
@@ -315,46 +333,25 @@ def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(description="Enhanced database migration and management")
 
-    parser.add_argument(
-        "--database-url",
-        help="Override DATABASE_URL environment variable"
-    )
+    parser.add_argument("--database-url", help="Override DATABASE_URL environment variable")
+
+    parser.add_argument("--migrate", action="store_true", help="Migrate to latest schema version")
 
     parser.add_argument(
-        "--migrate",
-        action="store_true",
-        help="Migrate to latest schema version"
+        "--validate", action="store_true", help="Validate schema and data integrity"
     )
 
-    parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate schema and data integrity"
-    )
+    parser.add_argument("--optimize", action="store_true", help="Optimize database performance")
 
-    parser.add_argument(
-        "--optimize",
-        action="store_true",
-        help="Optimize database performance"
-    )
+    parser.add_argument("--stats", action="store_true", help="Show database statistics")
 
-    parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Show database statistics"
-    )
-
-    parser.add_argument(
-        "--backup",
-        metavar="PATH",
-        help="Create database backup at specified path"
-    )
+    parser.add_argument("--backup", metavar="PATH", help="Create database backup at specified path")
 
     parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="INFO",
-        help="Set logging level"
+        help="Set logging level",
     )
 
     args = parser.parse_args()
@@ -362,12 +359,13 @@ def main():
     # Setup logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     # Get database path
     load_dotenv()
     import os
+
     url = args.database_url or os.getenv("DATABASE_URL", "sqlite:///storage/odds.db")
     database_path = parse_database_url(url)
 

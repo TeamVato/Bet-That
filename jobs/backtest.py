@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+
 import pandas as pd
 
 from engine.calibration import brier_score, bucket_calibration
@@ -8,7 +9,9 @@ from engine.calibration import brier_score, bucket_calibration
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--start", type=str, required=False, help="Filter by date >= start (if column present)")
+    ap.add_argument(
+        "--start", type=str, required=False, help="Filter by date >= start (if column present)"
+    )
     args = ap.parse_args()
 
     df = pd.read_csv("storage/exports/edges_latest.csv")
@@ -28,4 +31,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

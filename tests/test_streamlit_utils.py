@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.streamlit_app import _safe_filter, load_tables, _coalesce_na, _display_season, _load_available_seasons, _infer_current_season
+from app.streamlit_app import (
+    _coalesce_na,
+    _display_season,
+    _infer_current_season,
+    _load_available_seasons,
+    _safe_filter,
+    load_tables,
+)
 
 
 def test_safe_filter_returns_empty_dataframe() -> None:
@@ -26,15 +33,11 @@ def test_load_tables_provides_context_columns(tmp_path) -> None:
         con.execute(
             "CREATE TABLE qb_props_odds (event_id TEXT, player TEXT, season INT, def_team TEXT)"
         )
-        con.execute(
-            "CREATE TABLE projections_qb (event_id TEXT, player TEXT, mu REAL)"
-        )
+        con.execute("CREATE TABLE projections_qb (event_id TEXT, player TEXT, mu REAL)")
         con.execute(
             "CREATE TABLE current_best_lines (player TEXT, market TEXT, book TEXT, line REAL)"
         )
-        con.execute(
-            "CREATE TABLE odds_snapshots (snap_id TEXT, created_at TEXT)"
-        )
+        con.execute("CREATE TABLE odds_snapshots (snap_id TEXT, created_at TEXT)")
         con.commit()
 
     tables = load_tables.__wrapped__(db_path)
@@ -78,13 +81,15 @@ def test_coalesce_na_with_none_values() -> None:
 def test_coalesce_na_with_injuries_scenario() -> None:
     """Test _coalesce_na with a simulated injuries DataFrame scenario."""
     # Create a minimal injuries DataFrame with NA values
-    injuries_df = pd.DataFrame({
-        "event_id": ["test_123"],
-        "player": ["Test Player"],
-        "status": [pd.NA],
-        "designation": [pd.NA],
-        "note": ["test note"]
-    })
+    injuries_df = pd.DataFrame(
+        {
+            "event_id": ["test_123"],
+            "player": ["Test Player"],
+            "status": [pd.NA],
+            "designation": [pd.NA],
+            "note": ["test note"],
+        }
+    )
 
     # Simulate the logic from render_matchup_expander
     row = injuries_df.iloc[0]
@@ -98,6 +103,7 @@ def test_load_available_seasons_empty_data(tmp_path):
     # Create empty database
     db_path = tmp_path / "empty.db"
     import sqlite3
+
     with sqlite3.connect(db_path) as con:
         # Create empty defense_ratings table
         con.execute("CREATE TABLE defense_ratings (season INTEGER)")
@@ -116,16 +122,19 @@ def test_load_available_seasons_union_logic(tmp_path):
     # Create database with 2024 season
     db_path = tmp_path / "test.db"
     import sqlite3
+
     with sqlite3.connect(db_path) as con:
         con.execute("CREATE TABLE defense_ratings (season INTEGER)")
         con.execute("INSERT INTO defense_ratings VALUES (2024)")
         con.commit()
 
     # Create edges_df with seasons 2023, 2025
-    edges_df = pd.DataFrame({
-        "season": [2023, 2025, 2023],  # Include duplicate to test uniqueness
-        "player": ["Player A", "Player B", "Player C"]
-    })
+    edges_df = pd.DataFrame(
+        {
+            "season": [2023, 2025, 2023],  # Include duplicate to test uniqueness
+            "player": ["Player A", "Player B", "Player C"],
+        }
+    )
 
     result = _load_available_seasons(db_path, edges_df)
 
@@ -139,15 +148,18 @@ def test_load_available_seasons_with_na_values(tmp_path):
     # Create empty database
     db_path = tmp_path / "empty.db"
     import sqlite3
+
     with sqlite3.connect(db_path) as con:
         con.execute("CREATE TABLE defense_ratings (season INTEGER)")
         con.commit()
 
     # Create edges_df with NA values and valid seasons
-    edges_df = pd.DataFrame({
-        "season": [2023, pd.NA, None, 2024, "invalid"],
-        "player": ["Player A", "Player B", "Player C", "Player D", "Player E"]
-    })
+    edges_df = pd.DataFrame(
+        {
+            "season": [2023, pd.NA, None, 2024, "invalid"],
+            "player": ["Player A", "Player B", "Player C", "Player D", "Player E"],
+        }
+    )
 
     result = _load_available_seasons(db_path, edges_df)
 
@@ -210,5 +222,6 @@ def test_coalesce_na_comprehensive():
 
     # Test with pandas NaN
     import numpy as np
+
     result = _coalesce_na(np.nan, pd.NA, "valid", default="fallback")
     assert result == "valid"

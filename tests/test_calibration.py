@@ -11,4 +11,3 @@ def test_bucket_calibration_shapes():
 
 def test_brier():
     assert round(brier_score([0, 1], [0, 1]), 6) == 0.0
-

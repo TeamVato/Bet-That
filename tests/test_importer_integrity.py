@@ -1,10 +1,10 @@
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-import sys
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 CSV1 = Path("tests/fixtures/odds_sample_two_way.csv")
@@ -36,11 +36,7 @@ def test_duplicates_and_stale(monkeypatch, tmp_path):
     run_import(CSV2, stale_minutes=120)
     with sqlite3.connect("storage/odds.db") as con:
         df = pd.read_sql("SELECT * FROM odds_csv_raw", con)
-    over = df[
-        (df.event_id == "EVT3")
-        & (df.market == "player_receptions")
-        & (df.side == "Over")
-    ]
+    over = df[(df.event_id == "EVT3") & (df.market == "player_receptions") & (df.side == "Over")]
     assert len(over) == 1
     assert over.iloc[0]["odds"] == -110
     under = df[(df.event_id == "EVT3") & (df.side == "Under")]
@@ -89,10 +85,17 @@ def test_book_normalization_and_pos_inference(monkeypatch, tmp_path):
     assert all(longest_rec_rows["pos"] == "WR"), "Longest reception should infer WR position"
 
     # Verify all rows have non-empty pos where inferable
-    inferable_markets = df[df["market"].isin([
-        "player_pass_yds", "player_rush_yds", "player_receptions",
-        "longest reception", "rushing attempts"
-    ])]
+    inferable_markets = df[
+        df["market"].isin(
+            [
+                "player_pass_yds",
+                "player_rush_yds",
+                "player_receptions",
+                "longest reception",
+                "rushing attempts",
+            ]
+        )
+    ]
     assert inferable_markets["pos"].notna().all(), "All inferable markets should have pos"
 
 

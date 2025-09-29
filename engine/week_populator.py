@@ -1,24 +1,70 @@
 """Enhanced week population with robust column mapping and validation."""
+
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
-import logging
+
 import pandas as pd
 
 # Comprehensive team normalization mapping
 _TEAM_NORM = {
-    "JAC": "JAX", "JAGUARS": "JAX", "JACKSONVILLE": "JAX",
-    "LA": "LAR", "RAMS": "LAR", "LOS ANGELES RAMS": "LAR", "STL": "LAR", "ST. LOUIS": "LAR",
-    "WSH": "WAS", "WASHINGTON": "WAS", "COMMANDERS": "WAS", "REDSKINS": "WAS", "WASHINGTON FOOTBALL TEAM": "WAS",
-    "OAK": "LV", "OAKLAND": "LV", "RAIDERS": "LV", "LAS VEGAS": "LV", "LV": "LV",
-    "SD": "LAC", "SAN DIEGO": "LAC", "CHARGERS": "LAC", "LOS ANGELES CHARGERS": "LAC", "LAC": "LAC",
+    "JAC": "JAX",
+    "JAGUARS": "JAX",
+    "JACKSONVILLE": "JAX",
+    "LA": "LAR",
+    "RAMS": "LAR",
+    "LOS ANGELES RAMS": "LAR",
+    "STL": "LAR",
+    "ST. LOUIS": "LAR",
+    "WSH": "WAS",
+    "WASHINGTON": "WAS",
+    "COMMANDERS": "WAS",
+    "REDSKINS": "WAS",
+    "WASHINGTON FOOTBALL TEAM": "WAS",
+    "OAK": "LV",
+    "OAKLAND": "LV",
+    "RAIDERS": "LV",
+    "LAS VEGAS": "LV",
+    "LV": "LV",
+    "SD": "LAC",
+    "SAN DIEGO": "LAC",
+    "CHARGERS": "LAC",
+    "LOS ANGELES CHARGERS": "LAC",
+    "LAC": "LAC",
     # Standard abbreviations for validation
-    "ARI": "ARI", "ATL": "ATL", "BAL": "BAL", "BUF": "BUF", "CAR": "CAR", "CHI": "CHI",
-    "CIN": "CIN", "CLE": "CLE", "DAL": "DAL", "DEN": "DEN", "DET": "DET", "GB": "GB",
-    "HOU": "HOU", "IND": "IND", "JAX": "JAX", "KC": "KC", "LAR": "LAR", "LAC": "LAC",
-    "LV": "LV", "MIA": "MIA", "MIN": "MIN", "NE": "NE", "NO": "NO", "NYG": "NYG",
-    "NYJ": "NYJ", "PHI": "PHI", "PIT": "PIT", "SF": "SF", "SEA": "SEA", "TB": "TB",
-    "TEN": "TEN", "WAS": "WAS"
+    "ARI": "ARI",
+    "ATL": "ATL",
+    "BAL": "BAL",
+    "BUF": "BUF",
+    "CAR": "CAR",
+    "CHI": "CHI",
+    "CIN": "CIN",
+    "CLE": "CLE",
+    "DAL": "DAL",
+    "DEN": "DEN",
+    "DET": "DET",
+    "GB": "GB",
+    "HOU": "HOU",
+    "IND": "IND",
+    "JAX": "JAX",
+    "KC": "KC",
+    "LAR": "LAR",
+    "LAC": "LAC",
+    "LV": "LV",
+    "MIA": "MIA",
+    "MIN": "MIN",
+    "NE": "NE",
+    "NO": "NO",
+    "NYG": "NYG",
+    "NYJ": "NYJ",
+    "PHI": "PHI",
+    "PIT": "PIT",
+    "SF": "SF",
+    "SEA": "SEA",
+    "TB": "TB",
+    "TEN": "TEN",
+    "WAS": "WAS",
 }
 
 
@@ -34,33 +80,33 @@ def validate_and_normalize_schedule(schedule: pd.DataFrame) -> pd.DataFrame:
     """Validate and normalize schedule DataFrame with robust column mapping."""
     if schedule.empty:
         raise ValueError("Schedule DataFrame is empty")
-    
+
     # Column mapping for different schedule data sources
     column_mappings = {
-        # Standard mappings  
-        'visiting_team': 'away_team',
-        'visitor': 'away_team',
-        'away': 'away_team', 
-        'home': 'home_team',
-        'host': 'home_team',
-        'home_code': 'home_team',
-        'away_code': 'away_team', 
-        'visitor_code': 'away_team',
-        'game_date': 'game_date',
-        'date': 'game_date',
-        'gameday': 'game_date'
+        # Standard mappings
+        "visiting_team": "away_team",
+        "visitor": "away_team",
+        "away": "away_team",
+        "home": "home_team",
+        "host": "home_team",
+        "home_code": "home_team",
+        "away_code": "away_team",
+        "visitor_code": "away_team",
+        "game_date": "game_date",
+        "date": "game_date",
+        "gameday": "game_date",
     }
-    
+
     # Apply column mappings
     schedule_normalized = schedule.copy()
     for old_col, new_col in column_mappings.items():
         if old_col in schedule_normalized.columns and new_col not in schedule_normalized.columns:
             schedule_normalized[new_col] = schedule_normalized[old_col]
-    
+
     # Validate required columns exist after mapping
-    required_cols = ['home_team', 'away_team', 'season', 'week', 'game_date']
+    required_cols = ["home_team", "away_team", "season", "week", "game_date"]
     missing_cols = [col for col in required_cols if col not in schedule_normalized.columns]
-    
+
     if missing_cols:
         available_cols = list(schedule_normalized.columns)
         raise ValueError(
@@ -68,13 +114,13 @@ def validate_and_normalize_schedule(schedule: pd.DataFrame) -> pd.DataFrame:
             f"Available columns: {available_cols}. "
             f"Applied mappings: {column_mappings}"
         )
-    
-    # Add default season/week if missing 
-    if 'season' not in schedule_normalized.columns:
-        schedule_normalized['season'] = 2025
-    if 'week' not in schedule_normalized.columns:
-        schedule_normalized['week'] = 1
-        
+
+    # Add default season/week if missing
+    if "season" not in schedule_normalized.columns:
+        schedule_normalized["season"] = 2025
+    if "week" not in schedule_normalized.columns:
+        schedule_normalized["week"] = 1
+
     return schedule_normalized
 
 
@@ -106,7 +152,7 @@ def populate_week_from_schedule(
     lines: pd.DataFrame,
     schedule: pd.DataFrame,
     validate_teams: bool = True,
-    logger: Optional[logging.Logger] = None
+    logger: Optional[logging.Logger] = None,
 ) -> pd.DataFrame:
     """Populate week column in lines DataFrame using deterministic schedule matching.
 
@@ -170,7 +216,9 @@ def populate_week_from_schedule(
 
         schedule_issues = validate_team_codes(schedule, ["home_team", "away_team"])
         if schedule_issues["unknown_teams"]:
-            logger.warning(f"Unknown team codes in schedule: {schedule_issues['unknown_teams'][:5]}")
+            logger.warning(
+                f"Unknown team codes in schedule: {schedule_issues['unknown_teams'][:5]}"
+            )
 
     # Convert commence_time to UTC date for matching
     try:
@@ -205,7 +253,7 @@ def populate_week_from_schedule(
         schedule[["season", "week", "_gdate", "home_team", "away_team"]],
         on=["season", "_gdate", "home_team", "away_team"],
         how="left",
-        suffixes=("", "_sched")
+        suffixes=("", "_sched"),
     )
 
     # Update week from stage1 matches
@@ -217,7 +265,9 @@ def populate_week_from_schedule(
     # Stage 2: Home/away swap fallback for remaining unmatched rows
     still_needs_week = out["week"].isna()
     if still_needs_week.any():
-        logger.debug(f"Stage 2: Home/away swap matching for {still_needs_week.sum()} remaining rows")
+        logger.debug(
+            f"Stage 2: Home/away swap matching for {still_needs_week.sum()} remaining rows"
+        )
 
         stage2_subset = out.loc[still_needs_week].copy()
 
@@ -226,7 +276,7 @@ def populate_week_from_schedule(
             left_on=["season", "_gdate", "away_team", "home_team"],  # Swap home/away
             right_on=["season", "_gdate", "home_team", "away_team"],
             how="left",
-            suffixes=("", "_sched")
+            suffixes=("", "_sched"),
         )
 
         stage2_matches = stage2_result["week_sched"].notna()
@@ -240,7 +290,9 @@ def populate_week_from_schedule(
     # Stage 3: Normalized team code matching for remaining unmatched rows
     still_needs_week = out["week"].isna()
     if still_needs_week.any():
-        logger.debug(f"Stage 3: Normalized team matching for {still_needs_week.sum()} remaining rows")
+        logger.debug(
+            f"Stage 3: Normalized team matching for {still_needs_week.sum()} remaining rows"
+        )
 
         stage3_subset = out.loc[still_needs_week].copy()
 
@@ -250,7 +302,7 @@ def populate_week_from_schedule(
             left_on=["season", "_gdate", "home_team_norm", "away_team_norm"],
             right_on=["season", "_gdate", "home_team_norm", "away_team_norm"],
             how="left",
-            suffixes=("", "_sched")
+            suffixes=("", "_sched"),
         )
 
         stage3_matches = stage3_result["week_sched"].notna()
@@ -285,7 +337,7 @@ def populate_week_from_schedule(
         "stage3_count": int(stage3_count),
         "total_filled": total_filled,
         "total_rows": total_rows,
-        "success_rate": round(success_rate, 2)
+        "success_rate": round(success_rate, 2),
     }
 
     return out
@@ -303,7 +355,7 @@ def load_schedule_data(schedule_path: Union[str, Path]) -> pd.DataFrame:
     try:
         schedule = pd.read_csv(schedule_path)
 
-        # Basic data validation  
+        # Basic data validation
         if schedule.empty:
             logger.warning("Schedule file is empty")
             return schedule
@@ -321,11 +373,11 @@ def load_schedule_data(schedule_path: Union[str, Path]) -> pd.DataFrame:
 
         # Filter out invalid data
         valid_mask = (
-            schedule["season"].between(2020, 2030, inclusive="both") &
-            schedule["week"].between(1, 22, inclusive="both") &
-            schedule["game_date"].notna() &
-            schedule["home_team"].notna() &
-            schedule["away_team"].notna()
+            schedule["season"].between(2020, 2030, inclusive="both")
+            & schedule["week"].between(1, 22, inclusive="both")
+            & schedule["game_date"].notna()
+            & schedule["home_team"].notna()
+            & schedule["away_team"].notna()
         )
 
         invalid_rows = (~valid_mask).sum()
@@ -345,7 +397,7 @@ def load_schedule_data(schedule_path: Union[str, Path]) -> pd.DataFrame:
 def ensure_week_populated(
     df: pd.DataFrame,
     schedule_path: Optional[Union[str, Path]] = None,
-    default_schedule_paths: Optional[list[str]] = None
+    default_schedule_paths: Optional[list[str]] = None,
 ) -> pd.DataFrame:
     """Ensure DataFrame has week column populated, with fallback schedule loading."""
     logger = logging.getLogger(__name__)
@@ -372,12 +424,14 @@ def ensure_week_populated(
         schedule_paths_to_try.extend(default_schedule_paths)
 
     # Default fallback paths
-    schedule_paths_to_try.extend([
-        "tests/fixtures/schedule_2025_mini.csv",
-        "storage/imports/nflverse_schedules_cache.csv",
-        "data/schedules.csv",
-        "schedules.csv"
-    ])
+    schedule_paths_to_try.extend(
+        [
+            "tests/fixtures/schedule_2025_mini.csv",
+            "storage/imports/nflverse_schedules_cache.csv",
+            "data/schedules.csv",
+            "schedules.csv",
+        ]
+    )
 
     # Try each schedule path until one works
     for path in schedule_paths_to_try:

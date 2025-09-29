@@ -1,4 +1,5 @@
 """Production-grade adapter for The Odds API with key pool management and atomic operations."""
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,8 @@ from adapters.odds.base import OddsAdapter
 
 # Import validation schemas (optional - graceful fallback if not available)
 try:
-    from schemas.odds_schemas import validate_odds_snapshots, validate_current_best_lines
+    from schemas.odds_schemas import validate_current_best_lines, validate_odds_snapshots
+
     VALIDATION_AVAILABLE = True
 except ImportError:
     VALIDATION_AVAILABLE = False
@@ -146,9 +148,7 @@ def _log_retry(retry_state: RetryCallState) -> None:
     exc = retry_state.outcome.exception()
     attempt = retry_state.attempt_number
     if exc:
-        logging.warning(
-            f"API request attempt {attempt} failed: {exc.__class__.__name__}: {exc}"
-        )
+        logging.warning(f"API request attempt {attempt} failed: {exc.__class__.__name__}: {exc}")
 
 
 class TheOddsAPIClient(OddsAdapter):
@@ -181,9 +181,7 @@ class TheOddsAPIClient(OddsAdapter):
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             handler.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
@@ -196,7 +194,9 @@ class TheOddsAPIClient(OddsAdapter):
             # Check if pool exhaustion cooldown has expired
             if self.pool_exhausted_at:
                 cooldown_duration = timezone.utc.now() - self.pool_exhausted_at
-                if cooldown_duration.total_seconds() < (self.config.pool_exhaustion_cooldown_minutes * 60):
+                if cooldown_duration.total_seconds() < (
+                    self.config.pool_exhaustion_cooldown_minutes * 60
+                ):
                     return None
                 else:
                     # Reset pool exhaustion state
@@ -211,13 +211,17 @@ class TheOddsAPIClient(OddsAdapter):
             return None
 
         # Choose key with least recent usage (or random if tied)
-        available_keys.sort(key=lambda k: k.last_used_at or datetime.min.replace(tzinfo=timezone.utc))
+        available_keys.sort(
+            key=lambda k: k.last_used_at or datetime.min.replace(tzinfo=timezone.utc)
+        )
         return available_keys[0]
 
     def _update_key_usage(self, key_info: APIKeyInfo, response: requests.Response) -> None:
         """Update key usage statistics from API response headers."""
         key_info.last_used_at = datetime.now(timezone.utc)
-        key_info.requests_used = int(response.headers.get("X-Requests-Used", key_info.requests_used))
+        key_info.requests_used = int(
+            response.headers.get("X-Requests-Used", key_info.requests_used)
+        )
 
         if "X-Requests-Remaining" in response.headers:
             key_info.requests_remaining = int(response.headers["X-Requests-Remaining"])
@@ -235,14 +239,18 @@ class TheOddsAPIClient(OddsAdapter):
             f"reset={key_info.requests_reset}"
         )
 
-    def _handle_key_failure(self, key_info: APIKeyInfo, exc: Exception, response: Optional[requests.Response] = None) -> None:
+    def _handle_key_failure(
+        self, key_info: APIKeyInfo, exc: Exception, response: Optional[requests.Response] = None
+    ) -> None:
         """Handle API key failure and potentially mark it as rate-limited."""
         key_info.consecutive_failures += 1
 
         if response and response.status_code == 429:
             key_info.is_rate_limited = True
             # Set rate limit reset time (default to 15 minutes if not provided)
-            reset_time = datetime.now(timezone.utc).replace(minute=(datetime.now().minute + self.config.key_cooldown_minutes) % 60)
+            reset_time = datetime.now(timezone.utc).replace(
+                minute=(datetime.now().minute + self.config.key_cooldown_minutes) % 60
+            )
             key_info.rate_limit_reset_at = reset_time
 
             self.logger.warning(
@@ -260,12 +268,16 @@ class TheOddsAPIClient(OddsAdapter):
         wait=wait_exponential_jitter(initial=1, max=30, jitter=5),
         after=_log_retry,
     )
-    def _request_with_key(self, key_info: APIKeyInfo, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Tuple[Any, requests.Response]:
+    def _request_with_key(
+        self, key_info: APIKeyInfo, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Any, requests.Response]:
         """Make a request with a specific API key."""
         url = f"{API_BASE_URL}/{endpoint}"
         query = {"apiKey": key_info.key, **(params or {})}
 
-        timeout = min(self.config.base_timeout * (2 ** key_info.consecutive_failures), self.config.max_timeout)
+        timeout = min(
+            self.config.base_timeout * (2**key_info.consecutive_failures), self.config.max_timeout
+        )
 
         try:
             response = requests.get(url, params=query, timeout=timeout)
@@ -279,9 +291,13 @@ class TheOddsAPIClient(OddsAdapter):
                 # Check if this is a quota exceeded error
                 error_text = response.text.lower()
                 if "quota" in error_text or "limit" in error_text:
-                    raise TheOddsAPIQuotaExceededError(f"API quota exceeded for key {key_info.key[:8]}**")
+                    raise TheOddsAPIQuotaExceededError(
+                        f"API quota exceeded for key {key_info.key[:8]}**"
+                    )
                 else:
-                    raise TheOddsAPIError(f"Access forbidden for key {key_info.key[:8]}**: {response.text}")
+                    raise TheOddsAPIError(
+                        f"Access forbidden for key {key_info.key[:8]}**: {response.text}"
+                    )
             elif not response.ok:
                 raise TheOddsAPIError(
                     f"API request failed for key {key_info.key[:8]}**: "
@@ -322,7 +338,7 @@ class TheOddsAPIClient(OddsAdapter):
                 return data
 
             except (TheOddsAPIRateLimitError, TheOddsAPIQuotaExceededError) as e:
-                self._handle_key_failure(key_info, e, getattr(e, 'response', None))
+                self._handle_key_failure(key_info, e, getattr(e, "response", None))
                 last_exception = e
                 continue  # Try next key
 
@@ -364,30 +380,21 @@ class TheOddsAPIClient(OddsAdapter):
         if bookmakers:
             request_params["bookmakers"] = bookmakers
 
-        self.logger.info(
-            f"Fetching odds for {self.config.sport_key} with params: {request_params}"
-        )
+        self.logger.info(f"Fetching odds for {self.config.sport_key} with params: {request_params}")
 
         try:
-            payload = self._request(
-                f"sports/{self.config.sport_key}/odds",
-                request_params
-            )
+            payload = self._request(f"sports/{self.config.sport_key}/odds", request_params)
 
             df = normalize_odds_response(payload, fetched_at=fetched_at)
 
             fetch_duration = time.time() - fetch_start_time
-            self.logger.info(
-                f"Successfully fetched {len(df)} odds rows in {fetch_duration:.2f}s"
-            )
+            self.logger.info(f"Successfully fetched {len(df)} odds rows in {fetch_duration:.2f}s")
 
             return df
 
         except Exception as e:
             fetch_duration = time.time() - fetch_start_time
-            self.logger.error(
-                f"Failed to fetch odds after {fetch_duration:.2f}s: {e}"
-            )
+            self.logger.error(f"Failed to fetch odds after {fetch_duration:.2f}s: {e}")
             raise
 
     def persist_snapshots(self, df: pd.DataFrame, database_path: Path) -> None:
@@ -416,6 +423,7 @@ class TheOddsAPIClient(OddsAdapter):
             # First, copy the existing database to temp location
             if database_path.exists():
                 import shutil
+
                 shutil.copy2(database_path, temp_db)
             else:
                 # Initialize new database with schema
@@ -460,6 +468,7 @@ class TheOddsAPIClient(OddsAdapter):
 
                     # Atomic move: replace original database with temp database
                     import shutil
+
                     shutil.move(temp_db, database_path)
                     temp_db = None  # Don't delete it in finally block
 
@@ -494,7 +503,8 @@ class TheOddsAPIClient(OddsAdapter):
                     conn.executescript(f.read())
             else:
                 # Fallback minimal schema
-                conn.executescript("""
+                conn.executescript(
+                    """
                     PRAGMA journal_mode=WAL;
                     CREATE TABLE IF NOT EXISTS odds_snapshots (
                         snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -511,7 +521,8 @@ class TheOddsAPIClient(OddsAdapter):
                         odds_raw_json TEXT,
                         UNIQUE (fetched_at, event_id, market_key, bookmaker_key, outcome, points)
                     );
-                """)
+                """
+                )
 
     def get_key_pool_status(self) -> Dict[str, Any]:
         """Get comprehensive status of the API key pool."""
@@ -522,8 +533,12 @@ class TheOddsAPIClient(OddsAdapter):
             "total_keys": total_keys,
             "available_keys": available_keys,
             "exhausted_keys": total_keys - available_keys,
-            "pool_exhausted_at": self.pool_exhausted_at.isoformat() if self.pool_exhausted_at else None,
-            "last_successful_fetch": self.last_successful_fetch.isoformat() if self.last_successful_fetch else None,
+            "pool_exhausted_at": (
+                self.pool_exhausted_at.isoformat() if self.pool_exhausted_at else None
+            ),
+            "last_successful_fetch": (
+                self.last_successful_fetch.isoformat() if self.last_successful_fetch else None
+            ),
             "consecutive_pool_failures": self.consecutive_pool_failures,
             "keys": {
                 f"{info.key[:8]}**": {
@@ -535,11 +550,13 @@ class TheOddsAPIClient(OddsAdapter):
                     "last_used_at": info.last_used_at.isoformat() if info.last_used_at else None,
                 }
                 for info in self.key_pool.values()
-            }
+            },
         }
 
 
-def normalize_odds_response(payload: Iterable[Dict[str, Any]], *, fetched_at: datetime) -> pd.DataFrame:
+def normalize_odds_response(
+    payload: Iterable[Dict[str, Any]], *, fetched_at: datetime
+) -> pd.DataFrame:
     """Normalize The Odds API response into a tidy DataFrame with enhanced validation.
 
     Args:
@@ -580,7 +597,9 @@ def normalize_odds_response(payload: Iterable[Dict[str, Any]], *, fetched_at: da
                 for market in bookmaker.get("markets", []):
                     market_key = market.get("key")
                     if not market_key:
-                        logger.warning(f"Skipping market with missing key for {bookmaker_key} in event {event_id}")
+                        logger.warning(
+                            f"Skipping market with missing key for {bookmaker_key} in event {event_id}"
+                        )
                         continue
 
                     market_last_update = market.get("last_update") or last_update
@@ -589,7 +608,9 @@ def normalize_odds_response(payload: Iterable[Dict[str, Any]], *, fetched_at: da
                         try:
                             # Validate outcome has required fields
                             if not outcome.get("name") or outcome.get("price") is None:
-                                logger.debug(f"Skipping incomplete outcome in {event_id}/{market_key}/{bookmaker_key}")
+                                logger.debug(
+                                    f"Skipping incomplete outcome in {event_id}/{market_key}/{bookmaker_key}"
+                                )
                                 continue
 
                             rows.append(
@@ -614,14 +635,16 @@ def normalize_odds_response(payload: Iterable[Dict[str, Any]], *, fetched_at: da
                                             "market_key": market_key,
                                             "outcome": outcome,
                                         },
-                                        separators=(',', ':')  # Compact JSON
+                                        separators=(",", ":"),  # Compact JSON
                                     ),
                                 }
                             )
                             odds_rows_created += 1
 
                         except Exception as e:
-                            logger.error(f"Error processing outcome in {event_id}/{market_key}/{bookmaker_key}: {e}")
+                            logger.error(
+                                f"Error processing outcome in {event_id}/{market_key}/{bookmaker_key}: {e}"
+                            )
                             continue
 
         except Exception as e:
@@ -630,17 +653,26 @@ def normalize_odds_response(payload: Iterable[Dict[str, Any]], *, fetched_at: da
 
     df = pd.DataFrame(rows)
 
-    logger.info(
-        f"Processed {events_processed} events, created {odds_rows_created} odds rows"
-    )
+    logger.info(f"Processed {events_processed} events, created {odds_rows_created} odds rows")
 
     if df.empty:
         logger.warning("No valid odds data found in API response")
         # Return empty DataFrame with expected schema
         expected_cols = [
-            "fetched_at", "sport_key", "event_id", "commence_time", "home_team",
-            "away_team", "bookmaker_key", "market_key", "outcome", "points",
-            "price", "iso_time", "line", "odds_raw_json"
+            "fetched_at",
+            "sport_key",
+            "event_id",
+            "commence_time",
+            "home_team",
+            "away_team",
+            "bookmaker_key",
+            "market_key",
+            "outcome",
+            "points",
+            "price",
+            "iso_time",
+            "line",
+            "odds_raw_json",
         ]
         return pd.DataFrame(columns=expected_cols)
 
@@ -720,8 +752,13 @@ def compute_current_best_lines(df: pd.DataFrame) -> pd.DataFrame:
         logger.info("No data provided for best lines computation")
         return pd.DataFrame(
             columns=[
-                "event_id", "market_key", "outcome", "best_book",
-                "best_price", "best_points", "fetched_at"
+                "event_id",
+                "market_key",
+                "outcome",
+                "best_book",
+                "best_price",
+                "best_points",
+                "fetched_at",
             ]
         )
 
@@ -735,16 +772,19 @@ def compute_current_best_lines(df: pd.DataFrame) -> pd.DataFrame:
 
     valid_rows = len(df)
     if valid_rows < original_rows:
-        logger.warning(
-            f"Filtered out {original_rows - valid_rows} rows with missing critical data"
-        )
+        logger.warning(f"Filtered out {original_rows - valid_rows} rows with missing critical data")
 
     if df.empty:
         logger.warning("No valid data remaining after filtering")
         return pd.DataFrame(
             columns=[
-                "event_id", "market_key", "outcome", "best_book",
-                "best_price", "best_points", "fetched_at"
+                "event_id",
+                "market_key",
+                "outcome",
+                "best_book",
+                "best_price",
+                "best_points",
+                "fetched_at",
             ]
         )
 
@@ -755,19 +795,19 @@ def compute_current_best_lines(df: pd.DataFrame) -> pd.DataFrame:
         best = df.loc[idx]
 
         # Rename columns to match schema
-        result = best[[
-            "event_id",
-            "market_key",
-            "outcome",
-            "bookmaker_key",
-            "price",
-            "points",
-            "fetched_at",
-        ]].rename(columns={
-            "bookmaker_key": "best_book",
-            "price": "best_price",
-            "points": "best_points"
-        })
+        result = best[
+            [
+                "event_id",
+                "market_key",
+                "outcome",
+                "bookmaker_key",
+                "price",
+                "points",
+                "fetched_at",
+            ]
+        ].rename(
+            columns={"bookmaker_key": "best_book", "price": "best_price", "points": "best_points"}
+        )
 
         computation_duration = time.time() - computation_start
         unique_markets = result.groupby(["event_id", "market_key"]).size().sum()

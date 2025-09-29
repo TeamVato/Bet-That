@@ -1,4 +1,5 @@
 """Tests for team code normalization."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -42,29 +43,33 @@ def test_normalize_team_code_edge_cases():
 
 def test_normalize_team_code_common_variations():
     """Test other common team code variations."""
-    assert normalize_team_code("LVR") == "LV"   # Las Vegas variant
-    assert normalize_team_code("KCC") == "KC"   # Kansas City variant
-    assert normalize_team_code("TBB") == "TB"   # Tampa Bay variant
-    assert normalize_team_code("NWE") == "NE"   # New England variant
-    assert normalize_team_code("GNB") == "GB"   # Green Bay variant
+    assert normalize_team_code("LVR") == "LV"  # Las Vegas variant
+    assert normalize_team_code("KCC") == "KC"  # Kansas City variant
+    assert normalize_team_code("TBB") == "TB"  # Tampa Bay variant
+    assert normalize_team_code("NWE") == "NE"  # New England variant
+    assert normalize_team_code("GNB") == "GB"  # Green Bay variant
 
 
 def test_merge_scenario():
     """Test that two frames can join successfully after normalization."""
     # Simulate edges DataFrame with non-canonical team codes
-    edges_df = pd.DataFrame({
-        "opponent_def_code": ["JAX", "WSH", "OAK", "DAL"],
-        "season": [2023, 2023, 2023, 2023],
-        "player": ["Player A", "Player B", "Player C", "Player D"]
-    })
+    edges_df = pd.DataFrame(
+        {
+            "opponent_def_code": ["JAX", "WSH", "OAK", "DAL"],
+            "season": [2023, 2023, 2023, 2023],
+            "player": ["Player A", "Player B", "Player C", "Player D"],
+        }
+    )
 
     # Simulate defense_ratings DataFrame with canonical team codes
-    defense_df = pd.DataFrame({
-        "defteam": ["JAC", "WAS", "LV", "DAL"],
-        "season": [2023, 2023, 2023, 2023],
-        "tier": ["Average", "Stingy", "Generous", "Average"],
-        "score": [0.1, -0.3, 0.4, 0.0]
-    })
+    defense_df = pd.DataFrame(
+        {
+            "defteam": ["JAC", "WAS", "LV", "DAL"],
+            "season": [2023, 2023, 2023, 2023],
+            "tier": ["Average", "Stingy", "Generous", "Average"],
+            "score": [0.1, -0.3, 0.4, 0.0],
+        }
+    )
 
     # Apply normalization to edges
     edges_df["normalized_def_code"] = edges_df["opponent_def_code"].apply(normalize_team_code)
@@ -74,7 +79,7 @@ def test_merge_scenario():
         defense_df,
         left_on=["normalized_def_code", "season"],
         right_on=["defteam", "season"],
-        how="left"
+        how="left",
     )
 
     # All rows should have matched

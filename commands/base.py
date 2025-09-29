@@ -1,4 +1,5 @@
 """Base command class for custom Bet-That commands."""
+
 from __future__ import annotations
 
 import sys
@@ -34,6 +35,7 @@ class BaseCommand(ABC):
     def log(self, message: str, level: str = "INFO") -> None:
         """Log a message with timestamp."""
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{timestamp}] [{level}] {message}")
 

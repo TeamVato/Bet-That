@@ -217,9 +217,13 @@ def upsert_rows(
     ]
     available_cols = [c for c in dedupe_cols if c in normalized.columns]
     if available_cols:
-        normalized = normalized.sort_values("updated_at").drop_duplicates(available_cols, keep="last")
+        normalized = normalized.sort_values("updated_at").drop_duplicates(
+            available_cols, keep="last"
+        )
     deduped_rows = len(normalized)
-    stale_rows = int(normalized.get("is_stale", pd.Series(dtype="float64")).fillna(0).astype(int).sum())
+    stale_rows = int(
+        normalized.get("is_stale", pd.Series(dtype="float64")).fillna(0).astype(int).sum()
+    )
     source_counts = normalized["ingest_source"].value_counts(dropna=False).to_dict()
     print(
         "Upsert rows → raw: {raw} | deduped: {deduped} | stale flagged: {stale} | by source: {sources}".format(
@@ -410,9 +414,9 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
 
         # Data quality score
         data_quality = (
-            group_df_copy.get("implied_prob", pd.Series()).notna().astype(float) * 0.4 +
-            group_df_copy.get("fair_prob_close", pd.Series()).notna().astype(float) * 0.4 +
-            group_df_copy.get("overround", pd.Series()).notna().astype(float) * 0.2
+            group_df_copy.get("implied_prob", pd.Series()).notna().astype(float) * 0.4
+            + group_df_copy.get("fair_prob_close", pd.Series()).notna().astype(float) * 0.4
+            + group_df_copy.get("overround", pd.Series()).notna().astype(float) * 0.2
         )
         scores += data_quality * 0.8
 
@@ -424,7 +428,9 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
                 max_overround = valid_overround.max()
                 min_overround = valid_overround.min()
                 if max_overround > min_overround:
-                    overround_scores = 1 - (overround_vals - min_overround) / (max_overround - min_overround)
+                    overround_scores = 1 - (overround_vals - min_overround) / (
+                        max_overround - min_overround
+                    )
                     scores += overround_scores.fillna(0.5) * 0.6
 
         # Deterministic tiebreaker: book name (alphabetical)
@@ -437,7 +443,9 @@ def mark_primary_lines_enhanced(closing_df: pd.DataFrame, primary_book: str = No
             closing_df.loc[best_idx, "is_primary"] = 1
             primary_marked += 1
 
-    print(f"DEBUG: Primary line marking - {primary_marked}/{total_groups} groups marked with primary lines")
+    print(
+        f"DEBUG: Primary line marking - {primary_marked}/{total_groups} groups marked with primary lines"
+    )
 
     # Emergency fallback if no primary lines marked
     if primary_marked == 0 and len(closing_df) > 0:
@@ -526,7 +534,9 @@ def write_closing_snapshot(
             over_prob = closing_df.loc[over_idx[0], "implied_prob"]
             under_prob = closing_df.loc[under_idx[0], "implied_prob"]
             if pd.notna(over_prob) and pd.notna(under_prob) and over_prob >= 0 and under_prob >= 0:
-                fair_over, fair_under = proportional_devig_two_way(float(over_prob), float(under_prob))
+                fair_over, fair_under = proportional_devig_two_way(
+                    float(over_prob), float(under_prob)
+                )
                 overround = float(over_prob + under_prob)
                 closing_df.loc[over_idx[0], "fair_prob_close"] = fair_over
                 closing_df.loc[under_idx[0], "fair_prob_close"] = fair_under
@@ -539,11 +549,8 @@ def write_closing_snapshot(
 
     ensure_closing_tables(con)
 
-    delete_sql = (
-        "DELETE FROM closing_lines WHERE event_id=? AND market=? AND side=? AND ((line IS NULL AND ? IS NULL) OR line=?) AND book=?"
-    )
-    insert_sql = (
-        """
+    delete_sql = "DELETE FROM closing_lines WHERE event_id=? AND market=? AND side=? AND ((line IS NULL AND ? IS NULL) OR line=?) AND book=?"
+    insert_sql = """
         INSERT INTO closing_lines (
             event_id, market, side, line, book,
             odds_decimal, odds_american, implied_prob, overround,
@@ -551,7 +558,6 @@ def write_closing_snapshot(
             ingest_source, source_run_id, raw_payload_hash
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-    )
 
     run_identifier = run_id or f"poll/{ts_run.isoformat()}"
     primary_book_normalized = (primary_book or "").strip().lower()
@@ -578,7 +584,9 @@ def write_closing_snapshot(
         fair_prob_close = _coerce_optional(row.get("fair_prob_close"))
 
         is_primary = int(row.get("is_primary", 0))
-        payload_hash = hashlib.sha256(json.dumps(row, default=str, sort_keys=True).encode()).hexdigest()
+        payload_hash = hashlib.sha256(
+            json.dumps(row, default=str, sort_keys=True).encode()
+        ).hexdigest()
 
         delete_params = (
             row.get("event_id"),
@@ -672,9 +680,7 @@ def main():
         if not key:
             raise SystemExit("No enabled key available")
         if args.dry_run:
-            print(
-                f"Would poll with key: {key} markets={args.markets} books={args.bookmakers}"
-            )
+            print(f"Would poll with key: {key} markets={args.markets} books={args.bookmakers}")
             return 0, 0, 0.0
         tries = 0
         while True:

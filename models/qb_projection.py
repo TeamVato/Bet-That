@@ -1,12 +1,12 @@
 """Simple QB passing yards projection model."""
+
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Optional
-
-import sqlite3
 
 import numpy as np
 import pandas as pd

@@ -1,4 +1,5 @@
 """Explain why a given Streamlit table is empty by inspecting applied filters."""
+
 from __future__ import annotations
 
 import os
@@ -169,10 +170,7 @@ def stepwise_drop(edges_all: pd.DataFrame, filters: Filters) -> List[Tuple[str, 
     def_code_series = edges_all.get("opponent_def_code")
     if def_code_series is not None:
         missing_def = int(
-            (
-                def_code_series.isna()
-                | (def_code_series.astype(str).str.strip() == "")
-            ).sum()
+            (def_code_series.isna() | (def_code_series.astype(str).str.strip() == "")).sum()
         )
         if missing_def:
             report.append(
@@ -184,12 +182,7 @@ def stepwise_drop(edges_all: pd.DataFrame, filters: Filters) -> List[Tuple[str, 
             )
     tier_series = edges_all.get("def_tier")
     if tier_series is not None:
-        missing_tier = int(
-            (
-                tier_series.isna()
-                | (tier_series.astype(str).str.strip() == "")
-            ).sum()
-        )
+        missing_tier = int((tier_series.isna() | (tier_series.astype(str).str.strip() == "")).sum())
         if missing_tier:
             report.append(
                 (

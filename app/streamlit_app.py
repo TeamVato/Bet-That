@@ -1,4 +1,5 @@
 """Streamlit app for exploring betting edges and odds history."""
+
 from __future__ import annotations
 
 import datetime
@@ -26,7 +27,8 @@ from app.debug_panel import (
     odds_staleness,
 )
 from app.ui_badges import context_key, is_why_open, render_header_with_badge
-from app.why_empty import Filters as EmptyFilters, explain_empty
+from app.why_empty import Filters as EmptyFilters
+from app.why_empty import explain_empty
 from engine import steam_detector
 from engine.odds_math import american_to_decimal
 from engine.portfolio import greedy_select, kelly_fraction
@@ -70,13 +72,23 @@ def load_tables(database_path: Path) -> dict[str, pd.DataFrame]:
             "scheme": ["team", "season", "week", "proe", "ed_pass_rate", "pace"],
             "weather": ["event_id", "game_id", "temp_f", "wind_mph", "precip", "indoor"],
             "wr_cb": ["event_id", "player", "note", "summary", "source_url", "url"],
-            "injuries": ["event_id", "player", "status", "designation", "note", "description", "name"],
+            "injuries": [
+                "event_id",
+                "player",
+                "status",
+                "designation",
+                "note",
+                "description",
+                "name",
+            ],
             "context_notes": ["event_id", "note", "source_url", "created_at"],
         }
         for key, expected_cols in context_expected.items():
             df_ref = extras.get(key)
             if df_ref is None or df_ref.empty:
-                extras[key] = pd.DataFrame({col: pd.Series(dtype="object") for col in expected_cols})
+                extras[key] = pd.DataFrame(
+                    {col: pd.Series(dtype="object") for col in expected_cols}
+                )
                 continue
             missing_cols = [col for col in expected_cols if col not in df_ref.columns]
             for col in missing_cols:
@@ -166,7 +178,9 @@ def _load_available_seasons(database_path: Path, edges_df: pd.DataFrame) -> list
             defense_df = pd.read_sql_query("SELECT DISTINCT season FROM defense_ratings", conn)
             if not defense_df.empty and "season" in defense_df.columns:
                 # Cast to Int64, drop NA, convert to int
-                defense_seasons = pd.to_numeric(defense_df["season"], errors="coerce").astype("Int64")
+                defense_seasons = pd.to_numeric(defense_df["season"], errors="coerce").astype(
+                    "Int64"
+                )
                 seasons.update(int(s) for s in defense_seasons.dropna().unique())
     except Exception:
         pass
@@ -188,7 +202,9 @@ def _load_available_seasons(database_path: Path, edges_df: pd.DataFrame) -> list
     return sorted(seasons, reverse=True)
 
 
-def apply_season_filter(edges_df: pd.DataFrame, selected: Sequence[int], available_seasons: list[int]) -> pd.DataFrame:
+def apply_season_filter(
+    edges_df: pd.DataFrame, selected: Sequence[int], available_seasons: list[int]
+) -> pd.DataFrame:
     """Return a copy filtered by selected seasons, handling NA safely."""
     if not isinstance(edges_df, pd.DataFrame):
         return pd.DataFrame()
@@ -260,7 +276,9 @@ def render_debug_panel(
                 st.caption("Edges (database) by season")
                 st.dataframe(edges_season_db, width="stretch")
 
-            defense_season_db = counts_by(con, "defense_ratings", "season").rename(columns={"key": "season"})
+            defense_season_db = counts_by(con, "defense_ratings", "season").rename(
+                columns={"key": "season"}
+            )
             if not defense_season_db.empty:
                 st.caption("Defense ratings by season")
                 st.dataframe(defense_season_db, width="stretch")
@@ -268,9 +286,7 @@ def render_debug_panel(
             if not edges_df.empty:
                 if "season" in edges_df.columns:
                     season_counts = (
-                        edges_df.assign(
-                            season=_display_season(edges_df["season"])
-                        )
+                        edges_df.assign(season=_display_season(edges_df["season"]))
                         .groupby("season")
                         .size()
                         .reset_index(name="count")
@@ -280,9 +296,7 @@ def render_debug_panel(
                     st.dataframe(season_counts, width="stretch")
                 if "pos" in edges_df.columns:
                     pos_counts = (
-                        edges_df.assign(
-                            pos=edges_df["pos"].fillna("Unknown")
-                        )
+                        edges_df.assign(pos=edges_df["pos"].fillna("Unknown"))
                         .groupby("pos")
                         .size()
                         .reset_index(name="count")
@@ -307,25 +321,31 @@ def render_debug_panel(
                 for key_col in ["season", "week", "opponent_def_code"]:
                     if key_col in edges_df.columns:
                         non_null = (~edges_df[key_col].isna()).sum()
-                        coverage_stats[key_col] = f"{non_null}/{total_edges} ({non_null/total_edges*100:.1f}%)"
+                        coverage_stats[key_col] = (
+                            f"{non_null}/{total_edges} ({non_null/total_edges*100:.1f}%)"
+                        )
                     else:
                         coverage_stats[key_col] = "column missing"
 
                 # Complete join key coverage
                 if all(col in edges_df.columns for col in ["season", "week", "opponent_def_code"]):
                     complete_keys = (
-                        (~edges_df["season"].isna()) &
-                        (~edges_df["week"].isna()) &
-                        (~edges_df["opponent_def_code"].isna())
+                        (~edges_df["season"].isna())
+                        & (~edges_df["week"].isna())
+                        & (~edges_df["opponent_def_code"].isna())
                     ).sum()
-                    coverage_stats["complete_join_keys"] = f"{complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)"
+                    coverage_stats["complete_join_keys"] = (
+                        f"{complete_keys}/{total_edges} ({complete_keys/total_edges*100:.1f}%)"
+                    )
 
                 st.json(coverage_stats)
 
                 # Defense ratings merge success
                 if "def_tier" in edges_df.columns:
                     successful_joins = (~edges_df["def_tier"].isna()).sum()
-                    st.caption(f"Defense ratings merge success: {successful_joins}/{total_edges} ({successful_joins/total_edges*100:.1f}%)")
+                    st.caption(
+                        f"Defense ratings merge success: {successful_joins}/{total_edges} ({successful_joins/total_edges*100:.1f}%)"
+                    )
 
                     if successful_joins < total_edges:
                         unmatched = edges_df[edges_df["def_tier"].isna()]
@@ -333,12 +353,18 @@ def render_debug_panel(
                             missing_reasons = {}
                             missing_reasons["missing_season"] = unmatched["season"].isna().sum()
                             missing_reasons["missing_week"] = unmatched["week"].isna().sum()
-                            missing_reasons["missing_opponent_def_code"] = unmatched["opponent_def_code"].isna().sum()
+                            missing_reasons["missing_opponent_def_code"] = (
+                                unmatched["opponent_def_code"].isna().sum()
+                            )
 
                             # Show sample of unmatched opponent codes
-                            unmatched_codes = unmatched[unmatched["opponent_def_code"].notna()]["opponent_def_code"].unique()
+                            unmatched_codes = unmatched[unmatched["opponent_def_code"].notna()][
+                                "opponent_def_code"
+                            ].unique()
                             if len(unmatched_codes) > 0:
-                                missing_reasons["unmatched_opponent_codes_sample"] = sorted(unmatched_codes)[:10]
+                                missing_reasons["unmatched_opponent_codes_sample"] = sorted(
+                                    unmatched_codes
+                                )[:10]
 
                             st.caption("Unmatched join analysis:")
                             st.json(missing_reasons)
@@ -368,6 +394,7 @@ def render_empty_explainer(
             st.caption(extra)
     if force_open:
         st.session_state[ctx_key] = False
+
 
 def export_picks(df: pd.DataFrame) -> Path:
     export_dir = Path("storage/exports")
@@ -476,7 +503,11 @@ def render_matchup_expander(
 
     def_tier = _coalesce(row.get("def_tier"), default="n/a")
     def_score = row.get("def_score")
-    def_score_display = f"{def_score:.2f}" if isinstance(def_score, (int, float)) and not np.isnan(def_score) else "n/a"
+    def_score_display = (
+        f"{def_score:.2f}"
+        if isinstance(def_score, (int, float)) and not np.isnan(def_score)
+        else "n/a"
+    )
 
     with st.expander(label, expanded=False):
         render_header_with_badge("Matchup context", None, ctx_drawer)
@@ -596,8 +627,10 @@ def render_matchup_expander(
         elif weather_df is None or weather_df.empty:
             weather_caption = "No weather context found for this matchup yet."
         else:
-            key_col = "event_id" if "event_id" in weather_df.columns else (
-                "game_id" if "game_id" in weather_df.columns else None
+            key_col = (
+                "event_id"
+                if "event_id" in weather_df.columns
+                else ("game_id" if "game_id" in weather_df.columns else None)
             )
             if key_col is None:
                 weather_caption = "No weather context found for this matchup yet."
@@ -659,9 +692,9 @@ def render_matchup_expander(
             )[["Note", "Source", "Created"]]
             st.table(display_notes)
         # Create unique keys based on event_id and player to avoid duplicates
-        event_id_safe = str(row.get('event_id', 'no_event')).replace('-', '_').replace(' ', '_')
-        player_safe = str(row.get('player', 'no_player')).replace(' ', '_').replace('-', '_')
-        row_id_safe = str(row.get('row_id', 'no_row'))
+        event_id_safe = str(row.get("event_id", "no_event")).replace("-", "_").replace(" ", "_")
+        player_safe = str(row.get("player", "no_player")).replace(" ", "_").replace("-", "_")
+        row_id_safe = str(row.get("row_id", "no_row"))
         unique_id = f"{event_id_safe}_{player_safe}_{row_id_safe}"
         with st.form(key=f"context_note_form_{unique_id}"):
             note_text = st.text_area("Add note", key=f"note_input_{unique_id}")
@@ -674,6 +707,7 @@ def render_matchup_expander(
                     add_context_note(database_path, event_id, note_text.strip(), link_input.strip())
                     st.success("Saved context note.")
                     st.experimental_rerun()
+
 
 def _nz(value: object, default: object) -> object:
     """Return default when value is None/NA/NaN; otherwise value."""
@@ -700,7 +734,7 @@ def _display_season(series: pd.Series) -> pd.Series:
     # Convert to string first to handle nullable Int64 dtype
     str_series = series.astype(str)
     # Replace 'nan' and '<NA>' string representations with 'Unknown'
-    return str_series.replace(['nan', '<NA>', 'None'], 'Unknown')
+    return str_series.replace(["nan", "<NA>", "None"], "Unknown")
 
 
 def _coalesce_na(*vals, default=""):
@@ -711,7 +745,7 @@ def _coalesce_na(*vals, default=""):
         if isinstance(val, float) and np.isnan(val):
             continue
         str_val = str(val).strip()
-        if str_val and str_val.lower() not in ('none', 'nan', '<na>'):
+        if str_val and str_val.lower() not in ("none", "nan", "<na>"):
             return str_val
     return default
 
@@ -737,7 +771,10 @@ def infer_position_bucket(market: object) -> str:
         return "QB"
     if any(keyword in text for keyword in ("rushing", "rush", "carr", "attempt")):
         return "RB"
-    if any(keyword in text for keyword in ("receiving", "reception", "targets", "yard", "longest reception")):
+    if any(
+        keyword in text
+        for keyword in ("receiving", "reception", "targets", "yard", "longest reception")
+    ):
         return "WR"
     return "Other"
 
@@ -826,9 +863,7 @@ def build_line_shopping_table(
     return subset, consensus
 
 
-def prepare_card_dataframe(
-    df: pd.DataFrame, bankroll: float, fraction: float
-) -> pd.DataFrame:
+def prepare_card_dataframe(df: pd.DataFrame, bankroll: float, fraction: float) -> pd.DataFrame:
     if df.empty:
         return df.copy()
 
@@ -907,14 +942,16 @@ def render_app() -> None:
     edges["pos"] = edges["pos"].apply(lambda val: val.upper() if isinstance(val, str) else val)
 
     if props[["season", "def_team"]].isna().any().any():
-        st.warning("Some props are missing season or opponent team metadata. Update the CSV for better projections.")
+        st.warning(
+            "Some props are missing season or opponent team metadata. Update the CSV for better projections."
+        )
 
     available_seasons = _load_available_seasons(database_path, edges)
     selected_seasons = st.sidebar.multiselect(
         "Season filter",
         options=available_seasons,
         key="season_filter",
-        help="Select seasons to analyze. Empty selection will show no data."
+        help="Select seasons to analyze. Empty selection will show no data.",
     )
     if hasattr(st.sidebar, "toggle"):
         debug_mode = st.sidebar.toggle("Debug mode", value=False, key="debug_mode_toggle")
@@ -927,16 +964,14 @@ def render_app() -> None:
 
     # Hide past games by commence_time (default True)
     hide_past_games = st.sidebar.checkbox(
-        "Hide past games",
-        value=True,
-        help="Only show games with commence_time >= now (UTC)"
+        "Hide past games", value=True, help="Only show games with commence_time >= now (UTC)"
     )
 
     # Optional staleness filter toggle
     stale_odds_toggle = st.sidebar.checkbox(
         "Filter by odds staleness",
         value=False,
-        help="Enable filtering based on how long ago odds were updated"
+        help="Enable filtering based on how long ago odds were updated",
     )
 
     # Staleness threshold slider (only enabled when toggle is on)
@@ -948,7 +983,7 @@ def render_app() -> None:
         value=stale_minutes_default,
         step=15,
         disabled=not stale_odds_toggle,
-        help="Hide odds older than this threshold (only when staleness filter is enabled)"
+        help="Hide odds older than this threshold (only when staleness filter is enabled)",
     )
     show_best_only = st.sidebar.checkbox("Show only best-priced edges", value=True)
     bankroll = st.sidebar.number_input("Bankroll ($)", min_value=0.0, value=1000.0, step=50.0)
@@ -980,7 +1015,9 @@ def render_app() -> None:
 
     # Handle empty season selection
     if not selected_seasons:
-        st.info("💡 Select one or more seasons from the sidebar to view edges and analyze betting opportunities.")
+        st.info(
+            "💡 Select one or more seasons from the sidebar to view edges and analyze betting opportunities."
+        )
         st.stop()
 
     if "season" in edges_view.columns:
@@ -1020,8 +1057,8 @@ def render_app() -> None:
     if "p_model_shrunk" not in edges_view.columns:
         edges_view["p_model_shrunk"] = edges_view.get("model_p")
     edges_view["shrink_pct"] = (
-        (edges_view.get("model_p") - edges_view.get("p_model_shrunk")).fillna(0.0) * 100.0
-    )
+        edges_view.get("model_p") - edges_view.get("p_model_shrunk")
+    ).fillna(0.0) * 100.0
     edges_view["decimal_odds"] = edges_view.get("odds").apply(safe_decimal_from_american)
 
     # Numeric defaults to avoid NA-related crashes in compute_confidence
@@ -1040,16 +1077,20 @@ def render_app() -> None:
 
     # Apply freshness filters in order: upcoming -> staleness
     import datetime
+
     current_time = datetime.datetime.now(datetime.timezone.utc)
 
     # Filter 1: Hide past games by commence_time (UTC)
     if hide_past_games and "commence_time" in edges_view.columns:
+
         def is_upcoming_game(commence_time):
             if pd.isna(commence_time) or commence_time is None:
                 return True  # Keep games without commence_time
             try:
                 if isinstance(commence_time, str):
-                    game_time = datetime.datetime.fromisoformat(commence_time.replace('Z', '+00:00'))
+                    game_time = datetime.datetime.fromisoformat(
+                        commence_time.replace("Z", "+00:00")
+                    )
                 else:
                     game_time = pd.to_datetime(commence_time, utc=True)
                 return game_time >= current_time
@@ -1064,12 +1105,13 @@ def render_app() -> None:
 
     # Filter 2: Optional staleness filter (only if toggle enabled)
     if stale_odds_toggle and "updated_at" in edges_view.columns:
+
         def is_fresh_odds(updated_at):
             if pd.isna(updated_at) or updated_at is None:
                 return False  # Remove odds without update time
             try:
                 if isinstance(updated_at, str):
-                    update_time = datetime.datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                    update_time = datetime.datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
                 else:
                     update_time = pd.to_datetime(updated_at, utc=True)
                 delta_minutes = (current_time - update_time).total_seconds() / 60.0
@@ -1107,11 +1149,13 @@ def render_app() -> None:
     if only_generous:
         edges_view = edges_view.loc[edges_view["def_tier"] == "generous"]
     if show_best_only:
-        edges_view = edges_view.sort_values("ev_per_dollar", ascending=False).drop_duplicates([
-            "event_id",
-            "player",
-            "market",
-        ])
+        edges_view = edges_view.sort_values("ev_per_dollar", ascending=False).drop_duplicates(
+            [
+                "event_id",
+                "player",
+                "market",
+            ]
+        )
 
     ctx_main = context_key("edges", "main")
 
@@ -1230,7 +1274,9 @@ def render_app() -> None:
         else:
             col1, col2, col3 = st.columns([1, 1, 2])
             show_stingy = col1.checkbox("Only vs stingy defenses", value=False, key="pos_stingy")
-            show_generous = col2.checkbox("Only vs generous defenses", value=False, key="pos_generous")
+            show_generous = col2.checkbox(
+                "Only vs generous defenses", value=False, key="pos_generous"
+            )
             preset_choice = col3.selectbox(
                 "Preset filters",
                 ["None", "RB unders vs top-5 stingy run D", "WR unders vs top-5 stingy WR D"],
@@ -1250,7 +1296,9 @@ def render_app() -> None:
 
                     if subset.empty:
                         st.info(f"No {position_name} edges available with current filters.")
-                        render_empty_explainer(edges_view, filters_base, database_path, False, ctx_pos)
+                        render_empty_explainer(
+                            edges_view, filters_base, database_path, False, ctx_pos
+                        )
                         continue
 
                     render_header_with_badge(position_name, subset, ctx_pos)
@@ -1525,7 +1573,9 @@ def render_app() -> None:
             view, consensus = build_line_shopping_table(odds_raw, row)
             if view.empty:
                 continue
-            label = f"{row.get('player')} · {row.get('market')} · {row.get('line')} ({row.get('book')})"
+            label = (
+                f"{row.get('player')} · {row.get('market')} · {row.get('line')} ({row.get('book')})"
+            )
             with st.expander(label):
                 consensus_parts = []
                 for side, val in consensus.items():
@@ -1558,7 +1608,9 @@ def render_app() -> None:
         else:
             st.dataframe(alerts, width="stretch")
 
-        st.caption("Exports are saved under storage/exports/. Use jobs/export_bi.py for BI snapshots.")
+        st.caption(
+            "Exports are saved under storage/exports/. Use jobs/export_bi.py for BI snapshots."
+        )
 
 
 if __name__ == "__main__":

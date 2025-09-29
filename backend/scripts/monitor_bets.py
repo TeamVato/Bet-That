@@ -23,7 +23,7 @@ def monitor_bets():
         print(f"Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("=" * 60)
 
-        pending = [bet for bet in bets if bet.get('status') == 'pending']
+        pending = [bet for bet in bets if bet.get("status") == "pending"]
         if pending:
             print(f"\n📊 ACTIVE BETS ({len(pending)})")
             for bet in pending:
@@ -34,8 +34,8 @@ def monitor_bets():
         else:
             print("\n📭 No active bets")
 
-        total_stake = sum(bet['stake'] for bet in bets)
-        total_potential = sum(bet['potential_payout'] for bet in pending)
+        total_stake = sum(bet["stake"] for bet in bets)
+        total_potential = sum(bet["potential_payout"] for bet in pending)
 
         print("\n💰 EXPOSURE")
         print(f"  Total at risk: ${total_stake:.2f}")

@@ -15,17 +15,17 @@ def get_edges():
 
 def place_bet(edge: dict, stake: float = 50):
     """Simulate placing a bet based on an edge"""
-    game_id = edge['id'].replace('edge_', '')
-    selection = 'UNDER' if 'UNDER' in edge['recommendation'] else 'OVER'
+    game_id = edge["id"].replace("edge_", "")
+    selection = "UNDER" if "UNDER" in edge["recommendation"] else "OVER"
 
     bet_data = {
         "game_id": game_id,
         "market": "total",
         "selection": selection,
-        "line": edge['line'],
+        "line": edge["line"],
         "odds": -110,
         "stake": stake,
-        "bookmaker": edge['bookmaker'],
+        "bookmaker": edge["bookmaker"],
     }
 
     print(f"\n📝 Placing bet: {edge['game']}")
@@ -38,7 +38,7 @@ def place_bet(edge: dict, stake: float = 50):
         result = response.json()
         print(f"   ✅ SUCCESS - Bet ID: {result['bet']['id']}")
         print(f"   Potential payout: ${result['bet']['potential_payout']}")
-        return result['bet']
+        return result["bet"]
 
     print(f"   ❌ FAILED: {response.text}")
     return None
@@ -54,8 +54,8 @@ def view_bet_slip():
     print("MY BET SLIP")
     print("=" * 60)
 
-    if data['bets']:
-        for bet in data['bets']:
+    if data["bets"]:
+        for bet in data["bets"]:
             print(f"\n{bet['game_name']}")
             print(f"  {bet['selection']} {bet['line']} @ {bet['bookmaker']}")
             print(f"  Stake: ${bet['stake']} → Potential: ${bet['potential_payout']}")
@@ -79,7 +79,7 @@ def main():
 
     print("\nFetching available edges...")
     edges_response = get_edges()
-    edges = edges_response.get('edges', [])
+    edges = edges_response.get("edges", [])
 
     print(f"Found {len(edges)} edges available")
 

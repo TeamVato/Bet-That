@@ -118,7 +118,9 @@ class StrategyEngine:
         """QB TD Over 0.5 - 90% historical win rate."""
         edges: List[Dict[str, object]] = []
 
-        name_col = self.find_column(df, ["name", "player", "player_name", "full_name"], "player_name")
+        name_col = self.find_column(
+            df, ["name", "player", "player_name", "full_name"], "player_name"
+        )
         position_col = self.find_column(df, ["position", "pos", "player_position"], "position")
         team_col = self.find_column(df, ["team", "team_abbr", "current_team", "off_team"], "team")
         rz_col = self.find_column(
@@ -141,7 +143,9 @@ class StrategyEngine:
         if qb_df.empty:
             qb_df = df.copy()
 
-        qb_df = qb_df.drop_duplicates(subset=[col for col in [name_col, team_col] if col]).reset_index(drop=True)
+        qb_df = qb_df.drop_duplicates(
+            subset=[col for col in [name_col, team_col] if col]
+        ).reset_index(drop=True)
 
         rz_threshold = self._quantile_threshold(qb_df[rz_col], 0.65, 4.0)
         td_threshold = self._quantile_threshold(qb_df[td_col], 0.6, 1.0)
@@ -158,7 +162,10 @@ class StrategyEngine:
             name = self._clean_string(qb.get(name_col), "Unknown")
             team = self._clean_string(qb.get(team_col), "?") if team_col else "?"
 
-            confidence = min(0.95, 0.68 + (rz_attempts - rz_threshold) * 0.025 + (recent_tds - td_threshold) * 0.04)
+            confidence = min(
+                0.95,
+                0.68 + (rz_attempts - rz_threshold) * 0.025 + (recent_tds - td_threshold) * 0.04,
+            )
             confidence = max(0.5, confidence * self.freshness_score)
             expected_value = 0.08 + min(0.05, (rz_attempts - rz_threshold) * 0.01)
 
@@ -199,7 +206,9 @@ class StrategyEngine:
             ["name", "player", "player_name", "runner", "rusher", "full_name"],
             "player_name",
         )
-        team_col = self.find_column(filtered_df, ["team", "team_abbr", "current_team", "off_team"], "team")
+        team_col = self.find_column(
+            filtered_df, ["team", "team_abbr", "current_team", "off_team"], "team"
+        )
         box_col = self.find_column(
             filtered_df,
             [
@@ -291,7 +300,9 @@ class StrategyEngine:
         """WR Receiving Under - focuses on volume inefficiency."""
         edges: List[Dict[str, object]] = []
 
-        name_col = self.find_column(df, ["name", "player", "player_name", "full_name"], "player_name")
+        name_col = self.find_column(
+            df, ["name", "player", "player_name", "full_name"], "player_name"
+        )
         position_col = self.find_column(df, ["position", "pos", "player_position"], "position")
         team_col = self.find_column(df, ["team", "team_abbr", "current_team", "off_team"], "team")
         targets_col = self.find_column(df, ["targets", "total_targets", "tgts"], "wr.targets")
@@ -300,9 +311,13 @@ class StrategyEngine:
             ["catch_rate", "reception_percentage", "receptions_per_target", "catch_pct"],
             "wr.catch_rate",
         )
-        air_yards_col = self.find_column(df, ["air_yards", "air_yards_share", "ay_share"], "wr.air_yards")
+        air_yards_col = self.find_column(
+            df, ["air_yards", "air_yards_share", "ay_share"], "wr.air_yards"
+        )
 
-        missing = [col for col in [name_col, position_col, targets_col, catch_rate_col] if col is None]
+        missing = [
+            col for col in [name_col, position_col, targets_col, catch_rate_col] if col is None
+        ]
         if missing:
             print(f"  - WR Under strategy missing required columns: {missing}")
             return edges
@@ -311,7 +326,9 @@ class StrategyEngine:
         if wr_df.empty:
             return edges
 
-        wr_df = wr_df.drop_duplicates(subset=[col for col in [name_col, team_col] if col]).reset_index(drop=True)
+        wr_df = wr_df.drop_duplicates(
+            subset=[col for col in [name_col, team_col] if col]
+        ).reset_index(drop=True)
 
         wr_df[catch_rate_col] = pd.to_numeric(wr_df[catch_rate_col], errors="coerce")
         if wr_df[catch_rate_col].max(skipna=True) and wr_df[catch_rate_col].max() > 1.5:
@@ -327,9 +344,13 @@ class StrategyEngine:
             air_yards_optional = True
 
         target_threshold = self._quantile_threshold(wr_df[targets_col], 0.7, 6.0)
-        catch_rate_threshold = self._quantile_threshold(wr_df[catch_rate_col], 0.35, 0.62, clamp_low=False)
+        catch_rate_threshold = self._quantile_threshold(
+            wr_df[catch_rate_col], 0.35, 0.62, clamp_low=False
+        )
         if air_yards_col is not None and not air_yards_optional:
-            air_yards_threshold = self._quantile_threshold(wr_df[air_yards_col], 0.35, 45.0, clamp_low=False)
+            air_yards_threshold = self._quantile_threshold(
+                wr_df[air_yards_col], 0.35, 45.0, clamp_low=False
+            )
         else:
             air_yards_threshold = None
 
@@ -359,16 +380,31 @@ class StrategyEngine:
             catch_penalty = (catch_rate_threshold - catch_rate) if efficiency_flag else 0
             depth_penalty = 0.0
             if air_yards_threshold is not None and air_yards is not None:
-                depth_penalty = max(0, (air_yards_threshold - air_yards) / max(air_yards_threshold, 1.0))
+                depth_penalty = max(
+                    0, (air_yards_threshold - air_yards) / max(air_yards_threshold, 1.0)
+                )
 
-            confidence = 0.6 + (targets - target_threshold) * 0.015 + catch_penalty * 0.12 + depth_penalty * 0.08
+            confidence = (
+                0.6
+                + (targets - target_threshold) * 0.015
+                + catch_penalty * 0.12
+                + depth_penalty * 0.08
+            )
             confidence = min(0.88, max(0.45, confidence)) * self.freshness_score
             expected_value = 0.05 + min(0.04, (targets - target_threshold) * 0.007)
 
             notes_parts = [f"Targets {targets:.1f} vs {target_threshold:.1f}"]
-            notes_parts.append(f"Catch% {catch_rate:.2f} <= {catch_rate_threshold:.2f}" if efficiency_flag else f"Catch% {catch_rate:.2f}")
+            notes_parts.append(
+                f"Catch% {catch_rate:.2f} <= {catch_rate_threshold:.2f}"
+                if efficiency_flag
+                else f"Catch% {catch_rate:.2f}"
+            )
             if air_yards_threshold is not None and air_yards is not None:
-                notes_parts.append(f"Air yards {air_yards:.1f} <= {air_yards_threshold:.1f}" if depth_flag else f"Air yards {air_yards:.1f}")
+                notes_parts.append(
+                    f"Air yards {air_yards:.1f} <= {air_yards_threshold:.1f}"
+                    if depth_flag
+                    else f"Air yards {air_yards:.1f}"
+                )
             elif air_yards_optional:
                 notes_parts.append("Air yards data incomplete")
 
@@ -400,7 +436,9 @@ class StrategyEngine:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def find_column(self, df: pd.DataFrame, possible_names: List[str], canonical: Optional[str] = None) -> Optional[str]:
+    def find_column(
+        self, df: pd.DataFrame, possible_names: List[str], canonical: Optional[str] = None
+    ) -> Optional[str]:
         """Find column by canonical mapping or fallback names."""
         if canonical and canonical in self.column_map:
             mapped_col = self.column_map[canonical]["column"]
@@ -474,7 +512,9 @@ class StrategyEngine:
             return None
 
     @staticmethod
-    def _quantile_threshold(series: pd.Series, quantile: float, fallback: float, clamp_low: bool = True) -> float:
+    def _quantile_threshold(
+        series: pd.Series, quantile: float, fallback: float, clamp_low: bool = True
+    ) -> float:
         values = pd.to_numeric(series, errors="coerce").dropna()
         if values.empty:
             return float(fallback)
@@ -485,7 +525,9 @@ class StrategyEngine:
             return float(min(threshold, fallback * 1.15))
         return threshold
 
-    def _limit_edges(self, strategy_name: str, edges: List[Dict[str, object]]) -> List[Dict[str, object]]:
+    def _limit_edges(
+        self, strategy_name: str, edges: List[Dict[str, object]]
+    ) -> List[Dict[str, object]]:
         config = self.configs[strategy_name]
         edges.sort(key=lambda edge: edge.get("confidence", 0), reverse=True)
         return edges[: config.max_edges]

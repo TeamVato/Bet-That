@@ -1,26 +1,34 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import json
+import logging
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
+
 import redis.asyncio as redis
-from app.api.endpoints import odds, bets
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.endpoints import bets, odds
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Redis connection on startup
-    app.state.redis = redis.Redis(host='localhost', port=6379, decode_responses=True)
+    app.state.redis = redis.from_url(settings.redis_url, decode_responses=True)
     try:
         await app.state.redis.ping()
-        print("✅ Redis connected successfully")
+        logger.info("Redis connected successfully")
     except Exception as e:
-        print(f"⚠️ Redis connection failed: {e}")
+        logger.warning("Redis connection failed: %s", e)
         app.state.redis = None
     yield
     if app.state.redis:
         await app.state.redis.close()
+
 
 app = FastAPI(title="Bet-That API", version="1.0.0", lifespan=lifespan)
 
@@ -41,16 +49,36 @@ app.add_middleware(
 app.include_router(odds.router, prefix="/api/v1/odds", tags=["odds"])
 app.include_router(bets.router, prefix="/api/v1/bets", tags=["bets"])
 
+
 @app.get("/health")
 async def health_check():
-    redis_status = "connected" if hasattr(app.state, 'redis') and app.state.redis else "disconnected"
+    redis_status = (
+        "connected" if hasattr(app.state, "redis") and app.state.redis else "disconnected"
+    )
     return {"status": "healthy", "service": "bet-that-api", "redis": redis_status}
 
 
 @app.get("/api/edges/current")
 async def get_current_edges() -> Dict[str, Any]:
-    """Serve the current betting edges with safety metadata and summary stats."""
-    edges_path = Path(__file__).resolve().parent.parent / "data" / "edges_current.json"
+    """Return the latest computed betting edges along with beta metadata.
+
+    The endpoint wraps the raw JSON snapshot produced by the strategy pipeline
+    with derived summary statistics and hard-coded beta safety rails. If the
+    underlying data file is missing we attempt to rebuild it once before
+    returning an HTTP 404 so the UI can surface a helpful retry prompt.
+
+    Returns:
+        Dict[str, Any]: Edge payload augmented with summary, disclaimer, and
+        beta/view-only flags consumed by the frontend dashboard.
+
+    Raises:
+        HTTPException: `404` when the source file is missing after a rebuild
+        attempt, or `500` when the JSON payload cannot be parsed.
+    """
+    edges_path = settings.edges_snapshot_path.expanduser()
+    if not edges_path.is_absolute():
+        edges_path = Path.cwd() / edges_path
+    edges_path = edges_path.resolve()
 
     try:
         if not edges_path.exists():
@@ -62,7 +90,9 @@ async def get_current_edges() -> Dict[str, Any]:
             data: Dict[str, Any] = json.load(f)
 
     except FileNotFoundError as exc:  # pragma: no cover - defensive
-        raise HTTPException(status_code=404, detail="No edges available. Run strategy pipeline first.") from exc
+        raise HTTPException(
+            status_code=404, detail="No edges available. Run strategy pipeline first."
+        ) from exc
     except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -89,7 +119,16 @@ async def get_current_edges() -> Dict[str, Any]:
 
 @app.get("/api/edges/validate/{edge_id}")
 async def validate_edge(edge_id: str) -> Dict[str, Any]:
-    """Placeholder validation endpoint for a specific edge during beta."""
+    """Indicate the manual validation status for a particular edge.
+
+    Args:
+        edge_id: Identifier supplied by the frontend (derived from the model).
+
+    Returns:
+        Dict[str, Any]: Lightweight status marker while the program operates in
+        beta mode. Extend this handler to incorporate real validation results
+        once the review workflow is automated.
+    """
     return {
         "edge_id": edge_id,
         "validation_status": "pending",

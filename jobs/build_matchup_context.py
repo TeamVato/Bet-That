@@ -1,4 +1,5 @@
 """Build matchup context artifacts: scheme metrics, injuries, weather, WR/CB notes."""
+
 from __future__ import annotations
 
 import os
@@ -7,15 +8,14 @@ from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
-
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from adapters.injuries import fetch_injuries, persist_injuries
+from adapters.nflverse_provider import get_schedules
 from adapters.weather import build_weather, persist_weather
 from adapters.wr_cb_public import attach_event_ids, load_wr_cb_context, persist_wr_cb_context
-from adapters.nflverse_provider import get_schedules
 from db.migrate import migrate, parse_database_url
 from engine.scheme import build_team_week_scheme, persist_team_week_scheme
 

@@ -1,14 +1,15 @@
 """Compute team-level scheme metrics (PROE, early-down pass rate, pace)."""
+
 from __future__ import annotations
 
 import datetime
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 import pandas as pd
-import sqlite3
 
 try:
     import nfl_data_py as nfl
@@ -66,7 +67,9 @@ def _compute_expected_pass(pbp: pd.DataFrame) -> pd.Series:
     working["pass_flag"] = working["pass"].fillna(0).astype(int)
 
     avg = (
-        working.groupby(["down", "ytg_bucket", "yard_bucket"], observed=True)["pass_flag"].mean().rename("expected")
+        working.groupby(["down", "ytg_bucket", "yard_bucket"], observed=True)["pass_flag"]
+        .mean()
+        .rename("expected")
     )
     lookup = avg.to_dict()
 
@@ -80,14 +83,18 @@ def _compute_expected_pass(pbp: pd.DataFrame) -> pd.Series:
 
 def compute_team_week_scheme(pbp: pd.DataFrame, config: SchemeConfig | None = None) -> pd.DataFrame:
     if pbp.empty:
-        return pd.DataFrame(columns=["team", "season", "week", "proe", "ed_pass_rate", "pace", "plays"])
+        return pd.DataFrame(
+            columns=["team", "season", "week", "proe", "ed_pass_rate", "pace", "plays"]
+        )
 
     cfg = config or SchemeConfig(seasons=sorted(pbp["season"].dropna().unique()))
     working = pbp.copy()
     working = working.dropna(subset=["posteam", "season", "week", "down"])
     working = working[working["down"].isin(cfg.neutral_downs)]
     if working.empty:
-        return pd.DataFrame(columns=["team", "season", "week", "proe", "ed_pass_rate", "pace", "plays"])
+        return pd.DataFrame(
+            columns=["team", "season", "week", "proe", "ed_pass_rate", "pace", "plays"]
+        )
 
     working["down"] = working["down"].astype(int)
     working["ydstogo"] = pd.to_numeric(working["ydstogo"], errors="coerce")
@@ -110,17 +117,27 @@ def compute_team_week_scheme(pbp: pd.DataFrame, config: SchemeConfig | None = No
         early_pass = pd.Series(dtype=float)
     else:
         early_pass = (
-            early.groupby(["posteam", "season", "week"], observed=True)["pass_flag"].mean().rename("ed_pass_rate")
+            early.groupby(["posteam", "season", "week"], observed=True)["pass_flag"]
+            .mean()
+            .rename("ed_pass_rate")
         )
 
     # Pace calculation: seconds per offensive play converted to plays per minute
     pace_df = pbp.copy()
-    pace_df = pace_df.dropna(subset=["game_id", "posteam", "season", "week", "game_seconds_remaining"])
-    pace_df = pace_df.sort_values(["game_id", "posteam", "game_seconds_remaining"], ascending=[True, True, False])
-    pace_df["next_sec"] = pace_df.groupby(["game_id", "posteam"]) ["game_seconds_remaining"].shift(1)
+    pace_df = pace_df.dropna(
+        subset=["game_id", "posteam", "season", "week", "game_seconds_remaining"]
+    )
+    pace_df = pace_df.sort_values(
+        ["game_id", "posteam", "game_seconds_remaining"], ascending=[True, True, False]
+    )
+    pace_df["next_sec"] = pace_df.groupby(["game_id", "posteam"])["game_seconds_remaining"].shift(1)
     pace_df["seconds_elapsed"] = pace_df["next_sec"] - pace_df["game_seconds_remaining"]
     pace_df = pace_df[(pace_df["seconds_elapsed"] > 0) & (pace_df["seconds_elapsed"] < 90)]
-    pace_group = pace_df.groupby(["posteam", "season", "week"], observed=True)["seconds_elapsed"].mean().rename("avg_sp")
+    pace_group = (
+        pace_df.groupby(["posteam", "season", "week"], observed=True)["seconds_elapsed"]
+        .mean()
+        .rename("avg_sp")
+    )
     pace = (60 / pace_group).rename("pace")
 
     result = (

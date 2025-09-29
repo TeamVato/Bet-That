@@ -1,4 +1,5 @@
 """Edges data endpoints"""
+
 from __future__ import annotations
 
 import json
@@ -30,29 +31,30 @@ def _load_edges_file() -> Dict[str, Any]:
                     return json.load(fh)
             except json.JSONDecodeError as exc:  # pragma: no cover - defensive
                 raise HTTPException(status_code=500, detail=f"Invalid edges data: {exc}") from exc
-    raise HTTPException(status_code=404, detail="edges_current.json not found. Run the strategy pipeline.")
-
+    raise HTTPException(
+        status_code=404, detail="edges_current.json not found. Run the strategy pipeline."
+    )
 
 
 def _normalize_edge(raw: Dict[str, Any]) -> Dict[str, Any]:
     normalized: Dict[str, Any] = dict(raw)
-    normalized['type'] = str(raw.get('type') or 'Unknown Edge')
-    normalized['player'] = str(raw.get('player') or 'Unknown Player')
-    normalized['team'] = str(raw.get('team') or 'Unknown Team')
-    normalized['opponent'] = raw.get('opponent') or None
-    normalized['confidence'] = _coerce_float(raw.get('confidence'), 0.0)
-    normalized['expected_value'] = _coerce_float(raw.get('expected_value'), 0.0)
-    normalized['line'] = raw.get('line') or None
-    normalized['odds'] = raw.get('odds') or None
-    normalized['reasoning'] = raw.get('reasoning') or None
-    normalized['notes'] = raw.get('notes') or None
+    normalized["type"] = str(raw.get("type") or "Unknown Edge")
+    normalized["player"] = str(raw.get("player") or "Unknown Player")
+    normalized["team"] = str(raw.get("team") or "Unknown Team")
+    normalized["opponent"] = raw.get("opponent") or None
+    normalized["confidence"] = _coerce_float(raw.get("confidence"), 0.0)
+    normalized["expected_value"] = _coerce_float(raw.get("expected_value"), 0.0)
+    normalized["line"] = raw.get("line") or None
+    normalized["odds"] = raw.get("odds") or None
+    normalized["reasoning"] = raw.get("reasoning") or None
+    normalized["notes"] = raw.get("notes") or None
     return normalized
 
 
 def _build_edge_summary(edges: List[Dict[str, Any]]) -> Dict[str, int]:
     summary: Dict[str, int] = {}
     for edge in edges:
-        edge_type = str(edge.get('type') or 'Unknown Edge')
+        edge_type = str(edge.get("type") or "Unknown Edge")
         summary[edge_type] = summary.get(edge_type, 0) + 1
     return summary
 
@@ -64,10 +66,13 @@ def _coerce_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
-def _build_summary(edges: list[Dict[str, Any]], data_quality: float, generated: str | None) -> Dict[str, Any]:
+def _build_summary(
+    edges: list[Dict[str, Any]], data_quality: float, generated: str | None
+) -> Dict[str, Any]:
     avg_confidence = _coerce_float(
         sum(_coerce_float(edge.get("confidence"), 0.0) for edge in edges) / len(edges)
-        if edges else 0.0
+        if edges
+        else 0.0
     )
 
     generated_at = generated or datetime.utcnow().isoformat()
@@ -87,7 +92,9 @@ async def get_current_edges() -> Dict[str, Any]:
 
     edges = data.get("edges", [])
     if not isinstance(edges, list):
-        raise HTTPException(status_code=500, detail="Edges payload malformed: 'edges' must be a list")
+        raise HTTPException(
+            status_code=500, detail="Edges payload malformed: 'edges' must be a list"
+        )
 
     normalized_edges = [_normalize_edge(edge) for edge in edges if isinstance(edge, dict)]
 

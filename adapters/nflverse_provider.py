@@ -1,4 +1,5 @@
 """Helpers for working with nflverse data via nfl_data_py."""
+
 from __future__ import annotations
 
 import time
@@ -13,7 +14,6 @@ except ImportError:  # pragma: no cover - handled gracefully
     nfl = None  # type: ignore
 
 from adapters.stats_provider import import_weekly_stats
-
 
 SCHEDULE_COLUMNS = [
     "game_id",
@@ -50,6 +50,7 @@ def _empty_schedule() -> pd.DataFrame:
 
 def _empty_logs() -> pd.DataFrame:
     return pd.DataFrame(columns=PLAYER_LOG_COLUMNS)
+
 
 SCHEDULE_CACHE_PATH = Path("storage/imports/nflverse_schedules_cache.csv")
 
@@ -129,9 +130,7 @@ def get_schedules(seasons: Iterable[int]) -> pd.DataFrame:
             break
         except Exception as exc:  # pragma: no cover - network failure
             last_exc = exc
-            print(
-                f"Failed to download schedules (attempt {attempt}/{attempts}): {exc}"
-            )
+            print(f"Failed to download schedules (attempt {attempt}/{attempts}): {exc}")
             if attempt < attempts:
                 time.sleep(wait_seconds)
                 wait_seconds *= 2
@@ -152,7 +151,9 @@ def get_schedules(seasons: Iterable[int]) -> pd.DataFrame:
         remote_seasons = set(df_remote.get("season", pd.Series(dtype=int)).dropna().astype(int))
         missing = set(seasons) - remote_seasons
         if missing:
-            cached_missing = cached[cached["season"].isin(missing)] if "season" in cached.columns else cached
+            cached_missing = (
+                cached[cached["season"].isin(missing)] if "season" in cached.columns else cached
+            )
             if not cached_missing.empty:
                 combined = pd.concat([df_remote, cached_missing], ignore_index=True, sort=False)
             else:

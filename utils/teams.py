@@ -1,4 +1,5 @@
 """Utilities for normalizing NFL team codes and event metadata."""
+
 from __future__ import annotations
 
 from typing import Optional, Tuple

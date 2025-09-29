@@ -1,4 +1,5 @@
 """Production-grade scheduled odds import from The Odds API with comprehensive monitoring."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,7 +10,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -55,7 +56,9 @@ class PipelineMetrics:
             "keys_exhausted": self.keys_exhausted,
             "errors_count": len(self.errors),
             "warnings_count": len(self.warnings),
-            "throughput_rows_per_second": round(self.odds_rows_fetched / duration, 2) if duration > 0 else 0,
+            "throughput_rows_per_second": (
+                round(self.odds_rows_fetched / duration, 2) if duration > 0 else 0
+            ),
             "success_rate": 1.0 if len(self.errors) == 0 else 0.0,
         }
 
@@ -79,7 +82,9 @@ class PipelineMetrics:
 class OddsImportPipeline:
     """Production-grade pipeline for importing odds from The Odds API."""
 
-    def __init__(self, config: Optional[TheOddsAPIConfig] = None, database_path: Optional[Path] = None):
+    def __init__(
+        self, config: Optional[TheOddsAPIConfig] = None, database_path: Optional[Path] = None
+    ):
         self.config = config or TheOddsAPIConfig.from_env()
         self.database_path = database_path or self._get_database_path()
         self.client: Optional[TheOddsAPIClient] = None
@@ -101,9 +106,7 @@ class OddsImportPipeline:
             file_handler.setLevel(logging.DEBUG)
 
             # Create formatter
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             console_handler.setFormatter(formatter)
             file_handler.setFormatter(formatter)
 
@@ -121,9 +124,7 @@ class OddsImportPipeline:
         """Initialize the Odds API client with proper error handling."""
         try:
             self.client = TheOddsAPIClient(self.config)
-            self.logger.info(
-                f"Initialized API client with {len(self.config.api_keys)} keys"
-            )
+            self.logger.info(f"Initialized API client with {len(self.config.api_keys)} keys")
 
             # Log initial key pool status
             status = self.client.get_key_pool_status()
@@ -171,7 +172,9 @@ class OddsImportPipeline:
 
             # Log data quality metrics
             unique_events = df["event_id"].nunique() if "event_id" in df.columns else 0
-            unique_bookmakers = df["bookmaker_key"].nunique() if "bookmaker_key" in df.columns else 0
+            unique_bookmakers = (
+                df["bookmaker_key"].nunique() if "bookmaker_key" in df.columns else 0
+            )
             unique_markets = df["market_key"].nunique() if "market_key" in df.columns else 0
 
             self.logger.info(
@@ -317,7 +320,7 @@ class OddsImportPipeline:
 
 def create_cron_job_script() -> None:
     """Create a cron-compatible script for scheduled execution."""
-    script_content = '''#!/usr/bin/env bash
+    script_content = """#!/usr/bin/env bash
 set -euo pipefail
 
 # Production odds import cron script
@@ -346,7 +349,7 @@ if [ $? -ne 0 ]; then
     echo "ERROR: Odds import failed at $(date)" >> storage/logs/cron_errors.log
     # Add your alerting mechanism here (email, Slack, etc.)
 fi
-'''
+"""
 
     script_path = Path("scripts/cron_odds_import.sh")
     script_path.parent.mkdir(parents=True, exist_ok=True)
@@ -463,7 +466,10 @@ def main():
 
         # Save detailed metrics if requested
         if args.save_metrics:
-            metrics_file = Path("storage/metrics") / f"odds_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            metrics_file = (
+                Path("storage/metrics")
+                / f"odds_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            )
             metrics_file.parent.mkdir(parents=True, exist_ok=True)
 
             with open(metrics_file, "w") as f:

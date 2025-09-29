@@ -177,7 +177,9 @@ def test_weekly_report_outputs_and_flags(tmp_path, monkeypatch):
     effective_flags = tmp_path / "flags.effective.yaml"
 
     with manual_flags.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump({"overrides": {}, "meta": {"managed_by": "manual", "updated_at": ""}}, handle)
+        yaml.safe_dump(
+            {"overrides": {}, "meta": {"managed_by": "manual", "updated_at": ""}}, handle
+        )
 
     monkeypatch.setenv("SLACK_WEBHOOK_URL", "")
 
@@ -238,7 +240,9 @@ def test_weekly_report_p0_exits(monkeypatch, tmp_path):
     alert_cache = tmp_path / "alerts.json"
 
     with manual_flags.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump({"overrides": {}, "meta": {"managed_by": "manual", "updated_at": ""}}, handle)
+        yaml.safe_dump(
+            {"overrides": {}, "meta": {"managed_by": "manual", "updated_at": ""}}, handle
+        )
 
     # Expect SystemExit because severity escalates to P0
     args = [
