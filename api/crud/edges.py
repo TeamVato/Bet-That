@@ -1,12 +1,12 @@
 """CRUD operations for Edge model"""
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, asc, desc, func, or_
+from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session, joinedload
 
-from ..models import Edge, EdgeStatus, Event
+from ..models import Edge, EdgeStatus
 from ..schemas import EdgeCreateRequest, EdgeUpdateRequest
 from .base import CRUDBase
 
@@ -22,7 +22,7 @@ class CRUDEdge(CRUDBase[Edge, EdgeCreateRequest, EdgeUpdateRequest]):
             .filter(
                 and_(
                     self.model.status == EdgeStatus.ACTIVE,
-                    self.model.is_stale == False,
+                    self.model.is_stale.is_(False),
                     self.model.deleted_at.is_(None),
                     self.model.edge_percentage >= min_edge_percentage,
                     or_(self.model.expires_at.is_(None), self.model.expires_at > datetime.utcnow()),
@@ -112,7 +112,7 @@ class CRUDEdge(CRUDBase[Edge, EdgeCreateRequest, EdgeUpdateRequest]):
         query = db.query(self.model).filter(
             and_(
                 self.model.status == EdgeStatus.ACTIVE,
-                self.model.is_stale == False,
+                self.model.is_stale.is_(False),
                 self.model.deleted_at.is_(None),
                 self.model.kelly_fraction >= min_kelly,
                 or_(self.model.expires_at.is_(None), self.model.expires_at > datetime.utcnow()),
@@ -164,7 +164,7 @@ class CRUDEdge(CRUDBase[Edge, EdgeCreateRequest, EdgeUpdateRequest]):
 
         if "active_only" in search_filters and search_filters["active_only"]:
             query = query.filter(
-                and_(self.model.status == EdgeStatus.ACTIVE, self.model.is_stale == False)
+                and_(self.model.status == EdgeStatus.ACTIVE, self.model.is_stale.is_(False))
             )
 
         return query.order_by(desc(self.model.edge_percentage)).offset(skip).limit(limit).all()
@@ -215,7 +215,7 @@ class CRUDEdge(CRUDBase[Edge, EdgeCreateRequest, EdgeUpdateRequest]):
             .filter(
                 and_(
                     self.model.status == EdgeStatus.ACTIVE,
-                    self.model.is_stale == False,
+                    self.model.is_stale.is_(False),
                     self.model.deleted_at.is_(None),
                 )
             )
@@ -235,7 +235,7 @@ class CRUDEdge(CRUDBase[Edge, EdgeCreateRequest, EdgeUpdateRequest]):
             .filter(
                 and_(
                     self.model.status == EdgeStatus.ACTIVE,
-                    self.model.is_stale == False,
+                    self.model.is_stale.is_(False),
                     self.model.deleted_at.is_(None),
                 )
             )

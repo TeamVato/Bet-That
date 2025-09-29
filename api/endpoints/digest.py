@@ -100,7 +100,7 @@ async def list_subscriptions(
         query = db.query(DigestSubscription)
 
         if active_only:
-            query = query.filter(DigestSubscription.is_active == True)
+            query = query.filter(DigestSubscription.is_active.is_(True))
 
         subscriptions = query.all()
 

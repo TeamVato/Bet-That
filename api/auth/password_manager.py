@@ -172,6 +172,91 @@ def verify_password(plain_password: str, hashed_password: str, salt: Optional[st
         return False
 
 
+def _validate_password_length(password: str) -> tuple[bool, list[str]]:
+    """Check password length requirements"""
+    errors = []
+    if len(password) < PasswordConfig.MIN_LENGTH:
+        errors.append(f"Password must be at least {PasswordConfig.MIN_LENGTH} characters long")
+    elif len(password) > PasswordConfig.MAX_LENGTH:
+        errors.append(f"Password must be no more than {PasswordConfig.MAX_LENGTH} characters long")
+    return len(errors) == 0, errors
+
+
+def _validate_character_requirements(password: str) -> tuple[dict[str, bool], list[str]]:
+    """Check character type requirements"""
+    errors = []
+    checks = {
+        "uppercase": True,
+        "lowercase": True,
+        "digits": True,
+        "special_chars": True,
+    }
+
+    if PasswordConfig.REQUIRE_UPPERCASE and not re.search(r"[A-Z]", password):
+        errors.append("Password must contain at least one uppercase letter")
+        checks["uppercase"] = False
+
+    if PasswordConfig.REQUIRE_LOWERCASE and not re.search(r"[a-z]", password):
+        errors.append("Password must contain at least one lowercase letter")
+        checks["lowercase"] = False
+
+    if PasswordConfig.REQUIRE_DIGITS and not re.search(r"\d", password):
+        errors.append("Password must contain at least one digit")
+        checks["digits"] = False
+
+    if PasswordConfig.REQUIRE_SPECIAL_CHARS and not re.search(
+        f"[{re.escape(PasswordConfig.SPECIAL_CHARS)}]", password
+    ):
+        errors.append(
+            f"Password must contain at least one special character: {PasswordConfig.SPECIAL_CHARS}"
+        )
+        checks["special_chars"] = False
+
+    return checks, errors
+
+
+def _validate_password_patterns(password: str) -> tuple[dict[str, bool], list[str]]:
+    """Check for common password patterns and forbidden words"""
+    errors = []
+    checks = {
+        "not_common": True,
+        "no_personal_info": True,
+    }
+
+    # Common password check
+    if password.lower() in PasswordConfig.FORBIDDEN_PASSWORDS:
+        errors.append("Password is too common and easily guessable")
+        checks["not_common"] = False
+
+    # Sequential characters check
+    if re.search(r"(.)\1{2,}", password):  # 3+ repeated chars
+        errors.append("Password cannot contain 3 or more repeated characters")
+        checks["no_personal_info"] = False
+
+    return checks, errors
+
+
+def _calculate_password_score(password: str, base_checks: dict[str, bool]) -> float:
+    """Calculate password strength score"""
+    score = sum(base_checks.values()) / len(base_checks) * 100
+
+    # Additional scoring factors
+    if len(password) >= 12:
+        score += 10
+    if len(password) >= 16:
+        score += 10
+    if re.search(r"[A-Z].*[A-Z]", password):  # Multiple uppercase
+        score += 5
+    if re.search(r"[0-9].*[0-9]", password):  # Multiple digits
+        score += 5
+    if (
+        len(re.findall(f"[{re.escape(PasswordConfig.SPECIAL_CHARS)}]", password)) >= 2
+    ):  # Multiple special chars
+        score += 5
+
+    return min(score, 100)  # Cap at 100
+
+
 def validate_password_strength(password: str) -> Dict[str, Any]:
     """Validate password meets security requirements
 
@@ -191,92 +276,29 @@ def validate_password_strength(password: str) -> Dict[str, Any]:
             raise PasswordTooWeakError("; ".join(simple_result["errors"]))
         return simple_result
 
-    errors = []
-    checks = {
-        "length": False,
-        "uppercase": False,
-        "lowercase": False,
-        "digits": False,
-        "special_chars": False,
-        "not_common": False,
-        "no_personal_info": False,
-    }
+    # Validate all requirements
+    length_valid, length_errors = _validate_password_length(password)
+    char_checks, char_errors = _validate_character_requirements(password)
+    pattern_checks, pattern_errors = _validate_password_patterns(password)
 
-    # Length check
-    if len(password) < PasswordConfig.MIN_LENGTH:
-        errors.append(f"Password must be at least {PasswordConfig.MIN_LENGTH} characters long")
-    elif len(password) > PasswordConfig.MAX_LENGTH:
-        errors.append(f"Password must be no more than {PasswordConfig.MAX_LENGTH} characters long")
-    else:
-        checks["length"] = True
+    # Combine all checks and errors
+    all_errors = length_errors + char_errors + pattern_errors
+    all_checks = {"length": length_valid, **char_checks, **pattern_checks}
 
-    # Character type checks
-    if PasswordConfig.REQUIRE_UPPERCASE and not re.search(r"[A-Z]", password):
-        errors.append("Password must contain at least one uppercase letter")
-    else:
-        checks["uppercase"] = True
-
-    if PasswordConfig.REQUIRE_LOWERCASE and not re.search(r"[a-z]", password):
-        errors.append("Password must contain at least one lowercase letter")
-    else:
-        checks["lowercase"] = True
-
-    if PasswordConfig.REQUIRE_DIGITS and not re.search(r"\d", password):
-        errors.append("Password must contain at least one digit")
-    else:
-        checks["digits"] = True
-
-    if PasswordConfig.REQUIRE_SPECIAL_CHARS and not re.search(
-        f"[{re.escape(PasswordConfig.SPECIAL_CHARS)}]", password
-    ):
-        errors.append(
-            f"Password must contain at least one special character: {PasswordConfig.SPECIAL_CHARS}"
-        )
-    else:
-        checks["special_chars"] = True
-
-    # Common password check
-    if password.lower() in PasswordConfig.FORBIDDEN_PASSWORDS:
-        errors.append("Password is too common and easily guessable")
-    else:
-        checks["not_common"] = True
-
-    # Sequential characters check
-    if re.search(r"(.)\1{2,}", password):  # 3+ repeated chars
-        errors.append("Password cannot contain 3 or more repeated characters")
-    else:
-        checks["no_personal_info"] = True
-
-    # Calculate strength score (0-100)
-    score = sum(checks.values()) / len(checks) * 100
-
-    # Additional scoring factors
-    if len(password) >= 12:
-        score += 10
-    if len(password) >= 16:
-        score += 10
-    if re.search(r"[A-Z].*[A-Z]", password):  # Multiple uppercase
-        score += 5
-    if re.search(r"[0-9].*[0-9]", password):  # Multiple digits
-        score += 5
-    if (
-        len(re.findall(f"[{re.escape(PasswordConfig.SPECIAL_CHARS)}]", password)) >= 2
-    ):  # Multiple special chars
-        score += 5
-
-    score = min(score, 100)  # Cap at 100
+    # Calculate score
+    score = _calculate_password_score(password, all_checks)
 
     validation_result = {
-        "is_valid": len(errors) == 0,
+        "is_valid": len(all_errors) == 0,
         "score": score,
-        "errors": errors,
-        "checks": checks,
+        "errors": all_errors,
+        "checks": all_checks,
         "strength": _get_strength_label(score),
     }
 
     # Raise exception if validation fails
-    if errors:
-        error_msg = "; ".join(errors)
+    if all_errors:
+        error_msg = "; ".join(all_errors)
         raise PasswordTooWeakError(f"Password validation failed: {error_msg}")
 
     return validation_result

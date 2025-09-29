@@ -234,7 +234,7 @@ class SessionManager:
             .filter(
                 and_(
                     UserSession.user_id == user_id,
-                    UserSession.is_active == True,
+                    UserSession.is_active.is_(True),
                     UserSession.expires_at > now,
                 )
             )
@@ -258,7 +258,7 @@ class SessionManager:
                     and_(
                         UserSession.session_id == session_id,
                         UserSession.user_id == user_id,
-                        UserSession.is_active == True,
+                        UserSession.is_active.is_(True),
                     )
                 )
                 .first()
@@ -320,7 +320,7 @@ class SessionManager:
 
             updated_count = (
                 db.query(UserSession)
-                .filter(and_(UserSession.user_id == user_id, UserSession.is_active == True))
+                .filter(and_(UserSession.user_id == user_id, UserSession.is_active.is_(True)))
                 .update({"is_active": False, "revoked_at": now})
             )
 
@@ -350,7 +350,7 @@ class SessionManager:
             # Mark expired sessions as inactive
             updated_count = (
                 db.query(UserSession)
-                .filter(and_(UserSession.expires_at < now, UserSession.is_active == True))
+                .filter(and_(UserSession.expires_at < now, UserSession.is_active.is_(True)))
                 .update({"is_active": False, "revoked_at": now})
             )
 
@@ -437,7 +437,9 @@ class AuthLogger:
         """
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-        query = db.query(AuthLog).filter(and_(AuthLog.success == False, AuthLog.created_at > since))
+        query = db.query(AuthLog).filter(
+            and_(AuthLog.success.is_(False), AuthLog.created_at > since)
+        )
 
         if ip_address:
             query = query.filter(AuthLog.ip_address == ip_address)

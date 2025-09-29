@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import List
+from typing import Dict, List
 
 from sqlalchemy.orm import Session
 

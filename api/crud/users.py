@@ -1,5 +1,6 @@
 """CRUD operations for User model"""
 
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, or_

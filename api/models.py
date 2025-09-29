@@ -1,8 +1,9 @@
 """SQLAlchemy models for existing and new tables"""
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import (
     DECIMAL,
@@ -14,7 +15,6 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -164,9 +164,9 @@ class User(Base):
     )  # basic, enhanced, premium
 
     # Risk management fields
-    max_bet_size = Column(DECIMAL(12, 2), default=1000.00, nullable=False)
-    daily_bet_limit = Column(DECIMAL(12, 2), default=5000.00, nullable=False)
-    monthly_bet_limit = Column(DECIMAL(12, 2), default=50000.00, nullable=False)
+    max_bet_size: Column[Decimal] = Column(DECIMAL(12, 2), default=1000.00, nullable=False)
+    daily_bet_limit: Column[Decimal] = Column(DECIMAL(12, 2), default=5000.00, nullable=False)
+    monthly_bet_limit: Column[Decimal] = Column(DECIMAL(12, 2), default=50000.00, nullable=False)
     risk_tolerance = Column(String(20), default="medium", nullable=False)  # low, medium, high
     auto_kelly_sizing = Column(Boolean, default=False, nullable=False)
     max_kelly_fraction = Column(Float, default=0.25, nullable=False)
@@ -271,8 +271,8 @@ class Edge(Base):
     edge_percentage = Column(Float, nullable=False, index=True)
     expected_value_per_dollar = Column(Float, nullable=False)
     kelly_fraction = Column(Float, nullable=False)
-    recommended_stake = Column(DECIMAL(12, 2), nullable=True)
-    max_stake = Column(DECIMAL(12, 2), nullable=True)
+    recommended_stake: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    max_stake: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
 
     # Model data
     model_probability = Column(Float, nullable=False)
@@ -308,7 +308,7 @@ class Edge(Base):
 
     # Market depth and liquidity
     market_liquidity = Column(String(20), nullable=True)  # high, medium, low
-    bet_limit = Column(DECIMAL(12, 2), nullable=True)
+    bet_limit: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
     overround = Column(Float, nullable=True)
 
     # Tracking metadata
@@ -435,12 +435,12 @@ class Bet(Base):
     side = Column(String(20), nullable=True)  # over/under for totals, home/away for spreads
 
     # Financial data
-    stake = Column(DECIMAL(12, 2), nullable=False)
+    stake: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
     odds_american = Column(Integer, nullable=False)
     odds_decimal = Column(Float, nullable=False)
-    potential_return = Column(DECIMAL(12, 2), nullable=False)
-    actual_return = Column(DECIMAL(12, 2), nullable=True)
-    net_profit = Column(DECIMAL(12, 2), nullable=True)
+    potential_return: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
+    actual_return: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    net_profit: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
 
     # Status tracking
     status = Column(String(50), default=BetStatus.PENDING, nullable=False, index=True)
@@ -457,7 +457,7 @@ class Bet(Base):
     # Edge relationship and analytics
     edge_percentage = Column(Float, nullable=True)
     kelly_fraction_used = Column(Float, nullable=True)
-    expected_value = Column(DECIMAL(12, 2), nullable=True)
+    expected_value: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
 
     # CLV (Closing Line Value) tracking
     clv_cents = Column(Float, nullable=True)
@@ -552,7 +552,7 @@ class Transaction(Base):
     bet_id = Column(Integer, ForeignKey("bets.id"), nullable=True, index=True)
 
     # Financial data
-    amount = Column(DECIMAL(12, 2), nullable=False)
+    amount: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
     currency = Column(String(3), default="USD", nullable=False)
     transaction_type = Column(String(50), nullable=False, index=True)
     status = Column(String(50), default=TransactionStatus.PENDING, nullable=False, index=True)
@@ -568,9 +568,9 @@ class Transaction(Base):
     category = Column(String(50), nullable=True)  # betting, account, bonus, etc.
 
     # Financial reconciliation
-    running_balance = Column(DECIMAL(12, 2), nullable=True)
-    fee_amount = Column(DECIMAL(12, 2), default=0.00, nullable=False)
-    net_amount = Column(DECIMAL(12, 2), nullable=False)  # amount - fee_amount
+    running_balance: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    fee_amount: Column[Decimal] = Column(DECIMAL(12, 2), default=0.00, nullable=False)
+    net_amount: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)  # amount - fee_amount
 
     # Processing information
     processed_at = Column(DateTime, nullable=True)

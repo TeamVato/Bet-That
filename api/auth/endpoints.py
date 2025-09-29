@@ -63,7 +63,7 @@ async def register_user(
     request: UserRegisterRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    client_request: Request = None,
+    client_request: Optional[Request] = None,
 ) -> UserRegisterResponse:
     """Register new user with email and password
 
