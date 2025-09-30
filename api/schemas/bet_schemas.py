@@ -90,10 +90,68 @@ class BetResponse(BaseSchema):
     placed_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
+    # Resolution fields
+    resolved_at: Optional[datetime]
+    resolved_by: Optional[int]
+    resolution_notes: Optional[str]
+    resolution_source: Optional[str]
+    is_disputed: bool
+    dispute_reason: Optional[str]
+    dispute_created_at: Optional[datetime]
+    dispute_resolved_at: Optional[datetime]
+    dispute_resolved_by: Optional[int]
 
 
 class BetListResponse(BaseModel):
     bets: List[BetResponse]
+    total: int
+    page: int
+    per_page: int
+
+
+# BET RESOLUTION SCHEMAS
+
+class BetResolveRequest(BaseModel):
+    """Request schema for resolving a bet"""
+    
+    result: str = Field(..., description="Bet result (win, loss, push, void)")
+    resolution_notes: Optional[str] = Field(default=None, description="Notes about the resolution")
+    resolution_source: Optional[str] = Field(default=None, description="Source of resolution (URL or description)")
+    
+    @validator("result")
+    def validate_result(cls, v):
+        if v not in ["win", "loss", "push", "void"]:
+            raise ValueError("Result must be one of: win, loss, push, void")
+        return v
+
+
+class BetDisputeRequest(BaseModel):
+    """Request schema for disputing a bet resolution"""
+    
+    dispute_reason: str = Field(..., min_length=10, max_length=1000, description="Reason for disputing the resolution")
+
+
+class BetResolutionHistoryResponse(BaseSchema):
+    """Response schema for bet resolution history"""
+    
+    id: int
+    bet_id: int
+    action_type: str
+    previous_status: Optional[str]
+    new_status: Optional[str]
+    previous_result: Optional[str]
+    new_result: Optional[str]
+    resolution_notes: Optional[str]
+    resolution_source: Optional[str]
+    dispute_reason: Optional[str]
+    performed_by: int
+    created_at: datetime
+
+
+class BetResolutionHistoryListResponse(BaseModel):
+    """Response schema for bet resolution history list"""
+    
+    history: List[BetResolutionHistoryResponse]
     total: int
     page: int
     per_page: int
@@ -298,6 +356,61 @@ class PeerBetListResponse(BaseModel):
     """Response schema for peer bet listings"""
 
     bets: List[PeerBetSummaryResponse]
+    total: int
+    page: int
+    per_page: int
+
+
+# ANALYTICS SCHEMAS
+
+class ResolutionAnalytics(BaseModel):
+    """Response schema for resolution analytics"""
+    
+    total_resolutions: int
+    average_resolution_time_hours: float
+    resolution_accuracy_percentage: float
+    outcome_distribution: dict
+    most_active_resolvers: List[dict]
+    resolution_trends: List[dict]
+    dispute_rate: float
+    average_dispute_resolution_time_hours: float
+
+
+class ResolutionHistoryFilters(BaseModel):
+    """Request schema for resolution history filters"""
+    
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    result: Optional[str] = None
+    resolver_id: Optional[int] = None
+    has_dispute: Optional[bool] = None
+    page: Optional[int] = 1
+    per_page: Optional[int] = 20
+
+
+class ResolutionHistoryItem(BaseModel):
+    """Response schema for resolution history item"""
+    
+    id: int
+    bet_id: int
+    game_name: str
+    market: str
+    selection: str
+    result: str
+    resolved_at: str
+    resolved_by: int
+    resolver_name: str
+    resolution_notes: Optional[str] = None
+    is_disputed: bool
+    dispute_reason: Optional[str] = None
+    dispute_resolved_at: Optional[str] = None
+    resolution_time_hours: float
+
+
+class ResolutionHistoryResponse(BaseModel):
+    """Response schema for resolution history list"""
+    
+    history: List[ResolutionHistoryItem]
     total: int
     page: int
     per_page: int

@@ -192,6 +192,241 @@ export async function cancelBet(betId: string): Promise<CancelBetResponse> {
   }
 }
 
+export interface BetResolveRequest {
+  result: "win" | "loss" | "push" | "void";
+  resolution_notes?: string;
+  resolution_source?: string;
+}
+
+export interface BetDisputeRequest {
+  dispute_reason: string;
+}
+
+export interface BetResolutionHistory {
+  id: number;
+  bet_id: number;
+  action_type: string;
+  previous_status?: string;
+  new_status?: string;
+  previous_result?: string;
+  new_result?: string;
+  resolution_notes?: string;
+  resolution_source?: string;
+  dispute_reason?: string;
+  performed_by: number;
+  created_at: string;
+}
+
+export interface BetResolutionHistoryResponse {
+  history: BetResolutionHistory[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export async function resolveBet(betId: string, request: BetResolveRequest): Promise<PlacedBet> {
+  try {
+    const response = await client.post(`/api/v1/bets/${betId}/resolve`, request);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to resolve bet: ${detail}`);
+    }
+    throw new Error("Failed to resolve bet: unexpected error");
+  }
+}
+
+export async function disputeBet(betId: string, request: BetDisputeRequest): Promise<PlacedBet> {
+  try {
+    const response = await client.post(`/api/v1/bets/${betId}/dispute`, request);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to dispute bet: ${detail}`);
+    }
+    throw new Error("Failed to dispute bet: unexpected error");
+  }
+}
+
+export async function getBetResolutionHistory(
+  betId: string,
+  page: number = 1,
+  perPage: number = 10
+): Promise<BetResolutionHistoryResponse> {
+  try {
+    const response = await client.get(
+      `/api/v1/bets/${betId}/resolution-history?page=${page}&per_page=${perPage}`
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to fetch resolution history: ${detail}`);
+    }
+    throw new Error("Failed to fetch resolution history: unexpected error");
+  }
+}
+
+export async function getPendingResolutionBets(
+  page: number = 1,
+  perPage: number = 20
+): Promise<MyBetsResponse> {
+  try {
+    const response = await client.get(
+      `/api/v1/bets/pending-resolution?page=${page}&per_page=${perPage}`
+    );
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to fetch pending bets: ${detail}`);
+    }
+    throw new Error("Failed to fetch pending bets: unexpected error");
+  }
+}
+
+export async function resolveDispute(
+  betId: string,
+  result: "win" | "loss" | "push" | "void",
+  resolutionNotes?: string
+): Promise<PlacedBet> {
+  try {
+    const response = await client.put(`/api/v1/bets/${betId}/resolve-dispute`, {
+      result,
+      resolution_notes: resolutionNotes,
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to resolve dispute: ${detail}`);
+    }
+    throw new Error("Failed to resolve dispute: unexpected error");
+  }
+}
+
+// Analytics interfaces
+export interface ResolutionAnalytics {
+  total_resolutions: number;
+  average_resolution_time_hours: number;
+  resolution_accuracy_percentage: number;
+  outcome_distribution: {
+    win: number;
+    loss: number;
+    push: number;
+    void: number;
+  };
+  most_active_resolvers: Array<{
+    user_id: number;
+    user_name: string;
+    resolution_count: number;
+  }>;
+  resolution_trends: Array<{
+    date: string;
+    resolutions_count: number;
+    average_time_hours: number;
+  }>;
+  dispute_rate: number;
+  average_dispute_resolution_time_hours: number;
+}
+
+export interface ResolutionHistoryFilters {
+  start_date?: string;
+  end_date?: string;
+  result?: string;
+  resolver_id?: number;
+  has_dispute?: boolean;
+  page?: number;
+  per_page?: number;
+}
+
+export interface ResolutionHistoryItem {
+  id: number;
+  bet_id: number;
+  game_name: string;
+  market: string;
+  selection: string;
+  result: string;
+  resolved_at: string;
+  resolved_by: number;
+  resolver_name: string;
+  resolution_notes?: string;
+  is_disputed: boolean;
+  dispute_reason?: string;
+  dispute_resolved_at?: string;
+  resolution_time_hours: number;
+}
+
+export interface ResolutionHistoryResponse {
+  history: ResolutionHistoryItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
+export async function getResolutionAnalytics(): Promise<ResolutionAnalytics> {
+  try {
+    const response = await client.get("/api/v1/analytics/resolution");
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to fetch resolution analytics: ${detail}`);
+    }
+    throw new Error("Failed to fetch resolution analytics: unexpected error");
+  }
+}
+
+export async function getResolutionHistory(
+  filters: ResolutionHistoryFilters = {}
+): Promise<ResolutionHistoryResponse> {
+  try {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    
+    const response = await client.get(`/api/v1/analytics/resolution-history?${params}`);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to fetch resolution history: ${detail}`);
+    }
+    throw new Error("Failed to fetch resolution history: unexpected error");
+  }
+}
+
+export async function exportResolutionData(
+  filters: ResolutionHistoryFilters = {},
+  format: "csv" | "json" = "csv"
+): Promise<Blob> {
+  try {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        params.append(key, value.toString());
+      }
+    });
+    params.append("format", format);
+    
+    const response = await client.get(`/api/v1/analytics/export-resolution-data?${params}`, {
+      responseType: "blob",
+    });
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const detail = error.response?.data?.detail ?? error.message;
+      throw new Error(`Failed to export resolution data: ${detail}`);
+    }
+    throw new Error("Failed to export resolution data: unexpected error");
+  }
+}
+
 export const api = {
   getWeeklyOdds,
   getTokenStatus,
@@ -199,4 +434,12 @@ export const api = {
   placeBet,
   getMyBets,
   cancelBet,
+  resolveBet,
+  disputeBet,
+  getBetResolutionHistory,
+  getPendingResolutionBets,
+  resolveDispute,
+  getResolutionAnalytics,
+  getResolutionHistory,
+  exportResolutionData,
 };

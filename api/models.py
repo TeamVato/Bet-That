@@ -198,7 +198,7 @@ class User(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    bets: Mapped[List["Bet"]] = relationship("Bet", back_populates="user", cascade="all, delete-orphan")
+    bets: Mapped[List["Bet"]] = relationship("Bet", back_populates="user", cascade="all, delete-orphan", foreign_keys="[Bet.user_id]")
     transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
     blacklisted_tokens: Mapped[List["JWTTokenBlacklist"]] = relationship(
         "JWTTokenBlacklist", back_populates="user", cascade="all, delete-orphan"
@@ -466,6 +466,51 @@ class Edge(Base):
         return min(kelly_stake, max_stake)
 
 
+class BetResolutionHistory(Base):
+    """Audit trail for bet resolution actions"""
+
+    __tablename__ = "bet_resolution_history"
+
+    # Primary key
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # Bet relationship
+    bet_id = Column(Integer, ForeignKey("bets.id"), nullable=False, index=True)
+
+    # Action details
+    action_type = Column(String(50), nullable=False, index=True)  # resolve, dispute, dispute_resolve
+    previous_status = Column(String(50), nullable=True)
+    new_status = Column(String(50), nullable=True)
+    previous_result = Column(String(20), nullable=True)
+    new_result = Column(String(20), nullable=True)
+
+    # Resolution details
+    resolution_notes = Column(Text, nullable=True)
+    resolution_source = Column(String(255), nullable=True)
+    dispute_reason = Column(Text, nullable=True)
+
+    # User who performed the action
+    performed_by = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    # Timestamps
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+
+    # Relationships
+    bet: Mapped["Bet"] = relationship("Bet")
+    performer: Mapped["User"] = relationship("User")
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint(
+            "action_type IN ('resolve', 'dispute', 'dispute_resolve')", 
+            name="check_action_type_valid"
+        ),
+        Index("idx_bet_resolution_history_bet_action", "bet_id", "action_type"),
+        Index("idx_bet_resolution_history_performed_by", "performed_by"),
+        Index("idx_bet_resolution_history_created_at", "created_at"),
+    )
+
+
 class Bet(Base):
     """Enhanced Bet model with comprehensive tracking and risk management"""
 
@@ -500,6 +545,17 @@ class Bet(Base):
     result = Column(String(20), nullable=True)  # win, loss, push, void
     settled_at = Column(DateTime, nullable=True)
     graded_at = Column(DateTime, nullable=True)
+    
+    # Resolution tracking
+    resolved_at = Column(DateTime, nullable=True, index=True)
+    resolved_by = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    resolution_notes = Column(Text, nullable=True)
+    resolution_source = Column(String(255), nullable=True)  # URL or description of resolution source
+    is_disputed = Column(Boolean, default=False, nullable=False, index=True)
+    dispute_reason = Column(Text, nullable=True)
+    dispute_created_at = Column(DateTime, nullable=True)
+    dispute_resolved_at = Column(DateTime, nullable=True)
+    dispute_resolved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     # Platform integration
     sportsbook_id = Column(String(100), nullable=False, index=True)
@@ -539,10 +595,13 @@ class Bet(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="bets")
+    user: Mapped["User"] = relationship("User", back_populates="bets", foreign_keys=[user_id])
     edge: Mapped[Optional["Edge"]] = relationship("Edge", back_populates="bets")
     event: Mapped["Event"] = relationship("Event", back_populates="bets")
     transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="bet", cascade="all, delete-orphan")
+    resolver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[resolved_by], post_update=True)
+    dispute_resolver: Mapped[Optional["User"]] = relationship("User", foreign_keys=[dispute_resolved_by], post_update=True)
+    resolution_history: Mapped[List["BetResolutionHistory"]] = relationship("BetResolutionHistory", back_populates="bet", cascade="all, delete-orphan")
 
     # Table constraints and indexes
     __table_args__ = (
@@ -560,6 +619,9 @@ class Bet(Base):
         Index("idx_bets_placed_at", "placed_at"),
         Index("idx_bets_edge_id", "edge_id"),
         Index("idx_bets_deleted", "deleted_at"),
+        Index("idx_bets_resolved_at", "resolved_at"),
+        Index("idx_bets_resolved_by", "resolved_by"),
+        Index("idx_bets_is_disputed", "is_disputed"),
         UniqueConstraint("external_bet_id", "sportsbook_id", name="uq_external_bet_sportsbook"),
     )
 

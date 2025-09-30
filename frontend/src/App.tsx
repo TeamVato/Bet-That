@@ -3,6 +3,9 @@ import Dashboard from "./pages/Dashboard";
 import MyBets from "./pages/MyBets";
 import Digest from "./pages/Digest";
 import Account from "./pages/Account";
+import ResolutionAnalytics from "./pages/ResolutionAnalytics";
+import ResolutionHistory from "./pages/ResolutionHistory";
+import BetDetails from "./pages/BetDetails";
 import Footer from "./components/Footer";
 import { DISCLAIMER } from "./utils/constants";
 
@@ -26,6 +29,12 @@ function Header() {
             className={({ isActive }) => (isActive ? "underline" : "")}
           >
             My Bets
+          </NavLink>
+          <NavLink
+            to="/resolution-analytics"
+            className={({ isActive }) => (isActive ? "underline" : "")}
+          >
+            Analytics
           </NavLink>
           <NavLink
             to="/digest"
@@ -53,6 +62,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/bets" element={<MyBets />} />
+          <Route path="/bets/:betId" element={<BetDetails />} />
+          <Route path="/resolution-analytics" element={<ResolutionAnalytics />} />
+          <Route path="/resolution-history" element={<ResolutionHistory />} />
           <Route path="/digest" element={<Digest />} />
           <Route path="/account" element={<Account />} />
         </Routes>

@@ -3,12 +3,16 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useCreateBet, useMyBets } from "@/hooks/useBets";
 import Toast from "@/components/Toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   BETA_VIEW_ONLY,
   BETA_DISCLAIMER,
   BETA_WARNING_TITLE,
 } from "@/config/beta";
+import { BetList } from "@/components/BetCard";
+import { useRealTimeUpdates, BetResolutionUpdate } from "@/hooks/useRealTimeUpdates";
+import { useToastNotifications, createBetResolutionNotification } from "@/components/Notifications/ToastNotification";
+import { PlacedBet } from "@/services/api";
 
 const BetSchema = z.object({
   game_id: z.string().min(3),
@@ -24,12 +28,43 @@ export default function MyBets() {
   const viewOnly = BETA_VIEW_ONLY;
   const safetyNotice = BETA_DISCLAIMER;
   const bannerTitle = BETA_WARNING_TITLE;
-  const { data: bets } = useMyBets();
+  const { data: bets, refetch } = useMyBets();
   const createBet = useCreateBet();
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
+  
+  // Real-time updates
+  const { notifications, addNotification, removeNotification } = useToastNotifications();
+  const [localBets, setLocalBets] = useState<PlacedBet[]>(bets?.bets || []);
+  
+  // Handle real-time bet updates
+  const handleBetUpdate = (update: BetResolutionUpdate) => {
+    // Update local bets state
+    setLocalBets(prev => prev.map(bet => 
+      bet.id === update.data.bet_id 
+        ? { ...bet, status: update.data.status, settled_at: update.data.updated_at }
+        : bet
+    ));
+    
+    // Show toast notification
+    const notification = createBetResolutionNotification(update);
+    addNotification(notification);
+    
+    // Refetch data to ensure consistency
+    refetch();
+  };
+  
+  // Use real-time updates
+  const { isConnected } = useRealTimeUpdates(undefined, handleBetUpdate);
+  
+  // Update local bets when data changes
+  useEffect(() => {
+    if (bets?.bets) {
+      setLocalBets(bets.bets);
+    }
+  }, [bets]);
 
   const {
     register,
@@ -69,6 +104,45 @@ export default function MyBets() {
 
   return (
     <section className="space-y-6">
+      {/* Toast Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed right-4 top-4 z-50 space-y-2">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className="max-w-sm w-full bg-white rounded-lg border border-gray-200 p-4 shadow-lg"
+            >
+              <div className="flex items-start">
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-gray-900">
+                    {notification.title}
+                  </h4>
+                  <p className="mt-1 text-sm text-gray-600">
+                    {notification.message}
+                  </p>
+                  {notification.action && (
+                    <div className="mt-3">
+                      <button
+                        onClick={notification.action.onClick}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        {notification.action.label}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="ml-4 text-gray-400 hover:text-gray-600"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
       <h1 className="text-xl font-semibold">My Bets</h1>
 
       {viewOnly && (
@@ -160,25 +234,39 @@ export default function MyBets() {
       </div>
 
       <div className="card p-4">
-        <h2 className="font-medium mb-3">Recent Bets</h2>
-        {!bets?.length ? (
-          <div className="text-sm text-gray-600">No bets yet.</div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium">My Bets</h2>
+          <div className="flex items-center space-x-2">
+            <div className={`
+              px-2 py-1 rounded-full text-xs font-medium
+              ${isConnected 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+              }
+            `}>
+              {isConnected ? '🟢 Live' : '🔴 Offline'}
+            </div>
+            <span className="text-sm text-gray-600">
+              {localBets.length} bet{localBets.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+        
+        {localBets.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">No bets yet.</p>
+            <p className="text-sm text-gray-500 mt-1">Create your first bet above!</p>
+          </div>
         ) : (
-          <ul className="space-y-2 text-sm">
-            {bets.map((b: any) => (
-              <li
-                key={b.id}
-                className="border rounded-lg p-2 flex justify-between"
-              >
-                <span>
-                  {b.game_id} — {b.market} — {b.selection}
-                </span>
-                <span>
-                  {b.stake} @ {b.odds}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <BetList 
+            bets={localBets} 
+            onBetUpdate={(updatedBet) => {
+              setLocalBets(prev => prev.map(bet => 
+                bet.id === updatedBet.id ? updatedBet : bet
+              ));
+            }}
+            showFilters={true}
+          />
         )}
       </div>
     </section>

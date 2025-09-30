@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, Union
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -15,6 +15,12 @@ from ..schemas import (
     UserRegistrationRequest,
     UserRegistrationResponse,
 )
+from ..schemas.bet_schemas import (
+    BetDisputeRequest,
+    BetResolveRequest,
+    BetResolutionHistoryListResponse,
+)
+from ..services.bet_service import BetService
 
 
 def get_model_value(model: Union[User, Bet], field: str) -> Any:
@@ -59,6 +65,16 @@ def build_bet_response(bet: Bet) -> BetResponse:
         placed_at=get_model_value(bet, "placed_at"),
         created_at=get_model_value(bet, "created_at"),
         updated_at=get_model_value(bet, "updated_at"),
+        # Resolution fields
+        resolved_at=get_model_value(bet, "resolved_at"),
+        resolved_by=get_model_value(bet, "resolved_by"),
+        resolution_notes=get_model_value(bet, "resolution_notes"),
+        resolution_source=get_model_value(bet, "resolution_source"),
+        is_disputed=get_model_value(bet, "is_disputed"),
+        dispute_reason=get_model_value(bet, "dispute_reason"),
+        dispute_created_at=get_model_value(bet, "dispute_created_at"),
+        dispute_resolved_at=get_model_value(bet, "dispute_resolved_at"),
+        dispute_resolved_by=get_model_value(bet, "dispute_resolved_by"),
     )
 
 router = APIRouter()
@@ -197,3 +213,215 @@ async def get_user_bets(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user bets: {str(e)}")
+
+
+# BET RESOLUTION ENDPOINTS
+
+@router.post("/bets/{bet_id}/resolve", response_model=BetResponse, tags=["bets"])
+async def resolve_bet(
+    bet_id: int,
+    request: BetResolveRequest,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> BetResponse:
+    """
+    Resolve a bet
+    
+    Allows bet creator to resolve their bet with a result.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # Get user ID
+        db_user = db.query(User).filter(User.external_id == user["external_id"]).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Resolve bet using service
+        bet_service = BetService(db)
+        resolved_bet = bet_service.resolve_bet(
+            bet_id=bet_id,
+            request=request,
+            user_id=db_user.id,
+        )
+
+        return resolved_bet
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resolve bet: {str(e)}")
+
+
+@router.post("/bets/{bet_id}/dispute", response_model=BetResponse, tags=["bets"])
+async def dispute_bet_resolution(
+    bet_id: int,
+    request: BetDisputeRequest,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> BetResponse:
+    """
+    Dispute a bet resolution
+    
+    Allows bet creator to dispute the resolution of their bet.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # Get user ID
+        db_user = db.query(User).filter(User.external_id == user["external_id"]).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Dispute bet using service
+        bet_service = BetService(db)
+        disputed_bet = bet_service.dispute_bet_resolution(
+            bet_id=bet_id,
+            request=request,
+            user_id=db_user.id,
+        )
+
+        return disputed_bet
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to dispute bet: {str(e)}")
+
+
+@router.get("/bets/{bet_id}/resolution-history", response_model=BetResolutionHistoryListResponse, tags=["bets"])
+async def get_bet_resolution_history(
+    bet_id: int,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=100, description="Items per page"),
+) -> BetResolutionHistoryListResponse:
+    """
+    Get resolution history for a bet
+    
+    Returns audit trail of all resolution actions for a bet.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # Get resolution history using service
+        bet_service = BetService(db)
+        history = bet_service.get_resolution_history(
+            bet_id=bet_id,
+            page=page,
+            per_page=per_page,
+        )
+
+        return history
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get resolution history: {str(e)}")
+
+
+@router.get("/bets/disputed", response_model=BetListResponse, tags=["bets"])
+async def get_disputed_bets(
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=100, description="Items per page"),
+) -> BetListResponse:
+    """
+    Get all disputed bets (admin only)
+    
+    Returns list of all bets that have been disputed.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # TODO: Add admin role validation
+        # For now, any authenticated user can view disputed bets
+
+        # Get disputed bets using service
+        bet_service = BetService(db)
+        disputed_bets = bet_service.get_disputed_bets(
+            page=page,
+            per_page=per_page,
+        )
+
+        return disputed_bets
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get disputed bets: {str(e)}")
+
+
+@router.get("/bets/pending-resolution", response_model=BetListResponse, tags=["bets"])
+async def get_pending_resolution_bets(
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    page: int = Query(1, ge=1, description="Page number"),
+    per_page: int = Query(50, ge=1, le=100, description="Items per page"),
+) -> BetListResponse:
+    """
+    Get bets pending resolution
+    
+    Returns list of all bets that are pending resolution.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # Get pending resolution bets using service
+        bet_service = BetService(db)
+        pending_bets = bet_service.get_pending_resolution_bets(
+            page=page,
+            per_page=per_page,
+        )
+
+        return pending_bets
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get pending resolution bets: {str(e)}")
+
+
+@router.put("/bets/{bet_id}/resolve-dispute", response_model=BetResponse, tags=["bets"])
+async def resolve_bet_dispute(
+    bet_id: int,
+    user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    new_result: str = Query(..., description="New result for the bet"),
+    resolution_notes: str = Query(None, description="Notes about the dispute resolution"),
+) -> BetResponse:
+    """
+    Resolve a bet dispute (admin only)
+    
+    Allows admin to resolve a disputed bet with a new result.
+    """
+    try:
+        if not user or not user.get("external_id"):
+            raise HTTPException(status_code=401, detail="User not authenticated")
+
+        # Get user ID
+        db_user = db.query(User).filter(User.external_id == user["external_id"]).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # TODO: Add admin role validation
+        # For now, any authenticated user can resolve disputes
+
+        # Resolve dispute using service
+        bet_service = BetService(db)
+        resolved_bet = bet_service.resolve_dispute(
+            bet_id=bet_id,
+            new_result=new_result,
+            resolution_notes=resolution_notes,
+            admin_user_id=db_user.id,
+        )
+
+        return resolved_bet
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to resolve dispute: {str(e)}")

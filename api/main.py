@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .auth import endpoints as auth_endpoints
 from .database import init_database
-from .endpoints import bets, digest, edges, enhanced_edges, health, odds, peer_bet_routes, users
+from .endpoints import bets, digest, edges, enhanced_edges, health, odds, peer_bet_routes, users, websocket, analytics
 from .errors import add_error_handlers
 from .settings import settings
 from .utils.logging_middleware import LoggingMiddleware
@@ -98,11 +98,13 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(auth_endpoints.router, tags=["Authentication"])
 app.include_router(odds.router, prefix="/odds", tags=["Odds"])
 app.include_router(bets.router, prefix="/me", tags=["User Bets"])
+app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 app.include_router(digest.router, prefix="/digest", tags=["Digest"])
 app.include_router(edges.router)
 app.include_router(enhanced_edges.router)
 app.include_router(users.router)
 app.include_router(peer_bet_routes.router)
+app.include_router(websocket.router, tags=["WebSocket"])
 
 
 @app.get("/")
