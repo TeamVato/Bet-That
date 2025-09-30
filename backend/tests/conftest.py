@@ -3,9 +3,16 @@
 import sqlite3
 import tempfile
 from pathlib import Path
+from typing import Generator
 
 import pandas as pd
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from api.database import Base, get_db
+from api.main import app
 
 
 @pytest.fixture
@@ -103,3 +110,50 @@ def odds_database(temp_db):
     con.close()
 
     return temp_db
+
+
+@pytest.fixture
+def test_db() -> Generator[Session, None, None]:
+    """Create a test database session for FastAPI testing"""
+    # Create temporary database
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = Path(tmp.name)
+
+    # Create engine and session
+    engine = create_engine(f"sqlite:///{db_path}", echo=False)
+    Base.metadata.create_all(bind=engine)
+
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    session = TestingSessionLocal()
+
+    try:
+        yield session
+    finally:
+        session.close()
+        # Cleanup
+        if db_path.exists():
+            db_path.unlink()
+
+
+def override_get_db(test_db: Session):
+    """Override get_db dependency for testing"""
+
+    def _override():
+        try:
+            yield test_db
+        finally:
+            pass  # Session management handled by fixture
+
+    return _override
+
+
+@pytest.fixture
+def client(test_db: Session) -> TestClient:
+    """Create a test client with overridden database dependency"""
+    app.dependency_overrides[get_db] = override_get_db(test_db)
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    # Clean up overrides
+    app.dependency_overrides.clear()

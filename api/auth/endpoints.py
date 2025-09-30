@@ -1,7 +1,8 @@
 """Authentication endpoints for JWT-based authentication
 
 Provides login, logout, token refresh, password reset, and email verification
-endpoints with comprehensive security features.
+endpoints with comprehensive security features including new registration and
+username-based login.
 """
 
 import logging
@@ -12,11 +13,20 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from ..auth_schemas import (
+    AuthResponse,
+    RegistrationResponse,
+    UserLoginRequest,
+    UserRegistrationRequest,
+    UserResponse,
+)
 from ..database import get_db
 from ..models import User, UserStatus
+from ..services.auth_service import AuthService
 from ..settings import settings
 from .dependencies import CurrentUser, get_client_ip, verify_jwt_token
 from .exceptions import (
+    EmailAlreadyExistsError,
     EmailNotVerifiedError,
     InvalidCredentialsError,
     PasswordTooWeakError,
@@ -26,6 +36,7 @@ from .exceptions import (
     TokenInvalidError,
     TokenRevokedError,
     UserInactiveError,
+    UsernameAlreadyExistsError,
     UserNotFoundError,
 )
 from .jwt_auth import (
@@ -58,12 +69,121 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserRegisterResponse)
+# Enhanced registration endpoint with username support
+@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
+async def register_user_enhanced(
+    registration_data: UserRegistrationRequest,
+    client_request: Request,
+    db: Session = Depends(get_db),
+) -> RegistrationResponse:
+    """Register a new user account with username support
+
+    Creates new user account with email and username validation.
+    Requires email verification before account activation.
+    """
+    client_ip = get_client_ip(client_request)
+
+    try:
+        # Check rate limiting
+        security_manager.check_auth_rate_limit(client_ip)
+
+        # Create auth service
+        auth_service = AuthService(db)
+
+        # Register user
+        result = auth_service.register_user(registration_data)
+
+        # Record successful registration
+        security_manager.record_successful_auth(client_ip, registration_data.email)
+
+        return result
+
+    except (EmailAlreadyExistsError, UsernameAlreadyExistsError) as e:
+        # Record failed attempt
+        security_manager.rate_limiter.record_attempt(f"register:{client_ip}")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except PasswordTooWeakError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except RateLimitExceededError:
+        raise
+    except Exception as e:
+        logger.error(f"Registration failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Registration failed"
+        )
+
+
+# Enhanced login endpoint with username support
+@router.post("/login", response_model=AuthResponse)
+async def login_user_enhanced(
+    login_data: UserLoginRequest, client_request: Request, db: Session = Depends(get_db)
+) -> AuthResponse:
+    """Authenticate user with email or username
+
+    Validates credentials and returns JWT tokens for authentication.
+    Supports both email and username login.
+    """
+    client_ip = get_client_ip(client_request)
+
+    try:
+        # Check rate limiting
+        security_manager.check_auth_rate_limit(client_ip, login_data.email_or_username)
+
+        # Create auth service
+        auth_service = AuthService(db)
+
+        # Authenticate user
+        result = auth_service.login_user(login_data)
+
+        # Record successful login
+        security_manager.record_successful_auth(client_ip, login_data.email_or_username)
+
+        return result
+
+    except InvalidCredentialsError as e:
+        # Record failed attempt
+        security_manager.rate_limiter.record_attempt(f"login:{login_data.email_or_username}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except (UserInactiveError, EmailNotVerifiedError) as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+    except RateLimitExceededError:
+        raise
+    except Exception as e:
+        logger.error(f"Login failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed"
+        )
+
+
+# Enhanced current user endpoint
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_enhanced(
+    current_user: CurrentUser, db: Session = Depends(get_db)
+) -> UserResponse:
+    """Get current authenticated user information
+
+    Returns comprehensive user profile data for the authenticated user.
+    """
+    try:
+        auth_service = AuthService(db)
+        return auth_service.get_user_by_id(current_user.id)
+    except UserNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to get current user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve user information",
+        )
+
+
+# Legacy registration endpoint for backward compatibility
+@router.post("/register-legacy", response_model=UserRegisterResponse)
 async def register_user(
     request: UserRegisterRequest,
+    client_request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    client_request: Optional[Request] = None,
 ) -> UserRegisterResponse:
     """Register new user with email and password
 
@@ -150,8 +270,8 @@ async def register_user(
         )
 
 
-@router.post("/login", response_model=LoginResponse)
-async def login_user(
+@router.post("/login-form", response_model=LoginResponse)
+async def login_user_form(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
@@ -546,8 +666,8 @@ async def resend_email_verification(
         )
 
 
-@router.get("/me")
-async def get_current_user_info(current_user: CurrentUser) -> dict:
+@router.get("/me-legacy")
+async def get_current_user_info_legacy(current_user: CurrentUser) -> dict:
     """Get current authenticated user information
 
     Returns user profile and authentication status.

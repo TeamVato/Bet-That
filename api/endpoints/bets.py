@@ -1,22 +1,18 @@
 """User bet tracking endpoints"""
 
-from datetime import datetime
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..deps import get_current_user
-from ..models import User, UserBet
+from ..models import Bet, User
 from ..schemas import (
-    UserBetCreateRequest,
-    UserBetResponse,
-    UserBetsListResponse,
+    BetCreateRequest,
+    BetListResponse,
+    BetResponse,
     UserRegistrationRequest,
     UserRegistrationResponse,
 )
-from ..utils.odds_conversion import american_to_decimal
 
 router = APIRouter()
 
@@ -65,9 +61,9 @@ async def register_user(request: UserRegistrationRequest, db: Session = Depends(
         raise HTTPException(status_code=500, detail=f"Failed to register user: {str(e)}")
 
 
-@router.post("/bets", response_model=UserBetResponse, tags=["bets"])
+@router.post("/bets", response_model=BetResponse, tags=["bets"])
 async def create_user_bet(
-    request: UserBetCreateRequest,
+    request: BetCreateRequest,
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -87,7 +83,7 @@ async def create_user_bet(
             raise HTTPException(status_code=404, detail="User not registered")
 
         # Create bet entry
-        new_bet = UserBet(
+        new_bet = Bet(
             user_id=db_user.id,
             external_user_id=user["external_id"],
             game_id=request.game_id,
@@ -102,7 +98,7 @@ async def create_user_bet(
         db.commit()
         db.refresh(new_bet)
 
-        return UserBetResponse(
+        return BetResponse(
             id=new_bet.id,
             game_id=new_bet.game_id,
             market=new_bet.market,
@@ -121,7 +117,7 @@ async def create_user_bet(
         raise HTTPException(status_code=500, detail=f"Failed to create bet: {str(e)}")
 
 
-@router.get("/bets", response_model=UserBetsListResponse, tags=["bets"])
+@router.get("/bets", response_model=BetListResponse, tags=["bets"])
 async def get_user_bets(
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -139,9 +135,9 @@ async def get_user_bets(
 
         # Query user bets
         bets_query = (
-            db.query(UserBet)
-            .filter(UserBet.external_user_id == user["external_id"])
-            .order_by(UserBet.created_at.desc())
+            db.query(Bet)
+            .filter(Bet.external_user_id == user["external_id"])
+            .order_by(Bet.created_at.desc())
         )
 
         total_count = bets_query.count()
@@ -150,7 +146,7 @@ async def get_user_bets(
         bet_responses = []
         for bet in bets:
             bet_responses.append(
-                UserBetResponse(
+                BetResponse(
                     id=bet.id,
                     game_id=bet.game_id,
                     market=bet.market,
@@ -165,7 +161,7 @@ async def get_user_bets(
                 )
             )
 
-        return UserBetsListResponse(bets=bet_responses, total=total_count)
+        return BetListResponse(bets=bet_responses, total=total_count)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user bets: {str(e)}")

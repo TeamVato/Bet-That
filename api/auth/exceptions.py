@@ -88,3 +88,17 @@ class RefreshTokenError(AuthenticationError):
 
     def __init__(self, detail: str = "Invalid refresh token"):
         super().__init__(detail=detail)
+
+
+class EmailAlreadyExistsError(HTTPException):
+    """Raised when email is already registered"""
+
+    def __init__(self, detail: str = "Email address is already registered"):
+        super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+class UsernameAlreadyExistsError(HTTPException):
+    """Raised when username is already taken"""
+
+    def __init__(self, detail: str = "Username is already taken"):
+        super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)

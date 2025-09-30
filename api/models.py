@@ -23,6 +23,9 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy.sql import func
 
 from .database import Base
+from .enums.betting_enums import BetCategory
+from .enums.betting_enums import BetStatus as PeerBetStatus
+from .enums.betting_enums import BetType, OutcomeStatus, ParticipantStatus
 
 
 # Enums for type safety
@@ -144,7 +147,9 @@ class User(Base):
 
     # Authentication fields
     email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(30), unique=True, nullable=True, index=True)  # Added for registration
     password_hash = Column(String(255), nullable=True)  # For future local auth
+    salt = Column(String(64), nullable=True)  # Added for PBKDF2 compatibility
     email_verified = Column(Boolean, default=False, nullable=False)
     email_verified_at = Column(DateTime, nullable=True)
 
@@ -152,8 +157,10 @@ class User(Base):
     name = Column(String(255), nullable=True)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
+    date_of_birth = Column(DateTime, nullable=True)  # Added for registration
     timezone = Column(String(50), default="UTC", nullable=False)
     phone = Column(String(20), nullable=True)
+    phone_number = Column(String(20), nullable=True)  # Added for consistency
 
     # Account status and verification
     status = Column(String(50), default=UserStatus.PENDING_VERIFICATION, nullable=False)
@@ -194,6 +201,14 @@ class User(Base):
     )
     auth_logs = relationship("AuthLog", back_populates="user", cascade="all, delete-orphan")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+
+    # Peer-to-peer betting relationships
+    created_peer_bets = relationship(
+        "PeerBet", back_populates="creator", cascade="all, delete-orphan"
+    )
+    peer_bet_participations = relationship(
+        "PeerBetParticipant", back_populates="user", cascade="all, delete-orphan"
+    )
 
     # Table constraints
     __table_args__ = (
@@ -238,6 +253,21 @@ class User(Base):
         if not self.is_active or self.is_deleted():
             return False
         return amount <= float(self.max_bet_size)
+
+    @property
+    def total_peer_bets_created(self) -> int:
+        """Count of peer bets created by this user"""
+        return len(self.created_peer_bets)
+
+    @property
+    def total_peer_bets_participated(self) -> int:
+        """Count of peer bets this user has participated in"""
+        return len(self.peer_bet_participations)
+
+    @property
+    def active_peer_participations(self) -> list:
+        """Get user's active peer bet participations"""
+        return [p for p in self.peer_bet_participations if p.status == ParticipantStatus.ACTIVE]
 
 
 class Edge(Base):
@@ -535,6 +565,234 @@ class Bet(Base):
     def is_deleted(self) -> bool:
         """Check if bet is soft deleted"""
         return self.deleted_at is not None
+
+
+# PEER-TO-PEER BETTING MODELS
+class PeerBet(Base):
+    """Core peer-to-peer bet entity representing a wager between users"""
+
+    __tablename__ = "peer_bets"
+
+    # Primary Information
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(200), nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), default=BetCategory.OTHER, nullable=False, index=True)
+    bet_type = Column(String(50), default=BetType.BINARY, nullable=False, index=True)
+
+    # Creator Information
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    # Betting Parameters
+    minimum_stake = Column(DECIMAL(12, 2), nullable=False)
+    maximum_stake = Column(DECIMAL(12, 2), nullable=True)
+    total_stake_pool = Column(DECIMAL(12, 2), default=0.00, nullable=False)
+    participant_limit = Column(Integer, nullable=True)
+    current_participants = Column(Integer, default=0, nullable=False)
+
+    # Timing
+    created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+    starts_at = Column(DateTime, nullable=True, index=True)  # When betting opens
+    locks_at = Column(DateTime, nullable=True, index=True)  # When betting closes
+    resolves_at = Column(DateTime, nullable=True, index=True)  # Expected resolution
+    resolved_at = Column(DateTime, nullable=True)  # Actual resolution
+
+    # Status and Configuration
+    status = Column(String(50), default=PeerBetStatus.DRAFT, nullable=False, index=True)
+    is_public = Column(Boolean, default=True, nullable=False, index=True)
+    requires_approval = Column(Boolean, default=False, nullable=False)
+    auto_resolve = Column(Boolean, default=False, nullable=False)
+
+    # Outcome Management
+    possible_outcomes = Column(Text, nullable=False)  # JSON string of possible outcomes
+    winning_outcome = Column(String(255), nullable=True)
+    outcome_source = Column(Text, nullable=True)  # URL or description of outcome source
+
+    # Platform Configuration
+    platform_fee_percentage = Column(DECIMAL(5, 2), default=5.0, nullable=False)
+    creator_fee_percentage = Column(DECIMAL(5, 2), default=0.0, nullable=False)
+
+    # Metadata
+    tags = Column(Text, nullable=True)  # JSON array of tags
+    external_reference = Column(String(255), nullable=True)  # External event/game ID
+    notes = Column(String(500), nullable=True)
+
+    # Audit fields
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    creator = relationship("User", back_populates="created_peer_bets")
+    participants = relationship(
+        "PeerBetParticipant", back_populates="bet", cascade="all, delete-orphan"
+    )
+    outcomes = relationship("PeerBetOutcome", back_populates="bet", cascade="all, delete-orphan")
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("minimum_stake > 0", name="check_peer_bet_min_stake_positive"),
+        CheckConstraint(
+            "maximum_stake IS NULL OR maximum_stake >= minimum_stake",
+            name="check_peer_bet_max_stake_valid",
+        ),
+        CheckConstraint(
+            "participant_limit IS NULL OR participant_limit >= 2",
+            name="check_peer_bet_participant_limit_valid",
+        ),
+        CheckConstraint(
+            "platform_fee_percentage >= 0 AND platform_fee_percentage <= 100",
+            name="check_peer_bet_platform_fee_valid",
+        ),
+        CheckConstraint(
+            "creator_fee_percentage >= 0 AND creator_fee_percentage <= 100",
+            name="check_peer_bet_creator_fee_valid",
+        ),
+        CheckConstraint("total_stake_pool >= 0", name="check_peer_bet_total_stake_non_negative"),
+        CheckConstraint(
+            "current_participants >= 0", name="check_peer_bet_current_participants_non_negative"
+        ),
+        Index("idx_peer_bets_creator_status", "creator_id", "status"),
+        Index("idx_peer_bets_category_status", "category", "status"),
+        Index("idx_peer_bets_public_active", "is_public", "status"),
+        Index("idx_peer_bets_locks_at", "locks_at"),
+        Index("idx_peer_bets_resolves_at", "resolves_at"),
+        Index("idx_peer_bets_deleted", "deleted_at"),
+    )
+
+    @property
+    def is_active(self) -> bool:
+        """Check if bet is currently accepting participants"""
+        now = datetime.now(timezone.utc)
+        return (
+            self.status == PeerBetStatus.ACTIVE
+            and (self.starts_at is None or self.starts_at <= now)
+            and (self.locks_at is None or self.locks_at > now)
+            and (
+                self.participant_limit is None or self.current_participants < self.participant_limit
+            )
+        )
+
+    @property
+    def is_locked(self) -> bool:
+        """Check if bet is locked (no new participants)"""
+        now = datetime.now(timezone.utc)
+        return self.status in [PeerBetStatus.LOCKED, PeerBetStatus.COMPLETED] or (
+            self.locks_at is not None and self.locks_at <= now
+        )
+
+    @property
+    def can_be_resolved(self) -> bool:
+        """Check if bet can be resolved"""
+        return (
+            self.status == PeerBetStatus.LOCKED
+            and self.current_participants >= 2
+            and (self.resolves_at is None or self.resolves_at <= datetime.now(timezone.utc))
+        )
+
+    def is_deleted(self) -> bool:
+        """Check if peer bet is soft deleted"""
+        return self.deleted_at is not None
+
+
+class PeerBetOutcome(Base):
+    """Individual outcomes for a peer bet (e.g., Team A wins, Team B wins)"""
+
+    __tablename__ = "peer_bet_outcomes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bet_id = Column(Integer, ForeignKey("peer_bets.id"), nullable=False, index=True)
+
+    # Outcome Details
+    name = Column(String(100), nullable=False)
+    description = Column(String(500), nullable=True)
+    odds = Column(DECIMAL(8, 2), nullable=True)
+
+    # Betting Pool for this outcome
+    total_stakes = Column(DECIMAL(12, 2), default=0.00, nullable=False)
+    participant_count = Column(Integer, default=0, nullable=False)
+
+    # Resolution
+    status = Column(String(50), default=OutcomeStatus.PENDING, nullable=False, index=True)
+    probability = Column(DECIMAL(6, 4), nullable=True)
+
+    # Metadata
+    order_index = Column(Integer, default=0, nullable=False)  # For display ordering
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    # Relationships
+    bet = relationship("PeerBet", back_populates="outcomes")
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("odds IS NULL OR odds >= 1.0", name="check_peer_bet_outcome_odds_valid"),
+        CheckConstraint(
+            "probability IS NULL OR (probability >= 0.0 AND probability <= 1.0)",
+            name="check_peer_bet_outcome_probability_valid",
+        ),
+        CheckConstraint(
+            "total_stakes >= 0", name="check_peer_bet_outcome_total_stakes_non_negative"
+        ),
+        CheckConstraint(
+            "participant_count >= 0", name="check_peer_bet_outcome_participant_count_non_negative"
+        ),
+        Index("idx_peer_bet_outcomes_bet_status", "bet_id", "status"),
+        Index("idx_peer_bet_outcomes_order", "bet_id", "order_index"),
+    )
+
+
+class PeerBetParticipant(Base):
+    """User participation in a specific peer bet"""
+
+    __tablename__ = "peer_bet_participants"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bet_id = Column(Integer, ForeignKey("peer_bets.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+
+    # Participation Details
+    chosen_outcome = Column(String(255), nullable=False)  # The outcome they're betting on
+    stake_amount = Column(DECIMAL(12, 2), nullable=False)
+    potential_payout = Column(DECIMAL(12, 2), nullable=False)
+
+    # Status and Timing
+    status = Column(String(50), default=ParticipantStatus.ACTIVE, nullable=False, index=True)
+    joined_at = Column(DateTime, default=func.now(), nullable=False, index=True)
+    withdrawn_at = Column(DateTime, nullable=True)
+    paid_out_at = Column(DateTime, nullable=True)
+
+    # Payout Information
+    actual_payout = Column(DECIMAL(12, 2), nullable=True)
+    platform_fee = Column(DECIMAL(12, 2), nullable=True)
+    creator_fee = Column(DECIMAL(12, 2), nullable=True)
+
+    # Relationships
+    bet = relationship("PeerBet", back_populates="participants")
+    user = relationship("User", back_populates="peer_bet_participations")
+
+    # Table constraints
+    __table_args__ = (
+        CheckConstraint("stake_amount > 0", name="check_peer_bet_participant_stake_positive"),
+        CheckConstraint(
+            "potential_payout >= 0", name="check_peer_bet_participant_potential_payout_non_negative"
+        ),
+        CheckConstraint(
+            "actual_payout IS NULL OR actual_payout >= 0",
+            name="check_peer_bet_participant_actual_payout_non_negative",
+        ),
+        CheckConstraint(
+            "platform_fee IS NULL OR platform_fee >= 0",
+            name="check_peer_bet_participant_platform_fee_non_negative",
+        ),
+        CheckConstraint(
+            "creator_fee IS NULL OR creator_fee >= 0",
+            name="check_peer_bet_participant_creator_fee_non_negative",
+        ),
+        UniqueConstraint("bet_id", "user_id", name="unique_user_peer_bet_participation"),
+        Index("idx_peer_bet_participants_user_status", "user_id", "status"),
+        Index("idx_peer_bet_participants_bet_status", "bet_id", "status"),
+        Index("idx_peer_bet_participants_joined_at", "joined_at"),
+    )
 
 
 class Transaction(Base):

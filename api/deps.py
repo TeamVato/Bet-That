@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .models import User
-from .schemas import UserRegistrationRequest
 
 
 def get_current_user_external_id(x_user_id: Optional[str] = Header(None)) -> str:
