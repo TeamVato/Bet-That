@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -115,7 +115,7 @@ class PlayerProfilerValidator:
                 )
 
         if not inventory:
-            self.validation_results["warnings"].append("No PlayerProfiler CSV files discovered.")
+            cast(List, self.validation_results["warnings"]).append("No PlayerProfiler CSV files discovered.")
 
         self.validation_results["inventory"] = inventory
         print(f"    - Catalogued {len(inventory)} CSV files")
@@ -126,13 +126,13 @@ class PlayerProfilerValidator:
         print("  - Mapping strategy-critical columns...")
 
         column_mappings: Dict[str, Dict[str, str]] = {}
-        inventory = self.validation_results.get("inventory", [])
+        inventory = cast(List[Dict[str, Any]], self.validation_results.get("inventory", []))
 
         for canonical, synonyms in self.canonical_columns.items():
             best_match: Optional[Dict[str, str]] = None
 
             for item in inventory:
-                columns = item.get("columns", [])
+                columns = cast(List[str], item.get("columns", []))
                 match = self._find_column_match(columns, synonyms)
                 if match:
                     candidate = {
@@ -152,7 +152,7 @@ class PlayerProfilerValidator:
                 column_mappings[canonical] = best_match
             else:
                 warning = f"Missing column for '{canonical}'"
-                self.validation_results.setdefault("warnings", []).append(warning)
+                cast(List, self.validation_results.setdefault("warnings", [])).append(warning)
 
         self.column_mappings = column_mappings
         self.validation_results["column_mappings"] = column_mappings
@@ -164,7 +164,7 @@ class PlayerProfilerValidator:
         print("  - Assessing data coverage and freshness...")
 
         freshness_scores: List[float] = []
-        coverage_summary: Dict[str, Dict[str, float]] = {}
+        coverage_summary: Dict[str, Dict[str, Any]] = {}
 
         now = datetime.now()
 
@@ -185,7 +185,7 @@ class PlayerProfilerValidator:
                     warning = (
                         f"Failed to evaluate coverage for {canonical} ({mapping['file']}): {exc}"
                     )
-                    self.validation_results.setdefault("warnings", []).append(warning)
+                    cast(List, self.validation_results.setdefault("warnings", [])).append(warning)
                     continue
 
             non_null = series.notna().sum()
@@ -194,7 +194,7 @@ class PlayerProfilerValidator:
             coverage_summary[canonical] = {
                 "file": mapping["file"],
                 "column": column_name,
-                "rows": total,
+                "rows": float(total),
                 "non_null_ratio": round(coverage, 4),
             }
 
@@ -207,7 +207,7 @@ class PlayerProfilerValidator:
                     f"Low coverage for {canonical} ({mapping['file']}::{column_name}) - "
                     f"{coverage:.0%} non-null"
                 )
-                self.validation_results.setdefault("warnings", []).append(warning)
+                cast(List, self.validation_results.setdefault("warnings", [])).append(warning)
 
         self.validation_results["coverage_summary"] = coverage_summary
         freshness = float(np.mean(freshness_scores)) if freshness_scores else 0.6
@@ -219,7 +219,7 @@ class PlayerProfilerValidator:
         """Produce a recommended strategy execution plan."""
         print("  - Creating execution plan...")
 
-        plan = {
+        plan: Dict[str, Any] = {
             "strategies": [],
             "data_inputs": {},
         }
@@ -238,18 +238,18 @@ class PlayerProfilerValidator:
             if not strategy:
                 continue
 
-            plan.setdefault("data_inputs", {}).setdefault(strategy, []).append(
+            coverage_summary = cast(Dict, self.validation_results.get("coverage_summary", {}))
+            canonical_data = cast(Dict, coverage_summary.get(canonical, {}))
+            cast(List, cast(Dict, plan.setdefault("data_inputs", {})).setdefault(strategy, [])).append(
                 {
                     "canonical": canonical,
                     "file": mapping["file"],
                     "column": mapping["column"],
-                    "coverage": self.validation_results.get("coverage_summary", {})
-                    .get(canonical, {})
-                    .get("non_null_ratio"),
+                    "coverage": canonical_data.get("non_null_ratio"),
                 }
             )
 
-        freshness_score = self.validation_results.get("freshness_score", 1.0)
+        freshness_score = float(cast(float, self.validation_results.get("freshness_score", 1.0)) or 1.0)
         freshness_flag = (
             "fresh" if freshness_score >= 0.8 else "stale" if freshness_score < 0.5 else "mixed"
         )
@@ -282,7 +282,7 @@ class PlayerProfilerValidator:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _preview_file(self, path: Path) -> (List[str], List[Dict[str, object]]):
+    def _preview_file(self, path: Path) -> Tuple[List[str], List[Dict[str, object]]]:
         """Return column list and a tiny preview for reference."""
         try:
             df = pd.read_csv(path, nrows=5, low_memory=False)

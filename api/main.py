@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from .auth import endpoints as auth_endpoints
 from .database import init_database
-from .endpoints import bets, digest, edges, enhanced_edges, health, odds, users
+from .endpoints import bets, digest, edges, enhanced_edges, health, odds, peer_bet_routes, users
 from .errors import add_error_handlers
 from .settings import settings
 from .utils.logging_middleware import LoggingMiddleware
@@ -51,13 +51,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.openapi_extra = {
-    "x-compliance": {
-        "disclaimer": settings.compliance_disclaimer,
-        "age_restriction": "21+",
-        "purpose": "entertainment_only",
-    }
-}
+# Note: openapi_extra is not a valid FastAPI attribute
+# Compliance information is handled in the description and response headers
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,6 +102,7 @@ app.include_router(digest.router, prefix="/digest", tags=["Digest"])
 app.include_router(edges.router)
 app.include_router(enhanced_edges.router)
 app.include_router(users.router)
+app.include_router(peer_bet_routes.router)
 
 
 @app.get("/")

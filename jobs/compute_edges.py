@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import os
 import sqlite3
+from typing import Union
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -230,7 +231,7 @@ def main() -> None:
     # Use database adapter if USE_DB_ADAPTER=1, otherwise use CSV adapter
     use_db_adapter = _env_truthy(os.getenv("USE_DB_ADAPTER"))
     if use_db_adapter:
-        adapter = DbPropsAdapter(database_path)
+        adapter: Union[DbPropsAdapter, CsvQBPropsAdapter] = DbPropsAdapter(database_path)
     else:
         adapter = CsvQBPropsAdapter()
 

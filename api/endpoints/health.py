@@ -1,6 +1,7 @@
 """Health check endpoints"""
 
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, text
@@ -14,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse, tags=["health"])
-async def health_check():
+async def health_check() -> HealthResponse:
     """Basic health status of the API"""
     return HealthResponse(
         status="healthy", timestamp=datetime.now(), version="0.2.0", database="storage/odds.db"
@@ -22,7 +23,9 @@ async def health_check():
 
 
 @router.get("/healthz/deep", response_model=DeepHealthResponse, tags=["health"])
-async def deep_health_check(db: Session = Depends(get_db)):
+async def deep_health_check(
+    db: Annotated[Session, Depends(get_db)]
+) -> DeepHealthResponse:
     """Detailed health status including database stats"""
     try:
         # Check database connection

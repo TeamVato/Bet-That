@@ -126,7 +126,7 @@ def validate_and_normalize_schedule(schedule: pd.DataFrame) -> pd.DataFrame:
 
 def validate_team_codes(df: pd.DataFrame, team_columns: list[str]) -> Dict[str, list]:
     """Validate team codes in DataFrame columns and report issues."""
-    issues = {"unknown_teams": [], "missing_teams": []}
+    issues: Dict[str, list] = {"unknown_teams": [], "missing_teams": []}
     valid_teams = set(_TEAM_NORM.values())
 
     for col in team_columns:

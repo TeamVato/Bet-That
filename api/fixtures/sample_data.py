@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List
+from typing import Any, Dict, List, cast
 
 from sqlalchemy.orm import Session
 
@@ -93,7 +93,7 @@ def create_sample_users(db: Session) -> List[User]:
     created_users = []
     for user_data in sample_users:
         # Check if user already exists
-        existing_user = user_crud.get_by_email(db=db, email=user_data["email"])
+        existing_user = user_crud.get_by_email(db=db, email=str(user_data["email"]))
         if not existing_user:
             db_user = User(**user_data)
             db.add(db_user)
@@ -454,11 +454,14 @@ def create_sample_transactions(db: Session) -> List[Transaction]:
 
     created_transactions = []
     for transaction_data in sample_transactions:
+        transaction_data = cast(Dict[str, Any], transaction_data)
         # Skip if bet_id is specified but bet doesn't exist
         if transaction_data.get("bet_id") and not bets:
             continue
 
-        db_transaction = Transaction(**transaction_data)
+        # Ensure all values are properly typed
+        typed_transaction_data = {k: v for k, v in transaction_data.items()}
+        db_transaction = Transaction(**typed_transaction_data)
         db.add(db_transaction)
         created_transactions.append(db_transaction)
 

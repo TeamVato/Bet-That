@@ -3,8 +3,10 @@ from __future__ import annotations
 import pandas as pd
 
 
+from typing import Tuple
+
 def greedy_select(
-    df: pd.DataFrame, max_n: int = 10, corr_keys=("player", "market")
+    df: pd.DataFrame, max_n: int = 10, corr_keys: Tuple[str, ...] = ("player", "market")
 ) -> pd.DataFrame:
     picked = []
     used = set()

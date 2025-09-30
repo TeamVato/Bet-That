@@ -5,6 +5,8 @@ with comprehensive validation and error handling.
 """
 
 import logging
+from datetime import datetime
+from typing import Optional, cast
 
 from sqlalchemy.orm import Session
 
@@ -35,7 +37,7 @@ logger = logging.getLogger(__name__)
 class AuthService:
     """Service class for authentication operations"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
         self.user_repo = UserRepository(db)
 
@@ -111,7 +113,7 @@ class AuthService:
 
             # Verify password
             if not user.password_hash or not verify_password_pbkdf2(
-                login_data.password, user.password_hash
+                login_data.password, cast(str, user.password_hash)
             ):
                 logger.warning(f"Invalid password for user: {user.email}")
                 raise InvalidCredentialsError("Invalid email/username or password")
@@ -134,14 +136,14 @@ class AuthService:
 
             # Generate tokens
             tokens = jwt_auth.create_user_tokens(
-                user_id=user.id,
-                external_id=user.external_id,
-                email=user.email,
+                user_id=cast(int, user.id),
+                external_id=cast(str, user.external_id),
+                email=cast(str, user.email),
                 roles=["user"],  # TODO: Implement role system
             )
 
             # Update last login
-            self.user_repo.update_last_login(user.id)
+            self.user_repo.update_last_login(cast(int, user.id))
 
             logger.info(f"User logged in successfully: {user.email} ({user.username})")
 
@@ -218,18 +220,18 @@ class AuthService:
             UserResponse Pydantic model
         """
         return UserResponse(
-            id=user.id,
-            email=user.email,
-            username=user.username,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            name=user.name,
-            is_active=user.is_active,
-            is_verified=user.is_verified,
-            email_verified=user.email_verified,
-            status=user.status,
-            timezone=user.timezone,
-            created_at=user.created_at,
-            last_login_at=user.last_login_at,
-            verification_level=user.verification_level,
+            id=cast(int, user.id),
+            email=cast(str, user.email),
+            username=cast(Optional[str], user.username),
+            first_name=cast(Optional[str], user.first_name),
+            last_name=cast(Optional[str], user.last_name),
+            name=cast(Optional[str], user.name),
+            is_active=cast(bool, user.is_active),
+            is_verified=cast(bool, user.is_verified),
+            email_verified=cast(bool, user.email_verified),
+            status=cast(str, user.status),
+            timezone=cast(str, user.timezone),
+            created_at=cast(datetime, user.created_at),
+            last_login_at=cast(Optional[datetime], user.last_login_at),
+            verification_level=cast(str, user.verification_level),
         )

@@ -7,7 +7,7 @@ username-based login.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Annotated, Any, Optional, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -69,12 +69,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+def get_user_value(user: Union[User, dict], field: str) -> Any:
+    """Helper function to get actual values from User model or dict"""
+    if isinstance(user, dict):
+        return user.get(field)
+    else:
+        # For User model, get the actual value from the Column
+        return getattr(user, field)
+
+
+def get_model_value(model: User, field: str) -> Any:
+    """Helper function to get actual values from SQLAlchemy model"""
+    return getattr(model, field)
+
+
 # Enhanced registration endpoint with username support
 @router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register_user_enhanced(
     registration_data: UserRegistrationRequest,
     client_request: Request,
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     """Register a new user account with username support
 
@@ -116,7 +130,9 @@ async def register_user_enhanced(
 # Enhanced login endpoint with username support
 @router.post("/login", response_model=AuthResponse)
 async def login_user_enhanced(
-    login_data: UserLoginRequest, client_request: Request, db: Session = Depends(get_db)
+    login_data: UserLoginRequest, 
+    client_request: Request, 
+    db: Annotated[Session, Depends(get_db)]
 ) -> AuthResponse:
     """Authenticate user with email or username
 
@@ -158,7 +174,8 @@ async def login_user_enhanced(
 # Enhanced current user endpoint
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_enhanced(
-    current_user: CurrentUser, db: Session = Depends(get_db)
+    current_user: CurrentUser, 
+    db: Annotated[Session, Depends(get_db)]
 ) -> UserResponse:
     """Get current authenticated user information
 
@@ -166,7 +183,8 @@ async def get_current_user_enhanced(
     """
     try:
         auth_service = AuthService(db)
-        return auth_service.get_user_by_id(current_user.id)
+        user_id = get_user_value(current_user, "id")
+        return auth_service.get_user_by_id(user_id)
     except UserNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except Exception as e:
@@ -183,7 +201,7 @@ async def register_user(
     request: UserRegisterRequest,
     client_request: Request,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> UserRegisterResponse:
     """Register new user with email and password
 
@@ -208,13 +226,13 @@ async def register_user(
 
         # Validate password strength
         password_validation = password_manager.check_password_policy(
-            request.password, sanitized_data["email"]
+            request.password.get_secret_value(), sanitized_data["email"]
         )
         if not password_validation["is_valid"]:
             raise PasswordTooWeakError("; ".join(password_validation["errors"]))
 
         # Hash password
-        password_hash = hash_password(request.password)
+        password_hash = hash_password(request.password.get_secret_value())
 
         # Create user
         user = User(
@@ -239,18 +257,19 @@ async def register_user(
 
         # Generate email verification token if needed
         if settings.enable_email_verification:
-            security_manager.generate_email_verification_token(user.id, user.email)
+            security_manager.generate_email_verification_token(get_model_value(user, "id"), get_model_value(user, "email"))
             # TODO: Send verification email in background task
             # background_tasks.add_task(send_verification_email, user.email, verification_token)
 
         logger.info(f"User registered: {user.id} ({user.email})")
 
         return UserRegisterResponse(
-            id=user.id,
-            email=user.email,
-            name=user.name,
-            status=user.status,
-            email_verified=user.email_verified,
+            id=get_model_value(user, "id"),
+            email=get_model_value(user, "email"),
+            name=get_model_value(user, "name"),
+            status=get_model_value(user, "status"),
+            email_verified=get_model_value(user, "email_verified"),
+            created_at=get_model_value(user, "created_at"),
             verification_required=settings.enable_email_verification,
             message="Registration successful"
             + (
@@ -273,8 +292,8 @@ async def register_user(
 @router.post("/login-form", response_model=LoginResponse)
 async def login_user_form(
     request: Request,
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    db: Annotated[Session, Depends(get_db)],
 ) -> LoginResponse:
     """Login user with email and password
 
@@ -295,7 +314,7 @@ async def login_user_form(
             raise InvalidCredentialsError()
 
         # Verify password
-        if not user.password_hash or not verify_password(form_data.password, user.password_hash):
+        if not get_model_value(user, "password_hash") or not verify_password(form_data.password, get_model_value(user, "password_hash")):
             security_manager.rate_limiter.record_attempt(f"user:{form_data.username}")
             raise InvalidCredentialsError()
 
@@ -309,24 +328,26 @@ async def login_user_form(
 
         # Generate tokens
         tokens = jwt_auth.create_user_tokens(
-            user_id=user.id,
-            external_id=user.external_id,
-            email=user.email,
+            user_id=get_model_value(user, "id"),
+            external_id=get_model_value(user, "external_id"),
+            email=get_model_value(user, "email"),
             roles=["user"],  # TODO: Implement role system
         )
 
         # Update user login timestamp
-        user.last_login_at = datetime.now(timezone.utc)
-        user.last_activity_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == get_model_value(user, "id")).update({
+            "last_login_at": datetime.now(timezone.utc),
+            "last_activity_at": datetime.now(timezone.utc)
+        })
         db.commit()
 
         # Reset rate limiting on successful login
-        security_manager.record_successful_auth(client_ip, user.email)
+        security_manager.record_successful_auth(client_ip, get_model_value(user, "email"))
 
         # Generate CSRF token if enabled
         csrf_token = None
         if settings.enable_csrf_protection:
-            csrf_token = generate_csrf_token(user.id)
+            csrf_token = generate_csrf_token(get_model_value(user, "id"))
 
         logger.info(f"User logged in: {user.id} ({user.email})")
 
@@ -361,7 +382,8 @@ async def login_user_form(
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
 async def refresh_access_token(
-    request: RefreshTokenRequest, db: Session = Depends(get_db)
+    request: RefreshTokenRequest, 
+    db: Annotated[Session, Depends(get_db)]
 ) -> RefreshTokenResponse:
     """Refresh access token using refresh token
 
@@ -389,12 +411,17 @@ async def refresh_access_token(
 
             # Create new refresh token
             tokens = jwt_auth.create_user_tokens(
-                user_id=user.id, external_id=user.external_id, email=user.email, roles=["user"]
+                user_id=get_model_value(user, "id"), 
+                external_id=get_model_value(user, "external_id"), 
+                email=get_model_value(user, "email"), 
+                roles=["user"]
             )
             new_refresh_token = tokens["refresh_token"]
 
         # Update user activity
-        user.last_activity_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == get_model_value(user, "id")).update({
+            "last_activity_at": datetime.now(timezone.utc)
+        })
         db.commit()
 
         logger.info(f"Token refreshed for user: {user_id}")
@@ -418,7 +445,7 @@ async def refresh_access_token(
 @router.post("/logout", response_model=LogoutResponse)
 async def logout_user(
     current_user: CurrentUser,
-    token_payload: dict = Depends(verify_jwt_token),
+    token_payload: Annotated[dict, Depends(verify_jwt_token)],
     request_data: Optional[dict] = None,
 ) -> LogoutResponse:
     """Logout user by revoking current tokens
@@ -431,14 +458,15 @@ async def logout_user(
         # This is a simplified approach - in production, you'd extract from the request
 
         # Revoke current session
+        user_id = get_user_value(current_user, "id")
         if request_data and request_data.get("logout_all_sessions"):
-            jwt_auth.logout_all_user_sessions(current_user.id)
-            logger.info(f"User logged out from all sessions: {current_user.id}")
+            jwt_auth.logout_all_user_sessions(user_id)
+            logger.info(f"User logged out from all sessions: {user_id}")
             message = "Logged out from all sessions"
         else:
             # For individual session logout, we need the actual tokens
             # This would typically be handled by middleware that extracts tokens
-            logger.info(f"User logged out: {current_user.id}")
+            logger.info(f"User logged out: {user_id}")
             message = "Logged out successfully"
 
         return LogoutResponse(message=message, logged_out_at=datetime.now(timezone.utc))
@@ -455,7 +483,7 @@ async def request_password_reset(
     request: PasswordResetRequest,
     background_tasks: BackgroundTasks,
     client_request: Request,
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """Request password reset for user email
 
@@ -476,7 +504,7 @@ async def request_password_reset(
 
         if user and user.is_active:
             # Generate password reset token
-            generate_password_reset_token(user.id, user.email)
+            generate_password_reset_token(get_model_value(user, "id"), get_model_value(user, "email"))
 
             # TODO: Send password reset email in background
             # background_tasks.add_task(send_password_reset_email, user.email, reset_token)
@@ -501,7 +529,8 @@ async def request_password_reset(
 
 @router.post("/password/reset/confirm")
 async def confirm_password_reset(
-    request: PasswordResetConfirmRequest, db: Session = Depends(get_db)
+    request: PasswordResetConfirmRequest, 
+    db: Annotated[Session, Depends(get_db)]
 ) -> dict:
     """Confirm password reset with token and new password
 
@@ -519,17 +548,19 @@ async def confirm_password_reset(
 
         # Validate new password
         password_validation = password_manager.check_password_policy(
-            request.new_password, user.email
+            request.new_password.get_secret_value(), get_model_value(user, "email")
         )
         if not password_validation["is_valid"]:
             raise PasswordTooWeakError("; ".join(password_validation["errors"]))
 
         # Update password
-        user.password_hash = hash_password(request.new_password)
-        user.updated_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == user_id).update({
+            "password_hash": hash_password(request.new_password.get_secret_value()),
+            "updated_at": datetime.now(timezone.utc)
+        })
 
         # Revoke all existing tokens for security
-        jwt_auth.logout_all_user_sessions(user.id)
+        jwt_auth.logout_all_user_sessions(user_id)
 
         db.commit()
 
@@ -548,37 +579,46 @@ async def confirm_password_reset(
 
 @router.post("/password/change")
 async def change_password(
-    request: PasswordChangeRequest, current_user: CurrentUser, db: Session = Depends(get_db)
+    request: PasswordChangeRequest, 
+    current_user: CurrentUser, 
+    db: Annotated[Session, Depends(get_db)]
 ) -> dict:
     """Change user password (requires current password)
 
     Validates current password and updates to new password.
     """
     try:
+        # Get user values
+        user_id = get_user_value(current_user, "id")
+        password_hash = get_user_value(current_user, "password_hash")
+        email = get_user_value(current_user, "email")
+        
         # Verify current password
-        if not current_user.password_hash or not verify_password(
-            request.current_password, current_user.password_hash
+        if not password_hash or not verify_password(
+            request.current_password.get_secret_value(), password_hash
         ):
             raise InvalidCredentialsError("Current password is incorrect")
 
         # Validate new password
         password_validation = password_manager.check_password_policy(
-            request.new_password, current_user.email
+            request.new_password.get_secret_value(), email
         )
         if not password_validation["is_valid"]:
             raise PasswordTooWeakError("; ".join(password_validation["errors"]))
 
         # Update password
-        current_user.password_hash = hash_password(request.new_password)
-        current_user.updated_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == user_id).update({
+            "password_hash": hash_password(request.new_password.get_secret_value()),
+            "updated_at": datetime.now(timezone.utc)
+        })
 
         # Optionally revoke all other sessions
         if request.logout_other_sessions:
-            jwt_auth.logout_all_user_sessions(current_user.id)
+            jwt_auth.logout_all_user_sessions(user_id)
 
         db.commit()
 
-        logger.info(f"Password changed for user: {current_user.id}")
+        logger.info(f"Password changed for user: {user_id}")
 
         return {"message": "Password changed successfully"}
 
@@ -592,7 +632,10 @@ async def change_password(
 
 
 @router.post("/email/verify")
-async def verify_email(request: EmailVerificationRequest, db: Session = Depends(get_db)) -> dict:
+async def verify_email(
+    request: EmailVerificationRequest, 
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
     """Verify user email with verification token
 
     Validates verification token and marks email as verified.
@@ -614,12 +657,16 @@ async def verify_email(request: EmailVerificationRequest, db: Session = Depends(
             raise UserNotFoundError()
 
         # Mark email as verified
-        user.email_verified = True
-        user.email_verified_at = datetime.now(timezone.utc)
-        user.status = (
-            UserStatus.ACTIVE if user.status == UserStatus.PENDING_VERIFICATION else user.status
+        current_status = get_model_value(user, "status")
+        new_status = (
+            UserStatus.ACTIVE if current_status == UserStatus.PENDING_VERIFICATION else current_status
         )
-        user.updated_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == get_model_value(user, "id")).update({
+            "email_verified": True,
+            "email_verified_at": datetime.now(timezone.utc),
+            "status": new_status,
+            "updated_at": datetime.now(timezone.utc)
+        })
 
         db.commit()
 
@@ -638,23 +685,28 @@ async def verify_email(request: EmailVerificationRequest, db: Session = Depends(
 
 @router.post("/email/verification/resend")
 async def resend_email_verification(
-    current_user: CurrentUser, background_tasks: BackgroundTasks
+    current_user: CurrentUser, 
+    background_tasks: BackgroundTasks
 ) -> dict:
     """Resend email verification for current user
 
     Generates new verification token and sends email.
     """
     try:
-        if current_user.email_verified:
+        user_id = get_user_value(current_user, "id")
+        email = get_user_value(current_user, "email")
+        email_verified = get_user_value(current_user, "email_verified")
+        
+        if email_verified:
             return {"message": "Email is already verified"}
 
         # Generate new verification token
-        security_manager.generate_email_verification_token(current_user.id, current_user.email)
+        security_manager.generate_email_verification_token(user_id, email)
 
         # TODO: Send verification email in background
-        # background_tasks.add_task(send_verification_email, current_user.email, verification_token)
+        # background_tasks.add_task(send_verification_email, email, verification_token)
 
-        logger.info(f"Email verification resent for user: {current_user.id}")
+        logger.info(f"Email verification resent for user: {user_id}")
 
         return {"message": "Verification email sent"}
 
@@ -673,24 +725,26 @@ async def get_current_user_info_legacy(current_user: CurrentUser) -> dict:
     Returns user profile and authentication status.
     """
     return {
-        "id": current_user.id,
-        "external_id": current_user.external_id,
-        "email": current_user.email,
-        "name": current_user.name,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "status": current_user.status,
-        "email_verified": current_user.email_verified,
-        "timezone": current_user.timezone,
-        "created_at": current_user.created_at,
-        "last_login_at": current_user.last_login_at,
-        "verification_level": current_user.verification_level,
-        "is_active": current_user.is_active,
+        "id": get_user_value(current_user, "id"),
+        "external_id": get_user_value(current_user, "external_id"),
+        "email": get_user_value(current_user, "email"),
+        "name": get_user_value(current_user, "name"),
+        "first_name": get_user_value(current_user, "first_name"),
+        "last_name": get_user_value(current_user, "last_name"),
+        "status": get_user_value(current_user, "status"),
+        "email_verified": get_user_value(current_user, "email_verified"),
+        "timezone": get_user_value(current_user, "timezone"),
+        "created_at": get_user_value(current_user, "created_at"),
+        "last_login_at": get_user_value(current_user, "last_login_at"),
+        "verification_level": get_user_value(current_user, "verification_level"),
+        "is_active": get_user_value(current_user, "is_active"),
     }
 
 
 @router.post("/tokens/validate")
-async def validate_token(token_payload: dict = Depends(verify_jwt_token)) -> dict:
+async def validate_token(
+    token_payload: Annotated[dict, Depends(verify_jwt_token)]
+) -> dict:
     """Validate JWT token and return payload information
 
     Useful for client-side token validation and debugging.
@@ -708,7 +762,10 @@ async def validate_token(token_payload: dict = Depends(verify_jwt_token)) -> dic
 
 # Legacy endpoint for backward compatibility during migration
 @router.post("/legacy/login")
-async def legacy_login(request: dict, db: Session = Depends(get_db)) -> dict:
+async def legacy_login(
+    request: dict, 
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
     """Legacy login endpoint for backward compatibility
 
     Supports existing external_id based authentication during migration.
@@ -735,7 +792,10 @@ async def legacy_login(request: dict, db: Session = Depends(get_db)) -> dict:
 
     # Generate tokens
     tokens = jwt_auth.create_user_tokens(
-        user_id=user.id, external_id=user.external_id, email=user.email, roles=["user"]
+        user_id=get_model_value(user, "id"), 
+        external_id=get_model_value(user, "external_id"), 
+        email=get_model_value(user, "email"), 
+        roles=["user"]
     )
 
     return {

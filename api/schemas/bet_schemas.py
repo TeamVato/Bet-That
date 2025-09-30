@@ -17,21 +17,21 @@ class BaseSchema(BaseModel):
 
 
 class BetCreateRequest(BaseModel):
-    event_id: str = Field(..., description="Event identifier")
-    edge_id: Optional[int] = Field(None, description="Associated edge ID")
-    market_type: str = Field(..., description="Market type (spread, total, moneyline, prop)")
-    market_description: str = Field(..., description="Market description")
-    selection: str = Field(..., description="Bet selection")
-    line: Optional[float] = Field(None, description="Point spread or total line")
-    side: Optional[str] = Field(None, description="Side of the bet (over/under, home/away)")
-    stake: Decimal = Field(..., gt=0, description="Bet stake amount")
-    odds_american: int = Field(..., description="American odds format")
-    odds_decimal: float = Field(..., gt=0, description="Decimal odds")
-    sportsbook_id: str = Field(..., description="Sportsbook identifier")
-    sportsbook_name: str = Field(..., description="Sportsbook name")
-    external_bet_id: Optional[str] = Field(None, description="External bet ID from sportsbook")
-    notes: Optional[str] = Field(None, description="Optional bet notes")
-    tags: Optional[List[str]] = Field(None, description="Bet tags for categorization")
+    event_id: str = Field(description="Event identifier")
+    edge_id: Optional[int] = Field(default=None, description="Associated edge ID")
+    market_type: str = Field(description="Market type (spread, total, moneyline, prop)")
+    market_description: str = Field(description="Market description")
+    selection: str = Field(description="Bet selection")
+    line: Optional[float] = Field(default=None, description="Point spread or total line")
+    side: Optional[str] = Field(default=None, description="Side of the bet (over/under, home/away)")
+    stake: Decimal = Field(gt=0, description="Bet stake amount")
+    odds_american: int = Field(description="American odds format")
+    odds_decimal: float = Field(gt=0, description="Decimal odds")
+    sportsbook_id: str = Field(description="Sportsbook identifier")
+    sportsbook_name: str = Field(description="Sportsbook name")
+    external_bet_id: Optional[str] = Field(default=None, description="External bet ID from sportsbook")
+    notes: Optional[str] = Field(default=None, description="Optional bet notes")
+    tags: Optional[List[str]] = Field(default=None, description="Bet tags for categorization")
 
     @validator("odds_american")
     def validate_odds_american(cls, v):
@@ -41,17 +41,17 @@ class BetCreateRequest(BaseModel):
 
 
 class BetUpdateRequest(BaseModel):
-    status: Optional[BetStatus] = Field(None, description="Bet status")
-    result: Optional[str] = Field(None, description="Bet result (win/loss/push/void)")
-    actual_return: Optional[Decimal] = Field(None, description="Actual return amount")
-    notes: Optional[str] = Field(None, description="Updated notes")
-    tags: Optional[List[str]] = Field(None, description="Updated tags")
-    external_bet_id: Optional[str] = Field(None, description="External bet ID")
+    status: Optional[BetStatus] = Field(default=None, description="Bet status")
+    result: Optional[str] = Field(default=None, description="Bet result (win/loss/push/void)")
+    actual_return: Optional[Decimal] = Field(default=None, description="Actual return amount")
+    notes: Optional[str] = Field(default=None, description="Updated notes")
+    tags: Optional[List[str]] = Field(default=None, description="Updated tags")
+    external_bet_id: Optional[str] = Field(default=None, description="External bet ID")
     closing_odds_american: Optional[int] = Field(
-        None, description="Closing odds in American format"
+        default=None, description="Closing odds in American format"
     )
     closing_odds_decimal: Optional[float] = Field(
-        None, description="Closing odds in decimal format"
+        default=None, description="Closing odds in decimal format"
     )
 
 
@@ -105,42 +105,42 @@ class BetListResponse(BaseModel):
 class PeerBetOutcomeSchema(BaseModel):
     """Schema for peer bet outcomes"""
 
-    name: str = Field(..., min_length=1, max_length=100, description="Outcome name")
-    description: Optional[str] = Field(None, max_length=500, description="Outcome description")
-    odds: Optional[Decimal] = Field(None, ge=1.0, description="Outcome odds")
+    name: str = Field(min_length=1, max_length=100, description="Outcome name")
+    description: Optional[str] = Field(default=None, max_length=500, description="Outcome description")
+    odds: Optional[Decimal] = Field(default=None, ge=1.0, description="Outcome odds")
     order_index: int = Field(default=0, description="Display order")
 
 
 class PeerBetCreateRequest(BaseModel):
     """Request schema for creating a new peer bet"""
 
-    title: str = Field(..., min_length=5, max_length=200, description="Bet title")
-    description: str = Field(..., min_length=10, max_length=2000, description="Bet description")
+    title: str = Field(min_length=5, max_length=200, description="Bet title")
+    description: str = Field(min_length=10, max_length=2000, description="Bet description")
     category: BetCategory = Field(default=BetCategory.OTHER, description="Bet category")
     bet_type: BetType = Field(default=BetType.BINARY, description="Type of bet")
 
-    minimum_stake: Decimal = Field(..., gt=0, description="Minimum stake amount")
-    maximum_stake: Optional[Decimal] = Field(None, gt=0, description="Maximum stake amount")
+    minimum_stake: Decimal = Field(gt=0, description="Minimum stake amount")
+    maximum_stake: Optional[Decimal] = Field(default=None, gt=0, description="Maximum stake amount")
     participant_limit: Optional[int] = Field(
-        None, ge=2, description="Maximum number of participants"
+        default=None, ge=2, description="Maximum number of participants"
     )
 
-    starts_at: Optional[datetime] = Field(None, description="When betting opens")
-    locks_at: Optional[datetime] = Field(None, description="When betting closes")
-    resolves_at: Optional[datetime] = Field(None, description="Expected resolution time")
+    starts_at: Optional[datetime] = Field(default=None, description="When betting opens")
+    locks_at: Optional[datetime] = Field(default=None, description="When betting closes")
+    resolves_at: Optional[datetime] = Field(default=None, description="Expected resolution time")
 
     is_public: bool = Field(default=True, description="Whether bet is public")
     requires_approval: bool = Field(default=False, description="Whether participants need approval")
     auto_resolve: bool = Field(default=False, description="Whether to auto-resolve")
 
     possible_outcomes: List[PeerBetOutcomeSchema] = Field(
-        ..., min_items=2, description="Possible outcomes"
+        min_length=2, description="Possible outcomes"
     )
-    tags: Optional[List[str]] = Field(None, description="Bet tags")
+    tags: Optional[List[str]] = Field(default=None, description="Bet tags")
     external_reference: Optional[str] = Field(
-        None, max_length=255, description="External reference"
+        default=None, max_length=255, description="External reference"
     )
-    notes: Optional[str] = Field(None, max_length=500, description="Additional notes")
+    notes: Optional[str] = Field(default=None, max_length=500, description="Additional notes")
 
     @validator("maximum_stake")
     def max_stake_greater_than_min(cls, v, values):
@@ -264,19 +264,19 @@ class PeerBetSummaryResponse(BaseSchema):
 class PeerBetParticipateRequest(BaseModel):
     """Request schema for participating in a peer bet"""
 
-    chosen_outcome: str = Field(..., min_length=1, max_length=255, description="Chosen outcome")
-    stake_amount: Decimal = Field(..., gt=0, description="Stake amount")
+    chosen_outcome: str = Field(min_length=1, max_length=255, description="Chosen outcome")
+    stake_amount: Decimal = Field(gt=0, description="Stake amount")
 
 
 class PeerBetUpdateRequest(BaseModel):
     """Request schema for updating a peer bet"""
 
-    title: Optional[str] = Field(None, min_length=5, max_length=200)
-    description: Optional[str] = Field(None, min_length=10, max_length=2000)
+    title: Optional[str] = Field(default=None, min_length=5, max_length=200)
+    description: Optional[str] = Field(default=None, min_length=10, max_length=2000)
     category: Optional[BetCategory] = None
-    minimum_stake: Optional[Decimal] = Field(None, gt=0)
-    maximum_stake: Optional[Decimal] = Field(None, gt=0)
-    participant_limit: Optional[int] = Field(None, ge=2)
+    minimum_stake: Optional[Decimal] = Field(default=None, gt=0)
+    maximum_stake: Optional[Decimal] = Field(default=None, gt=0)
+    participant_limit: Optional[int] = Field(default=None, ge=2)
     starts_at: Optional[datetime] = None
     locks_at: Optional[datetime] = None
     resolves_at: Optional[datetime] = None
@@ -284,14 +284,14 @@ class PeerBetUpdateRequest(BaseModel):
     requires_approval: Optional[bool] = None
     auto_resolve: Optional[bool] = None
     tags: Optional[List[str]] = None
-    notes: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(default=None, max_length=500)
 
 
 class PeerBetResolveRequest(BaseModel):
     """Request schema for resolving a peer bet"""
 
-    winning_outcome: str = Field(..., min_length=1, max_length=255, description="Winning outcome")
-    outcome_source: Optional[str] = Field(None, description="Source of outcome determination")
+    winning_outcome: str = Field(min_length=1, max_length=255, description="Winning outcome")
+    outcome_source: Optional[str] = Field(default=None, description="Source of outcome determination")
 
 
 class PeerBetListResponse(BaseModel):

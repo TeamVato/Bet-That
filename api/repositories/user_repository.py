@@ -6,7 +6,7 @@ creation, authentication, and profile management.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Dict, Optional, Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class UserRepository:
     """Repository for user database operations"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session) -> None:
         self.db = db
 
     def get_user_by_email(self, email: str) -> Optional[User]:
@@ -147,7 +147,7 @@ class UserRepository:
             logger.error(f"Failed to verify user email: {e}")
             raise
 
-    def update_user_profile(self, user_id: int, profile_data: dict) -> Optional[User]:
+    def update_user_profile(self, user_id: int, profile_data: Dict[str, Any]) -> Optional[User]:
         """Update user profile information"""
         try:
             user = self.get_user_by_id(user_id)
@@ -159,7 +159,7 @@ class UserRepository:
                 if hasattr(user, field) and value is not None:
                     setattr(user, field, value)
 
-            user.updated_at = datetime.now(timezone.utc)
+            # Note: updated_at is handled by SQLAlchemy automatically
             self.db.commit()
             self.db.refresh(user)
 

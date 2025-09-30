@@ -21,7 +21,7 @@ def load_data() -> List[Dict]:
 
 
 def find_edges(games: List[Dict]) -> Dict:
-    edges = {
+    edges: Dict[str, List] = {
         "STRONG_BETS": [],  # Place these immediately
         "VALUE_PLAYS": [],  # Good value, consider
         "LINE_SHOPS": [],  # Same pick, better price

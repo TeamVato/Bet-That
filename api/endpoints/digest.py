@@ -1,7 +1,7 @@
 """Email digest subscription endpoints"""
 
 from datetime import datetime
-from typing import List
+from typing import Annotated, List, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -14,7 +14,10 @@ router = APIRouter()
 
 
 @router.post("/subscribe", response_model=DigestSubscriptionResponse, tags=["digest"])
-async def subscribe_digest(request: DigestSubscriptionRequest, db: Session = Depends(get_db)):
+async def subscribe_digest(
+    request: DigestSubscriptionRequest, 
+    db: Annotated[Session, Depends(get_db)]
+) -> DigestSubscriptionResponse:
     """
     Subscribe to weekly digest emails
 
@@ -28,9 +31,11 @@ async def subscribe_digest(request: DigestSubscriptionRequest, db: Session = Dep
 
         if existing:
             # Update existing subscription
-            existing.frequency = request.frequency or "weekly"
-            existing.is_active = True
-            existing.updated_at = datetime.now()
+            db.query(DigestSubscription).filter(DigestSubscription.id == existing.id).update({
+                "frequency": request.frequency or "weekly",
+                "is_active": True,
+                "updated_at": datetime.now()
+            })
 
             db.commit()
             db.refresh(existing)
@@ -49,11 +54,11 @@ async def subscribe_digest(request: DigestSubscriptionRequest, db: Session = Dep
             subscription = new_subscription
 
         return DigestSubscriptionResponse(
-            id=subscription.id,
-            email=subscription.email,
-            frequency=subscription.frequency,
-            is_active=subscription.is_active,
-            created_at=subscription.created_at,
+            id=cast(int, subscription.id),
+            email=cast(str, subscription.email),
+            frequency=cast(str, subscription.frequency),
+            is_active=cast(bool, subscription.is_active),
+            created_at=cast(datetime, subscription.created_at),
         )
 
     except Exception as e:
@@ -62,7 +67,10 @@ async def subscribe_digest(request: DigestSubscriptionRequest, db: Session = Dep
 
 
 @router.delete("/subscribe/{email}", tags=["digest"])
-async def unsubscribe_digest(email: str, db: Session = Depends(get_db)):
+async def unsubscribe_digest(
+    email: str, 
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
     """
     Unsubscribe from digest emails
 
@@ -76,8 +84,10 @@ async def unsubscribe_digest(email: str, db: Session = Depends(get_db)):
         if not subscription:
             raise HTTPException(status_code=404, detail="Email not found in subscriptions")
 
-        subscription.is_active = False
-        subscription.updated_at = datetime.now()
+        db.query(DigestSubscription).filter(DigestSubscription.id == subscription.id).update({
+            "is_active": False,
+            "updated_at": datetime.now()
+        })
 
         db.commit()
 
@@ -90,9 +100,9 @@ async def unsubscribe_digest(email: str, db: Session = Depends(get_db)):
 
 @router.get("/subscriptions", response_model=List[DigestSubscriptionResponse], tags=["digest"])
 async def list_subscriptions(
-    active_only: bool = Query(True, description="Only return active subscriptions"),
-    db: Session = Depends(get_db),
-):
+    db: Annotated[Session, Depends(get_db)],
+    active_only: Annotated[bool, Query(description="Only return active subscriptions")] = True,
+) -> List[DigestSubscriptionResponse]:
     """
     Get all email subscriptions (admin endpoint)
     """
@@ -108,11 +118,11 @@ async def list_subscriptions(
         for sub in subscriptions:
             results.append(
                 DigestSubscriptionResponse(
-                    id=sub.id,
-                    email=sub.email,
-                    frequency=sub.frequency,
-                    is_active=sub.is_active,
-                    created_at=sub.created_at,
+                    id=cast(int, sub.id),
+                    email=cast(str, sub.email),
+                    frequency=cast(str, sub.frequency),
+                    is_active=cast(bool, sub.is_active),
+                    created_at=cast(datetime, sub.created_at),
                 )
             )
 

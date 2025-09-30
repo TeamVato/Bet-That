@@ -265,7 +265,9 @@ class SessionManager:
             )
 
             if session:
-                session.last_activity_at = datetime.now(timezone.utc)
+                db.query(UserSession).filter(UserSession.id == session.id).update({
+                    "last_activity_at": datetime.now(timezone.utc)
+                })
                 db.commit()
 
         except Exception as e:
@@ -291,8 +293,10 @@ class SessionManager:
             )
 
             if session:
-                session.is_active = False
-                session.revoked_at = datetime.now(timezone.utc)
+                db.query(UserSession).filter(UserSession.id == session.id).update({
+                    "is_active": False,
+                    "revoked_at": datetime.now(timezone.utc)
+                })
                 db.commit()
                 logger.info(f"Session revoked: {session_id}")
                 return True

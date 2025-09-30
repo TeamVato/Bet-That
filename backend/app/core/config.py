@@ -12,22 +12,22 @@ DEFAULT_EDGES_SNAPSHOT = BACKEND_ROOT / "data" / "edges_current.json"
 
 
 class Settings(BaseSettings):
-    odds_api_keys: List[str] = Field(default_factory=list, env="ODDS_API_KEYS")
-    odds_api_key_1: Optional[str] = Field(default=None, env="ODDS_API_KEY_1")
-    odds_api_key_2: Optional[str] = Field(default=None, env="ODDS_API_KEY_2")
-    odds_api_key_3: Optional[str] = Field(default=None, env="ODDS_API_KEY_3")
-    odds_api_key_4: Optional[str] = Field(default=None, env="ODDS_API_KEY_4")
-    odds_api_key_5: Optional[str] = Field(default=None, env="ODDS_API_KEY_5")
-    odds_api_key_6: Optional[str] = Field(default=None, env="ODDS_API_KEY_6")
-    odds_api_base_url: AnyHttpUrl = Field(
+    odds_api_keys: List[str] = Field(default_factory=list, alias="ODDS_API_KEYS")
+    odds_api_key_1: Optional[str] = Field(default=None, alias="ODDS_API_KEY_1")
+    odds_api_key_2: Optional[str] = Field(default=None, alias="ODDS_API_KEY_2")
+    odds_api_key_3: Optional[str] = Field(default=None, alias="ODDS_API_KEY_3")
+    odds_api_key_4: Optional[str] = Field(default=None, alias="ODDS_API_KEY_4")
+    odds_api_key_5: Optional[str] = Field(default=None, alias="ODDS_API_KEY_5")
+    odds_api_key_6: Optional[str] = Field(default=None, alias="ODDS_API_KEY_6")
+    odds_api_base_url: str = Field(
         default="https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds"
     )
-    cache_ttl_seconds: int = Field(default=1800, env="CACHE_TTL_SECONDS")
-    daily_request_limit: int = Field(default=20, env="DAILY_REQUEST_LIMIT")
-    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
-    redis_cache_prefix: str = Field(default="bet_that_odds", env="REDIS_CACHE_PREFIX")
-    environment: str = Field(default="development", env="ENVIRONMENT")
-    edges_snapshot_path: Path = Field(default=DEFAULT_EDGES_SNAPSHOT, env="EDGES_SNAPSHOT_PATH")
+    cache_ttl_seconds: int = Field(default=1800, alias="CACHE_TTL_SECONDS")
+    daily_request_limit: int = Field(default=20, alias="DAILY_REQUEST_LIMIT")
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    redis_cache_prefix: str = Field(default="bet_that_odds", alias="REDIS_CACHE_PREFIX")
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+    edges_snapshot_path: Path = Field(default=DEFAULT_EDGES_SNAPSHOT, alias="EDGES_SNAPSHOT_PATH")
 
     class Config:
         env_file = ".env"

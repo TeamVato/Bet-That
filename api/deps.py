@@ -34,7 +34,7 @@ def get_client_ip(request: Request) -> str:
     if real_ip:
         return real_ip
 
-    if hasattr(request.client, "host"):
+    if request.client and hasattr(request.client, "host"):
         return request.client.host
 
     return "unknown"
@@ -64,7 +64,9 @@ async def get_current_user_jwt(
             # Update last activity
             from datetime import datetime, timezone
 
-            user.last_activity_at = datetime.now(timezone.utc)
+            db.query(User).filter(User.id == user.id).update({
+                "last_activity_at": datetime.now(timezone.utc)
+            })
             db.commit()
             return user
 

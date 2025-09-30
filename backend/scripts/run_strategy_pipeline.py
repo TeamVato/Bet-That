@@ -4,11 +4,17 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
-from playerprofiler_strategy_engine import StrategyEngine
-from validate_playerprofiler_update import PlayerProfilerValidator
+# Add scripts directory to path for local imports
+scripts_dir = Path(__file__).parent
+if str(scripts_dir) not in sys.path:
+    sys.path.insert(0, str(scripts_dir))
+
+from playerprofiler_strategy_engine import StrategyEngine  # type: ignore
+from validate_playerprofiler_update import PlayerProfilerValidator  # type: ignore
 
 
 def main() -> None:

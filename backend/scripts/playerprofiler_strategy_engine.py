@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -27,8 +27,8 @@ class StrategyEngine:
 
     def __init__(self, validation_data: Optional[Dict[str, object]] = None) -> None:
         self.validation_data = validation_data or {}
-        self.column_map: Dict[str, Dict[str, str]] = self.validation_data.get("column_mappings", {})
-        self.freshness_score: float = float(self.validation_data.get("freshness_score", 1.0) or 1.0)
+        self.column_map: Dict[str, Dict[str, str]] = cast(Dict[str, Dict[str, str]], self.validation_data.get("column_mappings", {}) or {})
+        self.freshness_score: float = float(cast(float, self.validation_data.get("freshness_score", 1.0)) or 1.0)
         self.coverage_summary = self.validation_data.get("coverage_summary", {})
 
         self.configs = {
@@ -105,7 +105,7 @@ class StrategyEngine:
         else:
             print("  - WR dataset not available; skipping WR receiving unders")
 
-        self.edges.sort(key=lambda edge: edge.get("confidence", 0), reverse=True)
+        self.edges.sort(key=lambda edge: float(cast(float, edge.get("confidence", 0))), reverse=True)
         return self.edges
 
     def get_edge_summary(self) -> Dict[str, int]:
@@ -507,7 +507,9 @@ class StrategyEngine:
         if value is None or (isinstance(value, float) and np.isnan(value)):
             return None
         try:
-            return float(value)
+            if isinstance(value, (int, float, str)):
+                return float(value)
+            return None
         except (TypeError, ValueError):
             return None
 
@@ -529,7 +531,7 @@ class StrategyEngine:
         self, strategy_name: str, edges: List[Dict[str, object]]
     ) -> List[Dict[str, object]]:
         config = self.configs[strategy_name]
-        edges.sort(key=lambda edge: edge.get("confidence", 0), reverse=True)
+        edges.sort(key=lambda edge: float(cast(float, edge.get("confidence", 0))), reverse=True)
         return edges[: config.max_edges]
 
 

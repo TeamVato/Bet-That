@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 import redis.asyncio as redis
 
-from app.core.config import get_cache_prefix, get_settings
-from app.models.odds import GameOdds, MarketLine
+from app.core.config import get_cache_prefix, get_settings  # type: ignore
+from app.models.odds import GameOdds, MarketLine  # type: ignore
 
 logger = logging.getLogger(__name__)
 

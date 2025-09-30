@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -20,7 +20,7 @@ class CsvQBPropsAdapter(OddsAdapter):
     def __init__(self, csv_path: Optional[Path] = None) -> None:
         self.csv_path = csv_path or DEFAULT_CSV_PATH
 
-    def fetch(self, *_, **__) -> pd.DataFrame:
+    def fetch(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
         if not self.csv_path.exists():
             raise FileNotFoundError(
                 f"Props CSV not found at {self.csv_path}. Copy the sample or supply your own."

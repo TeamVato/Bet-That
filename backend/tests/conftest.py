@@ -147,8 +147,10 @@ def override_get_db(test_db: Session):
     return _override
 
 
+from typing import Generator
+
 @pytest.fixture
-def client(test_db: Session) -> TestClient:
+def client(test_db: Session) -> Generator[TestClient, None, None]:
     """Create a test client with overridden database dependency"""
     app.dependency_overrides[get_db] = override_get_db(test_db)
 

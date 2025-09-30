@@ -1,6 +1,6 @@
 """User management endpoints"""
 
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -21,7 +21,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.post("/", response_model=UserRegistrationResponse)
-def create_user(user_in: UserRegistrationRequest, db: Session = Depends(get_db)):
+def create_user(
+    user_in: UserRegistrationRequest, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserRegistrationResponse:
     """Create a new user account"""
     # Check if user already exists
     existing_user = user_crud.get_by_email(db=db, email=user_in.email)
@@ -38,7 +41,10 @@ def create_user(user_in: UserRegistrationRequest, db: Session = Depends(get_db))
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(
+    user_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserResponse:
     """Get user by ID"""
     user = user_crud.get(db=db, id=user_id)
     if not user:
@@ -47,7 +53,10 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/external/{external_id}", response_model=UserResponse)
-def get_user_by_external_id(external_id: str, db: Session = Depends(get_db)):
+def get_user_by_external_id(
+    external_id: str, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserResponse:
     """Get user by external ID"""
     user = user_crud.get_by_external_id(db=db, external_id=external_id)
     if not user:
@@ -56,7 +65,11 @@ def get_user_by_external_id(external_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, user_update: UserUpdateRequest, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int, 
+    user_update: UserUpdateRequest, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserResponse:
     """Update user information"""
     user = user_crud.get(db=db, id=user_id)
     if not user:
@@ -67,7 +80,10 @@ def update_user(user_id: int, user_update: UserUpdateRequest, db: Session = Depe
 
 
 @router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
     """Soft delete a user account"""
     user = user_crud.remove(db=db, id=user_id)
     if not user:
@@ -78,9 +94,9 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 @router.post("/{user_id}/verify", response_model=UserResponse)
 def verify_user(
     user_id: int,
-    verification_level: str = Query("basic", regex="^(basic|enhanced|premium)$"),
-    db: Session = Depends(get_db),
-):
+    db: Annotated[Session, Depends(get_db)],
+    verification_level: Annotated[str, Query(regex="^(basic|enhanced|premium)$")] = "basic",
+) -> UserResponse:
     """Verify a user account"""
     user = user_crud.verify_user(db=db, user_id=user_id, verification_level=verification_level)
     if not user:
@@ -89,7 +105,10 @@ def verify_user(
 
 
 @router.post("/{user_id}/suspend", response_model=UserResponse)
-def suspend_user(user_id: int, db: Session = Depends(get_db)):
+def suspend_user(
+    user_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserResponse:
     """Suspend a user account"""
     user = user_crud.suspend_user(db=db, user_id=user_id)
     if not user:
@@ -98,7 +117,10 @@ def suspend_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{user_id}/reactivate", response_model=UserResponse)
-def reactivate_user(user_id: int, db: Session = Depends(get_db)):
+def reactivate_user(
+    user_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+) -> UserResponse:
     """Reactivate a suspended user account"""
     user = user_crud.reactivate_user(db=db, user_id=user_id)
     if not user:
@@ -109,11 +131,11 @@ def reactivate_user(user_id: int, db: Session = Depends(get_db)):
 @router.get("/{user_id}/bets", response_model=BetListResponse)
 def get_user_bets(
     user_id: int,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    status: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
+    db: Annotated[Session, Depends(get_db)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    status: Annotated[Optional[str], Query()] = None,
+) -> BetListResponse:
     """Get bets for a specific user"""
     user = user_crud.get(db=db, id=user_id)
     if not user:
@@ -126,17 +148,19 @@ def get_user_bets(
     bets = bet_crud.get_by_user(db=db, user_id=user_id, skip=skip, limit=limit, status=bet_status)
     total = bet_crud.count(db=db, filters={"user_id": user_id})
 
-    return BetListResponse(bets=bets, total=total, page=skip // limit + 1, per_page=limit)
+    from ..schemas.bet_schemas import BetResponse
+    bet_responses = [BetResponse.model_validate(bet) for bet in bets]
+    return BetListResponse(bets=bet_responses, total=total, page=skip // limit + 1, per_page=limit)
 
 
 @router.get("/{user_id}/transactions", response_model=TransactionListResponse)
 def get_user_transactions(
     user_id: int,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    transaction_type: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
+    db: Annotated[Session, Depends(get_db)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    transaction_type: Annotated[Optional[str], Query()] = None,
+) -> TransactionListResponse:
     """Get transactions for a specific user"""
     user = user_crud.get(db=db, id=user_id)
     if not user:
@@ -151,13 +175,18 @@ def get_user_transactions(
     )
     total = transaction_crud.count(db=db, filters={"user_id": user_id})
 
+    from ..schemas.common_schemas import TransactionResponse
+    transaction_responses = [TransactionResponse.model_validate(transaction) for transaction in transactions]
     return TransactionListResponse(
-        transactions=transactions, total=total, page=skip // limit + 1, per_page=limit
+        transactions=transaction_responses, total=total, page=skip // limit + 1, per_page=limit
     )
 
 
 @router.get("/{user_id}/statistics")
-def get_user_statistics(user_id: int, db: Session = Depends(get_db)):
+def get_user_statistics(
+    user_id: int, 
+    db: Annotated[Session, Depends(get_db)]
+) -> dict:
     """Get comprehensive user statistics"""
     user = user_crud.get(db=db, id=user_id)
     if not user:
@@ -173,12 +202,12 @@ def get_user_statistics(user_id: int, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[UserResponse])
 def list_users(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
-    status: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
-):
+    db: Annotated[Session, Depends(get_db)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=1000)] = 100,
+    status: Annotated[Optional[str], Query()] = None,
+    search: Annotated[Optional[str], Query()] = None,
+) -> List[UserResponse]:
     """List users with optional filtering"""
     if search:
         users = user_crud.search_users(db=db, search_term=search, skip=skip, limit=limit)
@@ -188,4 +217,6 @@ def list_users(
     else:
         users = user_crud.get_multi(db=db, skip=skip, limit=limit)
 
-    return users
+    from ..schemas.user_schemas import UserResponse
+    user_responses = [UserResponse.model_validate(user) for user in users]
+    return user_responses

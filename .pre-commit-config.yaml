@@ -1,54 +1,119 @@
 repos:
+  # Python code formatting and linting
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3.12
+        args: [--line-length=88]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203,W503]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-PyYAML]
+        args: [--ignore-missing-imports]
+
+  # Frontend code formatting and linting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        files: \.(js|jsx|ts|tsx|json|css|md|yaml|yml)$
+        exclude: ^(frontend/dist/|frontend/node_modules/)
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0
+    hooks:
+      - id: eslint
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
+        additional_dependencies:
+          - eslint@9.11.1
+          - "@typescript-eslint/eslint-plugin@8.45.0"
+          - "@typescript-eslint/parser@8.45.0"
+          - eslint-plugin-react-hooks@5.1.0-rc.2
+          - eslint-plugin-react-refresh@0.4.9
+          - eslint-config-prettier@9.1.0
+
+  # TypeScript compilation check
+  - repo: local
+    hooks:
+      - id: typescript-check
+        name: TypeScript compilation check
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # General file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-added-large-files
-        args: ['--maxkb=500']
+      - id: check-json
       - id: check-merge-conflict
-      - id: debug-statements
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: [--fix=lf]
 
-  - repo: https://github.com/psf/black
-    rev: 24.8.0
-    hooks:
-      - id: black
-        language_version: python3.12
-        args: ['--config', 'pyproject.toml']
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        args: ['--settings-path', 'pyproject.toml']
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.1.1
-    hooks:
-      - id: flake8
-        args: ['--config', '.flake8']
-        additional_dependencies: [flake8-docstrings, flake8-import-order]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.8.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [types-PyYAML, types-requests]
-        args: ['--config-file', 'pyproject.toml']
-
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        files: \.(ts|tsx|js|jsx|json|css|md)$
-        exclude: ^(frontend/node_modules/|frontend/dist/|\.venv/)
-
+  # Custom project-specific checks
   - repo: local
     hooks:
-      - id: pytest-check
-        name: pytest-check
-        entry: bash -c 'cd /Users/vato/work/Bet-That && . .venv/bin/activate && python -m pytest backend/tests/unit/ --tb=short'
+      - id: makefile-check
+        name: Makefile validation
+        entry: ./scripts/check-makefile.sh
         language: system
-        stages: [pre-push]
+        files: ^Makefile$
+
+      - id: streamlit-lint
+        name: Streamlit deprecation check
+        entry: ./scripts/lint_streamlit.sh
+        language: system
+        files: ^app/.*\.py$
+
+      - id: python-tests
+        name: Python unit tests
+        entry: bash -c '. .venv/bin/activate && python -m pytest tests/ -m "not integration" -x'
+        language: system
+        files: ^(tests/|.*\.py)$
         pass_filenames: false
+
+      - id: frontend-tests
+        name: Frontend tests
+        entry: bash -c 'cd frontend && npm test'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: system-validation
+        name: System validation
+        entry: ./validate_system.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-r, ., -f, json, -o, bandit-report.json]
+        exclude: ^(tests/|frontend/)
+
+  # Dependency checks
+  - repo: https://github.com/jazzband/pip-audit
+    rev: v2.6.1
+    hooks:
+      - id: pip-audit
+        args: [--desc, --format=json, --output=pip-audit-report.json]

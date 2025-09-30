@@ -13,7 +13,7 @@ if str(BASE_DIR) not in sys.path:
 
 from dotenv import load_dotenv  # noqa: E402
 
-from app.services.odds_api_manager import DailyLimitReached, OddsAPIManager  # noqa: E402
+from app.services.odds_api_manager import DailyLimitReached, OddsAPIManager  # type: ignore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -19,10 +19,11 @@ KEY_NUMBERS = [40, 41, 43, 44, 47, 50, 51, 55]
 CACHE_TTL = timedelta(minutes=30)
 OUTPUT_PREFIX = "nfl_pull_"
 
-if str(BASE_DIR) not in os.sys.path:
-    os.sys.path.insert(0, str(BASE_DIR))
+import sys
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
-from app.services.odds_api_manager import OddsAPIManager  # noqa: E402
+from app.services.odds_api_manager import OddsAPIManager  # type: ignore
 
 
 @dataclass

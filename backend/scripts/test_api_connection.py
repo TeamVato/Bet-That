@@ -13,7 +13,7 @@ if str(BASE_DIR) not in sys.path:
 
 from dotenv import load_dotenv  # noqa: E402
 
-from app.services.odds_api_manager import (  # noqa: E402
+from app.services.odds_api_manager import (  # type: ignore
     DailyLimitReached,
     OddsAPIError,
     OddsAPIManager,

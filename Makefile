@@ -16,7 +16,7 @@ define run
 	fi
 endef
 
-.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit custom-commands check-ingestion-contract enhance-empty-state bugfix-with-test install-dev quality-check format test-all
+.PHONY: repo-fresh repo-clean repo-status audit-quarantine pr-fix-dirty-tripwire protect readme solo-merge pr-list open-pr pr-status help betthat db-ratings import-odds edges ui lint-streamlit custom-commands check-ingestion-contract enhance-empty-state bugfix-with-test install-dev quality-check format test-all commit-check pre-commit-install
 
 help: ## Show available make targets
 	@printf "Available targets (set DRY=1 to preview):\n"
@@ -123,3 +123,12 @@ dev-setup: repo-fresh install-dev ## Complete development environment setup
 	@printf "Installing pre-commit hooks...\n"
 	$(call run,. .venv/bin/activate && pre-commit install)
 	@printf "Development environment ready! Run 'make quality-check' to verify.\n"
+
+setup-dev: ## Complete development environment setup with validation
+	$(call run,./scripts/setup-dev-environment.sh)
+
+commit-check: ## Run comprehensive commit validation
+	$(call run,./scripts/commit-validation.sh)
+
+pre-commit-install: ## Install pre-commit hooks
+	$(call run,. .venv/bin/activate && pre-commit install)

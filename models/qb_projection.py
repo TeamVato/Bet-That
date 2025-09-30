@@ -6,11 +6,11 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from scipy.stats import norm  # type: ignore
 
 from adapters.news_flags import load_player_flags
 from adapters.weather_provider import WeatherInfo, get_weather_for_game
@@ -188,7 +188,7 @@ class QBProjectionModel:
         week: Optional[int],
         default_line: Optional[float],
         team: Optional[str],
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         schedule_info = self.schedule_lookup.get(event_id, {})
         if season is None:
             season_lookup = schedule_info.get("season")
@@ -211,16 +211,16 @@ class QBProjectionModel:
         distribution = norm(loc=mu, scale=sigma)
         p_over = float(1 - distribution.cdf(baseline_line))
         return {
-            "event_id": event_id,
-            "player": player,
-            "mu": mu,
-            "sigma": sigma,
-            "p_over": p_over,
-            "season": season,
-            "week": week,
-            "def_team": def_team,
-            "team": team,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "event_id": str(event_id),
+            "player": str(player),
+            "mu": float(mu),
+            "sigma": float(sigma),
+            "p_over": float(p_over),
+            "season": float(season) if season is not None else None,
+            "week": float(week) if week is not None else None,
+            "def_team": str(def_team) if def_team is not None else None,
+            "team": str(team) if team is not None else None,
+            "updated_at": str(datetime.now(timezone.utc).isoformat()),
         }
 
     def build_projections(self, props_df: pd.DataFrame) -> pd.DataFrame:

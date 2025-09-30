@@ -47,7 +47,7 @@ def get_client_ip(request: Request) -> str:
         return real_ip
 
     # Fall back to direct connection IP
-    if hasattr(request.client, "host"):
+    if request.client and hasattr(request.client, "host"):
         return request.client.host
 
     return "unknown"
@@ -140,7 +140,9 @@ def get_current_user_from_token(
             raise EmailNotVerifiedError()
 
         # Update last activity
-        user.last_activity_at = datetime.now(timezone.utc)
+        db.query(User).filter(User.id == user_id).update({
+            "last_activity_at": datetime.now(timezone.utc)
+        })
         db.commit()
 
         logger.debug(f"Current user retrieved: {user_id}")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -20,7 +20,7 @@ class DbPropsAdapter(OddsAdapter):
     def __init__(self, db_path: Optional[Path] = None) -> None:
         self.db_path = db_path or Path("storage/odds.db")
 
-    def fetch(self, *_, **__) -> pd.DataFrame:
+    def fetch(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
         if not self.db_path.exists():
             raise FileNotFoundError(f"Database not found at {self.db_path}")
 

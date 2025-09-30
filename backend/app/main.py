@@ -9,8 +9,16 @@ import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.endpoints import bets, odds
-from app.core.config import settings
+import sys
+from pathlib import Path
+
+# Ensure backend is in path for imports
+backend_path = Path(__file__).parent.parent
+if str(backend_path) not in sys.path:
+    sys.path.insert(0, str(backend_path))
+
+from app.api.endpoints import bets, odds  # type: ignore
+from app.core.config import settings  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +90,11 @@ async def get_current_edges() -> Dict[str, Any]:
 
     try:
         if not edges_path.exists():
-            from scripts.run_strategy_pipeline import run_pipeline
+            # Add project root to path for scripts import
+            project_root = Path(__file__).parent.parent.parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+            from scripts.run_strategy_pipeline import run_pipeline  # type: ignore
 
             run_pipeline()
 

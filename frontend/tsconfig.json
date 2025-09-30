@@ -1,7 +1,4 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["src", "vitest.setup.ts"],
-  "compilerOptions": {
-    "types": ["vitest/importMeta", "vite/client", "@testing-library/jest-dom"]
-  }
+  "include": ["src", "vitest.setup.ts", "vite-env.d.ts"]
 }

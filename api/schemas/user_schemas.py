@@ -14,32 +14,32 @@ class BaseSchema(BaseModel):
 
 
 class UserRegistrationRequest(BaseModel):
-    external_id: str = Field(..., description="External user ID from Supabase")
-    email: EmailStr = Field(..., description="User email address")
-    name: Optional[str] = Field(None, description="User display name")
-    first_name: Optional[str] = Field(None, description="First name")
-    last_name: Optional[str] = Field(None, description="Last name")
-    timezone: str = Field("UTC", description="User timezone")
-    phone: Optional[str] = Field(None, description="Phone number")
+    external_id: str = Field(description="External user ID from Supabase")
+    email: EmailStr = Field(description="User email address")
+    name: Optional[str] = Field(default=None, description="User display name")
+    first_name: Optional[str] = Field(default=None, description="First name")
+    last_name: Optional[str] = Field(default=None, description="Last name")
+    timezone: str = Field(default="UTC", description="User timezone")
+    phone: Optional[str] = Field(default=None, description="Phone number")
 
 
 class UserUpdateRequest(BaseModel):
-    name: Optional[str] = Field(None, description="Display name")
-    first_name: Optional[str] = Field(None, description="First name")
-    last_name: Optional[str] = Field(None, description="Last name")
-    timezone: Optional[str] = Field(None, description="Timezone")
-    phone: Optional[str] = Field(None, description="Phone number")
-    max_bet_size: Optional[Decimal] = Field(None, description="Maximum bet size")
-    daily_bet_limit: Optional[Decimal] = Field(None, description="Daily betting limit")
-    monthly_bet_limit: Optional[Decimal] = Field(None, description="Monthly betting limit")
-    risk_tolerance: Optional[str] = Field(None, description="Risk tolerance level")
-    auto_kelly_sizing: Optional[bool] = Field(None, description="Enable auto Kelly sizing")
-    max_kelly_fraction: Optional[float] = Field(None, description="Maximum Kelly fraction")
-    preferred_sports: Optional[List[str]] = Field(None, description="Preferred sports")
+    name: Optional[str] = Field(default=None, description="Display name")
+    first_name: Optional[str] = Field(default=None, description="First name")
+    last_name: Optional[str] = Field(default=None, description="Last name")
+    timezone: Optional[str] = Field(default=None, description="Timezone")
+    phone: Optional[str] = Field(default=None, description="Phone number")
+    max_bet_size: Optional[Decimal] = Field(default=None, description="Maximum bet size")
+    daily_bet_limit: Optional[Decimal] = Field(default=None, description="Daily betting limit")
+    monthly_bet_limit: Optional[Decimal] = Field(default=None, description="Monthly betting limit")
+    risk_tolerance: Optional[str] = Field(default=None, description="Risk tolerance level")
+    auto_kelly_sizing: Optional[bool] = Field(default=None, description="Enable auto Kelly sizing")
+    max_kelly_fraction: Optional[float] = Field(default=None, description="Maximum Kelly fraction")
+    preferred_sports: Optional[List[str]] = Field(default=None, description="Preferred sports")
     notification_preferences: Optional[Dict[str, Any]] = Field(
-        None, description="Notification settings"
+        default=None, description="Notification settings"
     )
-    ui_preferences: Optional[Dict[str, Any]] = Field(None, description="UI preferences")
+    ui_preferences: Optional[Dict[str, Any]] = Field(default=None, description="UI preferences")
 
 
 class UserResponse(BaseSchema):

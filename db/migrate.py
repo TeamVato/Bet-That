@@ -24,6 +24,8 @@ def migrate(database_url: str | None = None) -> Path:
     """Create the SQLite database and run the schema script."""
     load_dotenv()
     url = database_url or os.getenv("DATABASE_URL", "sqlite:///storage/odds.db")
+    if url is None:
+        url = "sqlite:///storage/odds.db"
     db_path = parse_database_url(url)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 

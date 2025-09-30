@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
+from scipy.stats import norm  # type: ignore
 
 from engine import odds_math
 from utils.teams import infer_is_home, infer_offense_team, normalize_team_code, parse_event_id

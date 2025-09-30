@@ -13,28 +13,26 @@ from pydantic import BaseModel, EmailStr, Field, validator
 class UserRegistrationRequest(BaseModel):
     """Enhanced user registration request with username support"""
 
-    email: EmailStr = Field(..., description="User email address")
+    email: EmailStr = Field(description="User email address")
     username: str = Field(
-        ...,
         min_length=3,
         max_length=30,
         pattern="^[a-zA-Z0-9_]+$",
         description="Unique username (3-30 chars, alphanumeric + underscore)",
     )
     password: str = Field(
-        ...,
         min_length=8,
         max_length=100,
         description="Password (8-100 characters with complexity requirements)",
     )
-    confirm_password: str = Field(..., description="Password confirmation")
-    first_name: str = Field(..., max_length=50, description="First name")
-    last_name: str = Field(..., max_length=50, description="Last name")
-    date_of_birth: Optional[date] = Field(None, description="Date of birth (must be 18+)")
+    confirm_password: str = Field(description="Password confirmation")
+    first_name: str = Field(max_length=50, description="First name")
+    last_name: str = Field(max_length=50, description="Last name")
+    date_of_birth: Optional[date] = Field(default=None, description="Date of birth (must be 18+)")
     phone_number: Optional[str] = Field(
-        None, pattern=r"^\+?[1-9]\d{1,14}$", description="Phone number in international format"
+        default=None, pattern=r"^\+?[1-9]\d{1,14}$", description="Phone number in international format"
     )
-    timezone: str = Field("UTC", description="User timezone")
+    timezone: str = Field(default="UTC", description="User timezone")
 
     @validator("confirm_password")
     def passwords_match(cls, v, values):
@@ -75,9 +73,9 @@ class UserRegistrationRequest(BaseModel):
 class UserLoginRequest(BaseModel):
     """User login request supporting email or username"""
 
-    email_or_username: str = Field(..., description="Email address or username for login")
-    password: str = Field(..., description="User password")
-    remember_me: bool = Field(False, description="Extend session duration")
+    email_or_username: str = Field(description="Email address or username for login")
+    password: str = Field(description="User password")
+    remember_me: bool = Field(default=False, description="Extend session duration")
 
     class Config:
         json_schema_extra = {
@@ -114,11 +112,11 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     """Authentication response with tokens and user data"""
 
-    access_token: str = Field(..., description="JWT access token")
-    refresh_token: str = Field(..., description="JWT refresh token")
-    token_type: str = Field("bearer", description="Token type")
-    expires_in: int = Field(..., description="Access token expiration in seconds")
-    user: UserResponse = Field(..., description="User information")
+    access_token: str = Field(description="JWT access token")
+    refresh_token: str = Field(description="JWT refresh token")
+    token_type: str = Field(default="bearer", description="Token type")
+    expires_in: int = Field(description="Access token expiration in seconds")
+    user: UserResponse = Field(description="User information")
 
     class Config:
         json_schema_extra = {
@@ -143,9 +141,9 @@ class AuthResponse(BaseModel):
 class RegistrationResponse(BaseModel):
     """User registration response"""
 
-    message: str = Field(..., description="Registration status message")
-    user: UserResponse = Field(..., description="Created user information")
-    verification_required: bool = Field(True, description="Whether email verification is required")
+    message: str = Field(description="Registration status message")
+    user: UserResponse = Field(description="Created user information")
+    verification_required: bool = Field(default=True, description="Whether email verification is required")
 
     class Config:
         json_schema_extra = {
@@ -168,9 +166,9 @@ class RegistrationResponse(BaseModel):
 class PasswordStrengthCheck(BaseModel):
     """Password strength validation response"""
 
-    is_valid: bool = Field(..., description="Whether password meets requirements")
-    score: float = Field(..., description="Password strength score (0-100)")
-    strength: str = Field(..., description="Strength label")
+    is_valid: bool = Field(description="Whether password meets requirements")
+    score: float = Field(description="Password strength score (0-100)")
+    strength: str = Field(description="Strength label")
     errors: list[str] = Field(default_factory=list, description="Validation errors")
     checks: dict[str, bool] = Field(default_factory=dict, description="Individual checks")
 
@@ -178,10 +176,10 @@ class PasswordStrengthCheck(BaseModel):
 class UserProfileUpdate(BaseModel):
     """User profile update request"""
 
-    first_name: Optional[str] = Field(None, max_length=50)
-    last_name: Optional[str] = Field(None, max_length=50)
-    phone_number: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{1,14}$")
-    timezone: Optional[str] = Field(None)
+    first_name: Optional[str] = Field(default=None, max_length=50)
+    last_name: Optional[str] = Field(default=None, max_length=50)
+    phone_number: Optional[str] = Field(default=None, pattern=r"^\+?[1-9]\d{1,14}$")
+    timezone: Optional[str] = Field(default=None)
 
     class Config:
         json_schema_extra = {

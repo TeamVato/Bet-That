@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import (
     DECIMAL,
@@ -19,8 +19,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship, validates
+from sqlalchemy.orm import Mapped, relationship, validates
 from sqlalchemy.sql import func
+
+if TYPE_CHECKING:
+    # Import related models only for type checking to avoid circular imports
+    pass
 
 from .database import Base
 from .enums.betting_enums import BetCategory
@@ -120,8 +124,8 @@ class Event(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    bets = relationship("Bet", back_populates="event")
-    edges = relationship("Edge", back_populates="event")
+    bets: Mapped[List["Bet"]] = relationship("Bet", back_populates="event")
+    edges: Mapped[List["Edge"]] = relationship("Edge", back_populates="event")
 
     __table_args__ = (
         CheckConstraint(
@@ -171,9 +175,9 @@ class User(Base):
     )  # basic, enhanced, premium
 
     # Risk management fields
-    max_bet_size: Column[Decimal] = Column(DECIMAL(12, 2), default=1000.00, nullable=False)
-    daily_bet_limit: Column[Decimal] = Column(DECIMAL(12, 2), default=5000.00, nullable=False)
-    monthly_bet_limit: Column[Decimal] = Column(DECIMAL(12, 2), default=50000.00, nullable=False)
+    max_bet_size: Decimal = Column(DECIMAL(12, 2), default=1000.00, nullable=False)
+    daily_bet_limit: Decimal = Column(DECIMAL(12, 2), default=5000.00, nullable=False)
+    monthly_bet_limit: Decimal = Column(DECIMAL(12, 2), default=50000.00, nullable=False)
     risk_tolerance = Column(String(20), default="medium", nullable=False)  # low, medium, high
     auto_kelly_sizing = Column(Boolean, default=False, nullable=False)
     max_kelly_fraction = Column(Float, default=0.25, nullable=False)
@@ -194,19 +198,19 @@ class User(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    bets = relationship("Bet", back_populates="user", cascade="all, delete-orphan")
-    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
-    blacklisted_tokens = relationship(
+    bets: Mapped[List["Bet"]] = relationship("Bet", back_populates="user", cascade="all, delete-orphan")
+    transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
+    blacklisted_tokens: Mapped[List["JWTTokenBlacklist"]] = relationship(
         "JWTTokenBlacklist", back_populates="user", cascade="all, delete-orphan"
     )
-    auth_logs = relationship("AuthLog", back_populates="user", cascade="all, delete-orphan")
-    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
+    auth_logs: Mapped[List["AuthLog"]] = relationship("AuthLog", back_populates="user", cascade="all, delete-orphan")
+    sessions: Mapped[List["UserSession"]] = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
 
     # Peer-to-peer betting relationships
-    created_peer_bets = relationship(
+    created_peer_bets: Mapped[List["PeerBet"]] = relationship(
         "PeerBet", back_populates="creator", cascade="all, delete-orphan"
     )
-    peer_bet_participations = relationship(
+    peer_bet_participations: Mapped[List["PeerBetParticipant"]] = relationship(
         "PeerBetParticipant", back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -265,9 +269,28 @@ class User(Base):
         return len(self.peer_bet_participations)
 
     @property
-    def active_peer_participations(self) -> list:
+    def active_peer_participations(self) -> List["PeerBetParticipant"]:
         """Get user's active peer bet participations"""
         return [p for p in self.peer_bet_participations if p.status == ParticipantStatus.ACTIVE]
+
+    @property
+    def full_name(self) -> str:
+        """Get user's full name"""
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        elif self.name:
+            return self.name
+        elif self.first_name:
+            return self.first_name
+        elif self.last_name:
+            return self.last_name
+        else:
+            return ""
+
+    @property
+    def is_verified(self) -> bool:
+        """Check if user is verified"""
+        return self.email_verified_at is not None
 
 
 class Edge(Base):
@@ -301,8 +324,8 @@ class Edge(Base):
     edge_percentage = Column(Float, nullable=False, index=True)
     expected_value_per_dollar = Column(Float, nullable=False)
     kelly_fraction = Column(Float, nullable=False)
-    recommended_stake: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
-    max_stake: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    recommended_stake: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
+    max_stake: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
 
     # Model data
     model_probability = Column(Float, nullable=False)
@@ -338,7 +361,7 @@ class Edge(Base):
 
     # Market depth and liquidity
     market_liquidity = Column(String(20), nullable=True)  # high, medium, low
-    bet_limit: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    bet_limit: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
     overround = Column(Float, nullable=True)
 
     # Tracking metadata
@@ -355,8 +378,8 @@ class Edge(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    event = relationship("Event", back_populates="edges")
-    bets = relationship("Bet", back_populates="edge")
+    event: Mapped["Event"] = relationship("Event", back_populates="edges")
+    bets: Mapped[List["Bet"]] = relationship("Bet", back_populates="edge")
 
     # Table constraints and indexes
     __table_args__ = (
@@ -465,12 +488,12 @@ class Bet(Base):
     side = Column(String(20), nullable=True)  # over/under for totals, home/away for spreads
 
     # Financial data
-    stake: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
+    stake: Decimal = Column(DECIMAL(12, 2), nullable=False)
     odds_american = Column(Integer, nullable=False)
     odds_decimal = Column(Float, nullable=False)
-    potential_return: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
-    actual_return: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
-    net_profit: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    potential_return: Decimal = Column(DECIMAL(12, 2), nullable=False)
+    actual_return: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
+    net_profit: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
 
     # Status tracking
     status = Column(String(50), default=BetStatus.PENDING, nullable=False, index=True)
@@ -487,7 +510,7 @@ class Bet(Base):
     # Edge relationship and analytics
     edge_percentage = Column(Float, nullable=True)
     kelly_fraction_used = Column(Float, nullable=True)
-    expected_value: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
+    expected_value: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
 
     # CLV (Closing Line Value) tracking
     clv_cents = Column(Float, nullable=True)
@@ -516,10 +539,10 @@ class Bet(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="bets")
-    edge = relationship("Edge", back_populates="bets")
-    event = relationship("Event", back_populates="bets")
-    transactions = relationship("Transaction", back_populates="bet", cascade="all, delete-orphan")
+    user: Mapped["User"] = relationship("User", back_populates="bets")
+    edge: Mapped[Optional["Edge"]] = relationship("Edge", back_populates="bets")
+    event: Mapped["Event"] = relationship("Event", back_populates="bets")
+    transactions: Mapped[List["Transaction"]] = relationship("Transaction", back_populates="bet", cascade="all, delete-orphan")
 
     # Table constraints and indexes
     __table_args__ = (
@@ -622,11 +645,11 @@ class PeerBet(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    creator = relationship("User", back_populates="created_peer_bets")
-    participants = relationship(
-        "PeerBetParticipant", back_populates="bet", cascade="all, delete-orphan"
+    creator: Mapped["User"] = relationship("User", back_populates="created_peer_bets")
+    participants: Mapped[List["PeerBetParticipant"]] = relationship(
+        "PeerBetParticipant", back_populates="peer_bet", cascade="all, delete-orphan"
     )
-    outcomes = relationship("PeerBetOutcome", back_populates="bet", cascade="all, delete-orphan")
+    outcomes: Mapped[List["PeerBetOutcome"]] = relationship("PeerBetOutcome", back_populates="peer_bet", cascade="all, delete-orphan")
 
     # Table constraints
     __table_args__ = (
@@ -721,7 +744,7 @@ class PeerBetOutcome(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
 
     # Relationships
-    bet = relationship("PeerBet", back_populates="outcomes")
+    peer_bet: Mapped["PeerBet"] = relationship("PeerBet", back_populates="outcomes")
 
     # Table constraints
     __table_args__ = (
@@ -767,8 +790,8 @@ class PeerBetParticipant(Base):
     creator_fee = Column(DECIMAL(12, 2), nullable=True)
 
     # Relationships
-    bet = relationship("PeerBet", back_populates="participants")
-    user = relationship("User", back_populates="peer_bet_participations")
+    peer_bet: Mapped["PeerBet"] = relationship("PeerBet", back_populates="participants")
+    user: Mapped["User"] = relationship("User", back_populates="peer_bet_participations")
 
     # Table constraints
     __table_args__ = (
@@ -810,7 +833,7 @@ class Transaction(Base):
     bet_id = Column(Integer, ForeignKey("bets.id"), nullable=True, index=True)
 
     # Financial data
-    amount: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)
+    amount: Decimal = Column(DECIMAL(12, 2), nullable=False)
     currency = Column(String(3), default="USD", nullable=False)
     transaction_type = Column(String(50), nullable=False, index=True)
     status = Column(String(50), default=TransactionStatus.PENDING, nullable=False, index=True)
@@ -826,9 +849,9 @@ class Transaction(Base):
     category = Column(String(50), nullable=True)  # betting, account, bonus, etc.
 
     # Financial reconciliation
-    running_balance: Column[Optional[Decimal]] = Column(DECIMAL(12, 2), nullable=True)
-    fee_amount: Column[Decimal] = Column(DECIMAL(12, 2), default=0.00, nullable=False)
-    net_amount: Column[Decimal] = Column(DECIMAL(12, 2), nullable=False)  # amount - fee_amount
+    running_balance: Optional[Decimal] = Column(DECIMAL(12, 2), nullable=True)
+    fee_amount: Decimal = Column(DECIMAL(12, 2), default=0.00, nullable=False)
+    net_amount: Decimal = Column(DECIMAL(12, 2), nullable=False)  # amount - fee_amount
 
     # Processing information
     processed_at = Column(DateTime, nullable=True)
@@ -842,8 +865,8 @@ class Transaction(Base):
     created_by = Column(String(255), nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="transactions")
-    bet = relationship("Bet", back_populates="transactions")
+    user: Mapped["User"] = relationship("User", back_populates="transactions")
+    bet: Mapped[Optional["Bet"]] = relationship("Bet", back_populates="transactions")
 
     # Table constraints and indexes
     __table_args__ = (
@@ -913,7 +936,7 @@ class JWTTokenBlacklist(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="blacklisted_tokens")
+    user: Mapped["User"] = relationship("User", back_populates="blacklisted_tokens")
 
     __table_args__ = (
         CheckConstraint(
@@ -939,7 +962,7 @@ class AuthLog(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False, index=True)
 
     # Relationships
-    user = relationship("User", back_populates="auth_logs")
+    user: Mapped[Optional["User"]] = relationship("User", back_populates="auth_logs")
 
     __table_args__ = (
         CheckConstraint(
@@ -969,7 +992,7 @@ class UserSession(Base):
     revoked_at = Column(DateTime, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="sessions")
+    user: Mapped["User"] = relationship("User", back_populates="sessions")
 
     __table_args__ = (
         Index("idx_user_sessions_user_active", "user_id", "is_active"),

@@ -15,7 +15,7 @@ BACKEND_PATH = PROJECT_ROOT / "backend"
 if str(BACKEND_PATH) not in sys.path:
     sys.path.insert(0, str(BACKEND_PATH))
 
-from app.main import app
+from app.main import app  # type: ignore
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 EDGES_FILE = DATA_DIR / "edges_current.json"

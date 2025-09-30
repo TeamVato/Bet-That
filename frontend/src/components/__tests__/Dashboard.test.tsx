@@ -56,11 +56,11 @@ describe("Dashboard", () => {
       (
         callback: Parameters<typeof setTimeout>[0],
         delay?: Parameters<typeof setTimeout>[1],
-        ...args: Parameters<typeof setTimeout>[2][]
+        ...args: any[]
       ) => {
         const normalizedDelay =
           typeof delay === "number" && delay >= 1000 ? 0 : (delay ?? 0);
-        return originalSetTimeout(callback, normalizedDelay, ...args);
+        return originalSetTimeout(callback, normalizedDelay, ...args) as any;
       },
     );
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("network down"));
